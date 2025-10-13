@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Environment variables
+.env
+.env.local
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+ace_playbook.db*
+
+# FAISS indices
+faiss_index_*
+*.index
+
+# Logs
+logs/
+*.log
+
+# Playbook snapshots
+playbook_snapshots/
+rollback_analysis/
+
+# Prometheus metrics
+prometheus_data/
+
+# Alembic
+alembic.ini.bak
+
+# Documentation builds
+docs/_build/
+site/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+tmp/
+temp/
+*.tmp
