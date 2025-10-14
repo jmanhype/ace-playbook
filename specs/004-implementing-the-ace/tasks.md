@@ -1,10 +1,13 @@
 # Implementation Tasks: ACE Framework
 
-**Generated**: 2025-10-13
+**Generated**: 2025-10-13 (Updated with Phase 13)
 **Feature**: Agentic Context Engineering (Generator-Reflector-Curator Pattern)
-**Total Tasks**: 82
-**Priority Distribution**: P1 (32 tasks), P2 (28 tasks), P3 (22 tasks)
-**New in v2.0**: Phase 10-12 added based on senior engineering review recommendations
+**Total Tasks**: 88
+**Priority Distribution**: P1 (32 tasks), P2 (34 tasks), P3 (22 tasks)
+**Total Estimated Effort**: ~150 hours
+**New in v2.0**:
+- Phase 10-12 added based on senior engineering review recommendations (production hardening)
+- Phase 13 added for comprehensive documentation (onboarding & accessibility)
 
 ---
 
@@ -1339,3 +1342,198 @@ T001 (Project Setup)
 **Estimated Effort**: 1 hour
 **Dependencies**: T007 (already completed)
 **References**: docs/ENGINEERING_REVIEW.md:81-86
+
+---
+
+## Phase 13: Comprehensive Documentation (FINAL) (6 tasks)
+
+**Goal**: Generate complete, accessible documentation for the entire codebase for new developers.
+**Status**: 🔴 NOT STARTED
+**Priority**: P2 (Required for onboarding)
+**Timeline**: 1 week
+
+### T083: Generate API Reference Documentation [BLOCKING]
+**Description**: Auto-generate comprehensive API documentation from docstrings.
+**Acceptance**:
+- Install `sphinx` and `sphinx-autodoc` for documentation generation
+- Configure Sphinx with `docs/conf.py`
+- Generate API docs for all public modules:
+  - `ace.generator` (CoTGenerator, ReActGenerator)
+  - `ace.reflector` (GroundedReflector)
+  - `ace.curator` (SemanticCurator, BatchProcessor)
+  - `ace.models` (PlaybookBullet, Task, Reflection)
+  - `ace.repositories` (PlaybookRepository, JournalRepository)
+  - `ace.utils` (EmbeddingService, FAISSIndexManager)
+  - `ace.ops` (MetricsCollector, GuardrailMonitor)
+- Include: purpose, parameters, return values, exceptions, examples
+- Generate HTML docs: `docs/_build/html/`
+- Host on GitHub Pages or ReadTheDocs
+**Deliverables**: `docs/conf.py`, `docs/api/`, generated HTML docs
+**Estimated Effort**: 4 hours
+**Dependencies**: T001-T082 (all implementation complete)
+**References**: User request for comprehensive documentation
+
+### T084: Write Architecture Overview Documentation [BLOCKING]
+**Description**: High-level architecture guide for new developers.
+**Acceptance**:
+- Create `docs/ARCHITECTURE.md` with system design
+- Document Generator-Reflector-Curator pattern with diagrams
+- Explain data flow: Task → Generator → Reflector → Curator → Playbook
+- Document domain isolation architecture (per-tenant namespaces)
+- Document staged rollout: SHADOW → STAGING → PROD
+- Include sequence diagrams (using Mermaid):
+  - Online learning loop
+  - Offline training workflow
+  - Promotion gate logic
+- Document performance budgets and SLOs
+- Explain append-only design and diff journal
+**Deliverables**: `docs/ARCHITECTURE.md` (500+ lines with diagrams)
+**Estimated Effort**: 4 hours
+**Dependencies**: T083
+**References**: plan.md, data-model.md, docs/adr/
+
+### T085: Write Developer Onboarding Guide [P]
+**Description**: Step-by-step guide for new contributors.
+**Acceptance**:
+- Create `docs/ONBOARDING.md` for new developers
+- Section: Development environment setup (uv, Python 3.11, Docker)
+- Section: Code structure walkthrough (what each module does)
+- Section: Running tests locally (`pytest`, coverage reports)
+- Section: Common workflows:
+  - Adding a new playbook bullet type
+  - Implementing a custom Reflector
+  - Adding a new metric
+  - Debugging FAISS issues
+- Section: Troubleshooting guide (common errors + fixes)
+- Section: How to add a new feature (TDD workflow)
+- Include code examples for each workflow
+**Deliverables**: `docs/ONBOARDING.md` (400+ lines)
+**Estimated Effort**: 3 hours
+**Dependencies**: T083, T084
+**References**: CONTRIBUTING.md, README.md
+
+### T086: Document All Edge Cases and Error Handling [P]
+**Description**: Comprehensive edge case documentation for operational safety.
+**Acceptance**:
+- Create `docs/EDGE_CASES.md`
+- Document edge cases per module:
+  - **Curator**: Empty insights list, domain_id mismatch, batch size = 0
+  - **FAISS**: Zero vectors, dimension mismatch, index not initialized
+  - **Embeddings**: Unicode text, empty strings, text > 500 chars
+  - **Promotion Gates**: Zero counters, division by zero, ratio edge cases
+  - **Circuit Breaker**: Timeout vs connection error, half-open state
+- Document error handling patterns:
+  - ValueError for invalid input
+  - RuntimeError for system failures
+  - Custom exceptions (DomainIsolationError, DeduplicationError)
+- Include recovery procedures for each error type
+- Cross-reference with RUNBOOK.md
+**Deliverables**: `docs/EDGE_CASES.md` (300+ lines)
+**Estimated Effort**: 3 hours
+**Dependencies**: T083
+**References**: semantic_curator.py error handling
+
+### T087: Create Interactive Usage Examples and Tutorials [P]
+**Description**: Practical tutorials for common use cases.
+**Acceptance**:
+- Create `docs/tutorials/` directory
+- Tutorial 1: `01-quick-start.md` (10 min read)
+  - Bootstrap empty playbook
+  - Run 5 tasks end-to-end
+  - Inspect playbook growth
+- Tutorial 2: `02-offline-training.md` (20 min)
+  - Load GSM8K dataset
+  - Pre-train on 100 examples
+  - Evaluate accuracy improvement
+- Tutorial 3: `03-domain-isolation.md` (15 min)
+  - Create multiple domains (customer-acme, customer-beta)
+  - Add domain-specific bullets
+  - Verify isolation (no cross-domain retrieval)
+- Tutorial 4: `04-shadow-promotion.md` (20 min)
+  - Deploy new strategies to shadow
+  - Monitor helpful/harmful counters
+  - Promote to staging → prod
+- Include: full code examples, expected output, verification commands
+- Add Jupyter notebooks: `examples/tutorials/*.ipynb`
+**Deliverables**: `docs/tutorials/*.md`, `examples/tutorials/*.ipynb`
+**Estimated Effort**: 5 hours
+**Dependencies**: T083, T084
+**References**: examples/arithmetic_learning.py
+
+### T088: Generate Comprehensive Docstrings for All Public APIs [P]
+**Description**: Ensure 100% docstring coverage for all public functions/classes.
+**Acceptance**:
+- Use `interrogate` to measure current docstring coverage
+- Target: 100% coverage (currently ~80%)
+- Add docstrings following Google style guide:
+  ```python
+  def apply_delta(self, curator_input: CuratorInput) -> CuratorOutput:
+      """Merge new insights into playbook with semantic deduplication.
+
+      This method performs the core curation logic: compute embeddings for
+      insights, search FAISS for duplicates (≥0.8 cosine similarity), and
+      either increment existing bullet counters or add new bullets.
+
+      Args:
+          curator_input: Contains insights from Reflector and current playbook.
+              Must have valid domain_id for isolation.
+
+      Returns:
+          CuratorOutput with updated playbook, delta statistics, and
+          diff journal entries for audit trail.
+
+      Raises:
+          ValueError: If insights list is empty or domain_id invalid.
+          RuntimeError: If FAISS index fails to initialize.
+
+      Example:
+          >>> curator = SemanticCurator(embedding_service, faiss_manager)
+          >>> output = curator.apply_delta(curator_input)
+          >>> print(f"Added {output.stats['new_bullets']} bullets")
+
+      Note:
+          This method is thread-safe and uses atomic transactions.
+          All bullets start in SHADOW stage for safety.
+      """
+  ```
+- Include: purpose, parameters, return values, exceptions, examples, notes
+- Document architectural context (how component fits in system)
+- Add type hints to all public APIs (already done via mypy)
+**Deliverables**: Updated docstrings in all `ace/` modules
+**Estimated Effort**: 6 hours
+**Dependencies**: T083
+**References**: interrogate configuration in pyproject.toml
+
+---
+
+## Post-Implementation Summary
+
+**Total Implementation**: 88 tasks across 13 phases
+- **Phase 1-2**: Project setup and foundation (19 tasks)
+- **Phase 3-8**: Core user stories (38 tasks)
+- **Phase 9**: Production polish (4 tasks) ✅ COMPLETED
+- **Phase 10-12**: Production hardening from review (14 tasks)
+- **Phase 13**: Comprehensive documentation (6 tasks)
+
+**Effort Estimates**:
+- Core MVP (Phase 1-4): ~45 hours
+- Full v1.0 (Phase 1-9): ~100 hours
+- Production-ready (Phase 1-12): ~125 hours
+- Documentation complete (Phase 1-13): ~150 hours total
+
+**Completion Criteria**:
+- ✅ All 88 tasks completed
+- ✅ Test coverage ≥80%
+- ✅ Performance benchmarks passing (P50 ≤10ms)
+- ✅ Security scans passing (no CRITICAL/HIGH CVEs)
+- ✅ Documentation generated (API + guides + tutorials)
+- ✅ Pre-commit hooks enforcing quality
+- ✅ Production monitoring in place
+- ✅ Rollback procedures documented
+
+**Deployment Readiness**:
+After Phase 13, the system is ready for:
+- Production deployment with confidence
+- New developer onboarding (≤1 day ramp-up)
+- Customer documentation and demos
+- Open source release (if applicable)
