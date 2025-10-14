@@ -5,6 +5,94 @@ All notable changes to the ACE Playbook project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2025-10-14
+
+### Added - Phase 11: Production Quality (Priority 2)
+
+#### T075: Dependency Security Scanning (pip-audit)
+- **pip-audit pre-commit hook** in `.pre-commit-config.yaml`:
+  - Runs on push stage with `--desc on` and `--skip-editable` flags
+  - Dual-layer security scanning (safety + pip-audit)
+  - Comprehensive vulnerability detection across dependencies
+- **Test results**: Detected 25 known vulnerabilities in 20 packages
+- Added `pip-audit>=2.7.0` to dev dependencies
+
+#### T076: Distributed Tracing (OpenTelemetry)
+- **Tracing infrastructure** in `ace/utils/tracing.py` (269 lines):
+  - `setup_tracing()`: Initialize OTLP exporter with configurable endpoint/service name
+  - `@trace_operation()` decorator: Automatic span creation with error handling
+  - Manual span control: `get_tracer()`, `add_span_attributes()`, `add_span_event()`
+  - Graceful shutdown: `shutdown_tracing()` flushes pending spans
+- **Auto-instrumentation**:
+  - SQLAlchemy database queries
+  - HTTP requests via requests library
+- **Configuration via environment variables**:
+  - `OTEL_EXPORTER_OTLP_ENDPOINT`: OTLP collector endpoint (default: http://localhost:4318)
+  - `OTEL_SERVICE_NAME`: Service name (default: ace-playbook)
+  - `OTEL_ENVIRONMENT`: Deployment environment (default: development)
+  - `OTEL_TRACING_ENABLED`: Enable/disable tracing (default: true)
+- **Dependencies added**:
+  - opentelemetry-api>=1.27.0
+  - opentelemetry-sdk>=1.27.0
+  - opentelemetry-exporter-otlp-proto-http>=1.27.0
+  - opentelemetry-instrumentation-sqlalchemy>=0.48b0
+  - opentelemetry-instrumentation-requests>=0.48b0
+- **Comprehensive tests** (16 tests, 97% coverage):
+  - Setup with default and custom configuration
+  - Decorator functionality and error handling
+  - Enable/disable scenarios
+  - Auto-instrumentation verification
+
+#### T077: Architecture Decision Records (ADRs)
+- **ADR documentation structure** in `docs/adr/`:
+  - **ADR 0001: Use FAISS for Semantic Similarity Search**
+    - Decision: FAISS IndexFlatIP over pgvector, Elasticsearch, Chromadb
+    - Performance: P50 ~5-10ms, P95 ~12-15ms (meets SLA)
+    - Rationale: In-process cache, per-domain indices, battle-tested
+  - **ADR 0002: Append-Only Playbook Updates**
+    - Decision: Increment counters, never rewrite content
+    - Rationale: Auditability, determinism, O(1) performance
+    - Trade-offs: First insight bias vs simplicity
+  - **ADR 0003: Circuit Breaker for LLM API Calls**
+    - Decision: Three-state circuit breaker (CLOSED/OPEN/HALF_OPEN)
+    - Configuration: 5 failure threshold, 60s recovery timeout
+    - Benefits: Fail-fast + self-healing, resource protection
+  - **ADR 0004: Stage-Based Promotion Gates**
+    - Decision: SHADOW → STAGING → PROD progression with counter-based gates
+    - Criteria: SHADOW→STAGING (helpful≥3, ratio≥3.0), STAGING→PROD (helpful≥5, ratio≥5.0)
+    - Benefits: Safe rollout, automatic promotion, empirical validation
+- **Format**: Michael Nygard format with Context/Decision/Consequences
+- **Total documentation**: 796 lines across 5 files (including README.md index)
+
+#### T078: Refactor Large Files (semantic_curator.py)
+- **Problem**: semantic_curator.py was 659 lines, violating single responsibility principle
+- **Solution**: Extracted code into focused modules
+- **New modules created**:
+  - `curator_models.py` (99 lines): CuratorInput, CuratorOutput, DeltaUpdate data classes
+  - `domain_validator.py` (104 lines): Domain validation and CHK081-CHK082 enforcement
+  - `curator_utils.py` (65 lines): Similarity computation and bullet hashing utilities
+  - `promotion_policy.py` (70 lines): Promotion gates and quarantine logic
+- **Impact**: Main file reduced by 224 lines (34% reduction: 659 → 435 lines)
+- **Benefits**:
+  - Each module has single responsibility
+  - Easier to test individual components
+  - Improved code organization and discoverability
+  - Better maintainability and extensibility
+- **Test results**: 12/12 tests passing, no functionality changes
+
+### Changed
+
+- Updated `ace/curator/__init__.py` to export CuratorInput, CuratorOutput, DeltaUpdate from `curator_models`
+- Refactored SemanticCurator to use extracted utility functions and validators
+
+### Documentation
+
+- Created comprehensive ADR index with decision log organized by phase
+- Documented alternatives considered and trade-offs for key architectural decisions
+- Added lifecycle management guidelines for ADR status (PROPOSED, ACCEPTED, DEPRECATED, SUPERSEDED)
+
+---
+
 ## [1.10.0] - 2025-10-14
 
 ### Added - Phase 10: Production Hardening (Priority 1 - BLOCKING)
@@ -362,6 +450,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MINOR**: New features, backward-compatible functionality additions
 - **PATCH**: Bug fixes, performance improvements, documentation updates
 
+[1.11.0]: https://github.com/jmanhype/ace-playbook/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/jmanhype/ace-playbook/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/jmanhype/ace-playbook/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/jmanhype/ace-playbook/compare/v1.8.0...v1.8.1
