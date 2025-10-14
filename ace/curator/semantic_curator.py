@@ -450,11 +450,45 @@ class SemanticCurator:
 
         Returns:
             Dict with batch_results and updated_playbook
+
+        Raises:
+            ValueError: If task_insights is empty, has mixed domains, or invalid structure
         """
+        # T070: Validate input before processing
+        if not task_insights:
+            raise ValueError("task_insights cannot be empty")
+
+        # Validate all tasks have same domain_id (reject mixed batches)
+        try:
+            domain_ids = {task["domain_id"] for task in task_insights}
+        except KeyError as e:
+            raise ValueError(f"Invalid task_insights structure: missing 'domain_id' key") from e
+
+        if len(domain_ids) > 1:
+            raise ValueError(
+                f"Multiple domain_ids in batch: {domain_ids}. "
+                f"Batch operations must operate on a single domain for isolation."
+            )
+
+        domain_id = task_insights[0]["domain_id"]
+
+        # Validate domain_id against CHK079 requirements
+        self.validate_domain_id(domain_id)
+
+        # Validate required keys in each task
+        for i, task_data in enumerate(task_insights):
+            if "task_id" not in task_data:
+                raise ValueError(f"Task at index {i} missing required 'task_id' key")
+            if "insights" not in task_data:
+                raise ValueError(f"Task at index {i} missing required 'insights' key")
+            if not isinstance(task_data["insights"], list):
+                raise ValueError(f"Task at index {i} 'insights' must be a list")
+
         logger.info(
             "batch_merge_start",
             num_tasks=len(task_insights),
-            playbook_size=len(current_playbook)
+            playbook_size=len(current_playbook),
+            domain_id=domain_id
         )
 
         # Collect all insights across tasks
@@ -463,7 +497,6 @@ class SemanticCurator:
 
         for task_data in task_insights:
             task_id = task_data["task_id"]
-            domain_id = task_data["domain_id"]
             insights = task_data["insights"]
 
             for insight in insights:
@@ -490,7 +523,7 @@ class SemanticCurator:
         insight_embeddings = self.embedding_service.encode_batch(insight_contents)
 
         # Build FAISS index for current playbook
-        domain_id = task_insights[0]["domain_id"] if task_insights else "default"
+        # domain_id already validated above, no need to reassign
 
         if current_playbook:
             # Add current playbook to FAISS index
