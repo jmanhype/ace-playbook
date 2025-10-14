@@ -196,6 +196,27 @@ class FAISSIndexManager:
         index = self.get_or_create_index(domain_id)
         return index.ntotal
 
+    def clear_index(self, domain_id: str) -> None:
+        """
+        Clear domain's in-memory FAISS index and bullet ID mapping.
+
+        T072: Prevents memory leak in batch operations by cleaning up temporary indices.
+        Note: This only clears the in-memory index, not the persisted files on disk.
+
+        Args:
+            domain_id: Domain namespace
+        """
+        if domain_id in self._indices:
+            logger.info("clearing_faiss_index", domain_id=domain_id)
+            # Remove index from memory
+            del self._indices[domain_id]
+
+        if domain_id in self._bullet_id_maps:
+            # Clear bullet ID mapping
+            del self._bullet_id_maps[domain_id]
+
+        logger.debug("faiss_index_cleared", domain_id=domain_id)
+
 
 # Global singleton instance
 _faiss_manager: Optional[FAISSIndexManager] = None

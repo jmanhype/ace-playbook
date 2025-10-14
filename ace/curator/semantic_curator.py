@@ -522,119 +522,125 @@ class SemanticCurator:
         insight_contents = [ins["content"] for ins in all_insights]
         insight_embeddings = self.embedding_service.encode_batch(insight_contents)
 
-        # Build FAISS index for current playbook
-        # domain_id already validated above, no need to reassign
-
-        if current_playbook:
-            # Add current playbook to FAISS index
-            playbook_embeddings = np.array([b.embedding for b in current_playbook], dtype=np.float32)
-            bullet_ids = [b.id for b in current_playbook]
-            self.faiss_manager.add_vectors(domain_id, playbook_embeddings, bullet_ids)
-
-        # Build mapping from bullet_id to bullet for quick lookup
-        bullet_id_to_bullet = {b.id: b for b in current_playbook}
-
-        # Process all insights with single index
-        updated_playbook = list(current_playbook)
-        updated_playbook_dict = {b.id: b for b in updated_playbook}
-        delta_updates_all = []
-        total_new_bullets = 0
-        total_increments = 0
-
-        for idx, (insight, embedding) in enumerate(zip(all_insights, insight_embeddings)):
-            task_id = insight["task_id"]
-            insight_domain_id = insight["domain_id"]
-
-            # Find most similar bullet
-            best_match = None
-            best_similarity = 0.0
+        # T072: Use try-finally to ensure FAISS index cleanup (prevent memory leak)
+        try:
+            # Build FAISS index for current playbook
+            # domain_id already validated above, no need to reassign
 
             if current_playbook:
-                # Use FAISS for fast similarity search
-                # Convert embedding list to numpy array
-                embedding_array = np.array(embedding, dtype=np.float32)
-                search_results = self.faiss_manager.search(
-                    insight_domain_id, embedding_array, k=10  # Get top 10 candidates
-                )
+                # Add current playbook to FAISS index
+                playbook_embeddings = np.array([b.embedding for b in current_playbook], dtype=np.float32)
+                bullet_ids = [b.id for b in current_playbook]
+                self.faiss_manager.add_vectors(domain_id, playbook_embeddings, bullet_ids)
 
-                for bullet_id, similarity in search_results:
-                    bullet = bullet_id_to_bullet.get(bullet_id)
-                    if not bullet:
-                        continue
+            # Build mapping from bullet_id to bullet for quick lookup
+            bullet_id_to_bullet = {b.id: b for b in current_playbook}
 
-                    # Filter by domain and section
-                    if bullet.domain_id != insight_domain_id:
-                        continue
-                    if bullet.section != insight["section"]:
-                        continue
+            # Process all insights with single index
+            updated_playbook = list(current_playbook)
+            updated_playbook_dict = {b.id: b for b in updated_playbook}
+            delta_updates_all = []
+            total_new_bullets = 0
+            total_increments = 0
 
-                    if similarity > best_similarity:
-                        best_similarity = similarity
-                        best_match = bullet
+            for idx, (insight, embedding) in enumerate(zip(all_insights, insight_embeddings)):
+                task_id = insight["task_id"]
+                insight_domain_id = insight["domain_id"]
 
-            # Decide operation
-            if best_similarity >= similarity_threshold and best_match:
-                # Increment existing bullet
-                before_hash = self.compute_bullet_hash(best_match)
+                # Find most similar bullet
+                best_match = None
+                best_similarity = 0.0
 
-                if insight["section"] == "Helpful":
-                    best_match.helpful_count += 1
-                    operation = "increment_helpful"
-                elif insight["section"] == "Harmful":
-                    best_match.harmful_count += 1
-                    operation = "increment_harmful"
+                if current_playbook:
+                    # Use FAISS for fast similarity search
+                    # Convert embedding list to numpy array
+                    embedding_array = np.array(embedding, dtype=np.float32)
+                    search_results = self.faiss_manager.search(
+                        insight_domain_id, embedding_array, k=10  # Get top 10 candidates
+                    )
+
+                    for bullet_id, similarity in search_results:
+                        bullet = bullet_id_to_bullet.get(bullet_id)
+                        if not bullet:
+                            continue
+
+                        # Filter by domain and section
+                        if bullet.domain_id != insight_domain_id:
+                            continue
+                        if bullet.section != insight["section"]:
+                            continue
+
+                        if similarity > best_similarity:
+                            best_similarity = similarity
+                            best_match = bullet
+
+                # Decide operation
+                if best_similarity >= similarity_threshold and best_match:
+                    # Increment existing bullet
+                    before_hash = self.compute_bullet_hash(best_match)
+
+                    if insight["section"] == "Helpful":
+                        best_match.helpful_count += 1
+                        operation = "increment_helpful"
+                    elif insight["section"] == "Harmful":
+                        best_match.harmful_count += 1
+                        operation = "increment_harmful"
+                    else:
+                        operation = "increment_neutral"
+
+                    after_hash = self.compute_bullet_hash(best_match)
+
+                    delta_updates_all.append(
+                        DeltaUpdate(
+                            operation=operation,
+                            bullet_id=best_match.id,
+                            before_hash=before_hash,
+                            after_hash=after_hash,
+                            similar_to=best_match.id,
+                            similarity_score=float(best_similarity),
+                            metadata={"task_id": task_id}
+                        )
+                    )
+                    total_increments += 1
+
                 else:
-                    operation = "increment_neutral"
+                    # Add new bullet
+                    import uuid
 
-                after_hash = self.compute_bullet_hash(best_match)
+                    # Convert embedding to list if it's a numpy array
+                    embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
 
-                delta_updates_all.append(
-                    DeltaUpdate(
-                        operation=operation,
-                        bullet_id=best_match.id,
-                        before_hash=before_hash,
-                        after_hash=after_hash,
-                        similar_to=best_match.id,
-                        similarity_score=float(best_similarity),
-                        metadata={"task_id": task_id}
+                    new_bullet = PlaybookBullet(
+                        id=str(uuid.uuid4()),
+                        domain_id=domain_id,
+                        content=insight["content"],
+                        section=insight["section"],
+                        helpful_count=1 if insight["section"] == "Helpful" else 0,
+                        harmful_count=1 if insight["section"] == "Harmful" else 0,
+                        tags=insight.get("tags", []),
+                        embedding=embedding_list,
+                        created_at=datetime.utcnow(),
+                        last_used_at=datetime.utcnow(),
+                        stage=target_stage,
                     )
-                )
-                total_increments += 1
 
-            else:
-                # Add new bullet
-                import uuid
+                    updated_playbook.append(new_bullet)
+                    updated_playbook_dict[new_bullet.id] = new_bullet
 
-                # Convert embedding to list if it's a numpy array
-                embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
-
-                new_bullet = PlaybookBullet(
-                    id=str(uuid.uuid4()),
-                    domain_id=domain_id,
-                    content=insight["content"],
-                    section=insight["section"],
-                    helpful_count=1 if insight["section"] == "Helpful" else 0,
-                    harmful_count=1 if insight["section"] == "Harmful" else 0,
-                    tags=insight.get("tags", []),
-                    embedding=embedding_list,
-                    created_at=datetime.utcnow(),
-                    last_used_at=datetime.utcnow(),
-                    stage=target_stage,
-                )
-
-                updated_playbook.append(new_bullet)
-                updated_playbook_dict[new_bullet.id] = new_bullet
-
-                delta_updates_all.append(
-                    DeltaUpdate(
-                        operation="add",
-                        bullet_id=new_bullet.id,
-                        new_bullet=new_bullet,
-                        after_hash=self.compute_bullet_hash(new_bullet),
-                        metadata={"task_id": task_id}
+                    delta_updates_all.append(
+                        DeltaUpdate(
+                            operation="add",
+                            bullet_id=new_bullet.id,
+                            new_bullet=new_bullet,
+                            after_hash=self.compute_bullet_hash(new_bullet),
+                            metadata={"task_id": task_id}
+                        )
                     )
-                )
-                total_new_bullets += 1
+                    total_new_bullets += 1
+        finally:
+            # T072: Clean up FAISS index to prevent memory leak
+            self.faiss_manager.clear_index(domain_id)
+            logger.debug("batch_merge_faiss_cleanup", domain_id=domain_id)
 
         logger.info(
             "batch_merge_complete",
