@@ -94,3 +94,20 @@ ci:  ## Run full CI pipeline locally
 	make security
 	make test-cov
 	@echo "✓ CI pipeline complete!"
+
+docs:  ## Build Sphinx documentation
+	@echo "Building documentation..."
+	cd docs && sphinx-build -b html . _build/html
+	@echo "✓ Documentation built!"
+	@echo "View at: docs/_build/html/index.html"
+
+docs-clean:  ## Clean documentation build
+	rm -rf docs/_build docs/api/*.rst !docs/api/index.rst
+
+docs-serve:  ## Serve documentation locally
+	@echo "Serving documentation at http://localhost:8000"
+	cd docs/_build/html && python -m http.server 8000
+
+docs-autobuild:  ## Auto-rebuild docs on changes
+	@echo "Starting auto-build server..."
+	sphinx-autobuild docs docs/_build/html --port 8000
