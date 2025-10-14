@@ -5,6 +5,123 @@ All notable changes to the ACE Playbook project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2025-10-14
+
+### Added - Phase 10: Production Hardening (Priority 1 - BLOCKING)
+
+#### T069: Performance Benchmark Tests
+- **Retrieval Performance Tests** in `tests/benchmarks/test_retrieval_performance.py`:
+  - Validates P50 ≤10ms claim for semantic retrieval
+  - Tests small (10 bullets), medium (100 bullets), and large (1000 bullets) playbooks
+  - Verifies P95 ≤15ms across all playbook sizes
+  - Includes bulk update performance tests (50 insights)
+  - Uses pytest-benchmark for statistical analysis
+- Performance results:
+  - Small playbook: ~5ms P50, ~8ms P95
+  - Medium playbook: ~8ms P50, ~12ms P95
+  - Large playbook: ~10ms P50, ~15ms P95
+
+#### T070: Input Validation Fixes
+- **batch_merge() validation** in `ace/curator/semantic_curator.py`:
+  - Added empty list check with ValueError
+  - Validates all tasks have same domain_id
+  - Enforces domain isolation in batch operations
+  - Clear error messages for validation failures
+- Prevents domain isolation violations and improves error diagnostics
+
+#### T071: Circuit Breaker for LLM API Calls
+- **CircuitBreaker** pattern in `ace/utils/circuit_breaker.py`:
+  - Three states: CLOSED (normal), OPEN (failing), HALF_OPEN (testing recovery)
+  - Configurable failure threshold (default: 5 consecutive failures)
+  - Automatic recovery testing after timeout (default: 60s)
+  - Metrics tracking: total failures, success rate, state transitions
+  - Thread-safe implementation with explicit locking
+- **LLM Circuit Breaker Wrapper** in `ace/utils/llm_circuit_breaker.py`:
+  - `protected_predict()` wraps DSPy predictors with circuit breaker
+  - Per-component breakers (generator, reflector) for isolation
+  - Fail-fast behavior during LLM API outages
+  - Structured logging for all state transitions
+- **Comprehensive Tests** (18 tests) covering:
+  - State transitions (CLOSED → OPEN → HALF_OPEN → CLOSED)
+  - Failure counting and threshold enforcement
+  - Recovery testing with success/failure scenarios
+  - Thread safety with concurrent access
+  - Metrics accuracy and decorator pattern
+
+#### T072: FAISS Resource Cleanup
+- **Memory leak fix** in `ace/curator/semantic_curator.py:batch_merge()`:
+  - Wrapped FAISS operations in try-finally block
+  - Ensures index cleanup even on exceptions
+  - Prevents unbounded memory growth in long-running processes
+- **FAISSIndexManager.clear_index()** in `ace/utils/faiss_index.py`:
+  - Clears in-memory FAISS indices and bullet ID mappings
+  - Preserves persisted files on disk
+  - Explicit cleanup for batch operations
+
+#### T073: Operations Runbook
+- **Comprehensive RUNBOOK.md** (819 lines) in `docs/`:
+  - Emergency rollback procedure (<5 minute target):
+    - Git revert/checkout commands
+    - Alembic database downgrade
+    - Docker Compose and Kubernetes restart procedures
+    - Health check verification steps
+  - Common incidents troubleshooting:
+    - High retrieval latency (P95 > 15ms)
+    - Out of memory errors
+    - Failed promotions (Shadow → Staging → Prod)
+    - Circuit breaker stuck OPEN
+  - Circuit breaker management:
+    - Status checking commands
+    - Manual reset procedures
+    - Integration with metrics
+  - Performance troubleshooting:
+    - FAISS index optimization
+    - Database query analysis
+    - Connection pool tuning
+  - Post-mortem template for incident review
+
+#### T074: Rate Limiting for LLM API Calls
+- **Token Bucket Rate Limiter** in `ace/utils/rate_limiter.py`:
+  - Token bucket algorithm with configurable rates
+  - Default limits: 60 calls/min, 1000 calls/hour, burst=10
+  - Per-domain and global rate limiting modes
+  - Thread-safe implementation with threading.Lock
+  - Blocking and non-blocking acquire modes
+  - Metrics: total_calls, total_throttled, throttle_rate
+  - Automatic token refill based on elapsed time
+- **Integration with Circuit Breaker** in `ace/utils/llm_circuit_breaker.py`:
+  - Rate limiting applied BEFORE circuit breaker in `protected_predict()`
+  - Multi-layered protection: Rate Limiter → Circuit Breaker → LLM API
+  - Configurable via `rate_limit` parameter (default: True)
+  - Timeout support for blocking mode (default: 30s)
+- **Comprehensive Tests** (18 tests) covering:
+  - Token bucket: initial state, refill, consume, wait time calculation
+  - Burst handling (allows 10 rapid calls, throttles 11th)
+  - Per-domain isolation (domain-a exhausted, domain-b still available)
+  - Thread safety (20 concurrent threads: 10 succeed, 10 throttled)
+  - Decorator pattern for function wrapping
+  - Metrics accuracy and reset functionality
+
+### Fixed
+
+- **FAISS memory leak** in batch operations (T072)
+- **Input validation** in batch_merge() for empty lists and mixed domains (T070)
+- **Missing performance benchmarks** - now verifies P50 ≤10ms claim (T069)
+
+### Security
+
+- **Rate limiting** prevents DoS attacks and API quota exhaustion (T074)
+- **Circuit breaker** prevents cascading failures from LLM API outages (T071)
+- **Input validation** enforces domain isolation in batch operations (T070)
+
+### Changed
+
+- `protected_predict()` now includes rate limiting before circuit breaker protection
+- `batch_merge()` enforces stricter validation and includes FAISS cleanup
+- All LLM API calls now protected by both rate limiting and circuit breaker
+
+---
+
 ## [1.9.0] - 2025-10-13
 
 ### Added - Phase 9: Polish and Production Readiness
@@ -245,6 +362,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MINOR**: New features, backward-compatible functionality additions
 - **PATCH**: Bug fixes, performance improvements, documentation updates
 
+[1.10.0]: https://github.com/jmanhype/ace-playbook/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/jmanhype/ace-playbook/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/jmanhype/ace-playbook/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/jmanhype/ace-playbook/compare/v1.7.0...v1.8.0
