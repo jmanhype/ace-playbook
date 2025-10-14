@@ -246,7 +246,7 @@ id="B001",
 
         # Change to staging
         success = stage_manager.set_stage(
-            id="B001",
+            bullet_id="B001",
             domain_id="test",
             target_stage=PlaybookStage.STAGING,
             reason="manual_promotion_for_testing"
@@ -278,7 +278,7 @@ id="B001",
 
         # Change stage
         stage_manager.set_stage(
-            id="B001",
+            bullet_id="B001",
             domain_id="test",
             target_stage=PlaybookStage.PROD,
             reason="test_promotion"
@@ -302,7 +302,7 @@ id="B001",
     def test_cannot_change_stage_of_nonexistent_bullet(self, db_session, stage_manager):
         """Test that changing stage of non-existent bullet returns False."""
         success = stage_manager.set_stage(
-            id="NONEXISTENT",
+            bullet_id="NONEXISTENT",
             domain_id="test",
             target_stage=PlaybookStage.PROD,
             reason="test"

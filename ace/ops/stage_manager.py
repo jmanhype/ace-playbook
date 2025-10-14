@@ -74,7 +74,7 @@ class StageManager:
         self.playbook_repo.update(bullet)
 
         # Log to journal
-        self.journal_repo.append(
+        self.journal_repo.add_entry(
             bullet_id=bullet_id,
             domain_id=domain_id,
             operation_type="stage_change",
@@ -222,7 +222,7 @@ class StageManager:
         self.playbook_repo.update(bullet)
 
         # Log promotion event
-        self.journal_repo.append(
+        self.journal_repo.add_entry(
             bullet_id=bullet_id,
             domain_id=domain_id,
             operation_type="promotion",
@@ -284,7 +284,7 @@ class StageManager:
         self.playbook_repo.update(bullet)
 
         # Log quarantine event
-        self.journal_repo.append(
+        self.journal_repo.add_entry(
             bullet_id=bullet_id,
             domain_id=domain_id,
             operation_type="quarantine",
