@@ -4,8 +4,8 @@ ACE Curator Module
 Semantic deduplication and playbook management with multi-domain isolation.
 """
 
-from ace.curator.semantic_curator import (
-    SemanticCurator,
+from ace.curator.semantic_curator import SemanticCurator
+from ace.curator.curator_models import (
     CuratorInput,
     CuratorOutput,
     DeltaUpdate,

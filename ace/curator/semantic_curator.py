@@ -3,111 +3,46 @@ SemanticCurator Implementation
 
 Pure Python semantic deduplication with FAISS at 0.8 cosine similarity threshold.
 Implements contracts from /Users/speed/specs/004-implementing-the-ace/contracts/curator.py
+
+Refactored in T078 to reduce file size by extracting:
+- Data models → curator_models.py
+- Domain validation → domain_validator.py
+- Utility functions → curator_utils.py
+- Promotion policy → promotion_policy.py
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 import numpy as np
-import hashlib
-import json
-import re
+import uuid
 
 from ace.models.playbook import PlaybookBullet, PlaybookStage
 from ace.utils.embeddings import get_embedding_service
 from ace.utils.faiss_index import get_faiss_manager
 from ace.utils.logging_config import get_logger
 
+# Import extracted modules
+from ace.curator.curator_models import (
+    CuratorInput,
+    CuratorOutput,
+    DeltaUpdate,
+    SIMILARITY_THRESHOLD_DEFAULT,
+)
+from ace.curator.domain_validator import (
+    validate_domain_id,
+    enforce_domain_isolation,
+    validate_batch_task_insights,
+)
+from ace.curator.curator_utils import (
+    compute_similarity,
+    compute_bullet_hash,
+)
+from ace.curator.promotion_policy import (
+    should_promote,
+    should_quarantine,
+)
+
 logger = get_logger(__name__, component="curator")
-
-
-# Import contract types from specs
-SIMILARITY_THRESHOLD_DEFAULT = 0.8
-DOMAIN_ISOLATION_PATTERN = r"^[a-z0-9-]+$"
-RESERVED_DOMAINS = {"system", "admin", "test"}
-
-
-class CuratorInput:
-    """Input for Curator delta merging operation."""
-
-    def __init__(
-        self,
-        task_id: str,
-        domain_id: str,
-        insights: List[Dict],
-        current_playbook: List[PlaybookBullet],
-        target_stage: PlaybookStage = PlaybookStage.SHADOW,
-        similarity_threshold: float = SIMILARITY_THRESHOLD_DEFAULT,
-        promotion_helpful_min: int = 3,
-        promotion_ratio_min: float = 3.0,
-        quarantine_threshold: float = 1.0,
-    ):
-        self.task_id = task_id
-        self.domain_id = domain_id
-        self.insights = insights
-        self.current_playbook = current_playbook
-        self.target_stage = target_stage
-        self.similarity_threshold = similarity_threshold
-        self.promotion_helpful_min = promotion_helpful_min
-        self.promotion_ratio_min = promotion_ratio_min
-        self.quarantine_threshold = quarantine_threshold
-
-
-class DeltaUpdate:
-    """Single atomic playbook update operation."""
-
-    def __init__(
-        self,
-        operation: str,
-        bullet_id: str,
-        before_hash: Optional[str] = None,
-        after_hash: Optional[str] = None,
-        new_bullet: Optional[PlaybookBullet] = None,
-        similar_to: Optional[str] = None,
-        similarity_score: Optional[float] = None,
-        metadata: Optional[Dict] = None,
-    ):
-        self.operation = operation
-        self.bullet_id = bullet_id
-        self.before_hash = before_hash
-        self.after_hash = after_hash
-        self.new_bullet = new_bullet
-        self.similar_to = similar_to
-        self.similarity_score = similarity_score
-        self.metadata = metadata or {}
-        self.timestamp = datetime.utcnow()
-
-
-class CuratorOutput:
-    """Output from Curator delta merging operation."""
-
-    def __init__(
-        self,
-        task_id: str,
-        domain_id: str,
-        delta_updates: List[DeltaUpdate],
-        updated_playbook: List[PlaybookBullet],
-    ):
-        self.task_id = task_id
-        self.domain_id = domain_id
-        self.delta_updates = delta_updates
-        self.updated_playbook = updated_playbook
-        self.new_bullets_added = 0
-        self.existing_bullets_incremented = 0
-        self.duplicates_detected = 0
-        self.bullets_quarantined = 0
-        self.bullets_promoted = 0
-
-    def to_summary(self) -> str:
-        """Generate human-readable summary."""
-        return (
-            f"Curator Update Summary:\n"
-            f"  New bullets: {self.new_bullets_added}\n"
-            f"  Incremented: {self.existing_bullets_incremented}\n"
-            f"  Duplicates: {self.duplicates_detected}\n"
-            f"  Quarantined: {self.bullets_quarantined}\n"
-            f"  Promoted: {self.bullets_promoted}\n"
-            f"  Total operations: {len(self.delta_updates)}"
-        )
 
 
 class SemanticCurator:
@@ -143,132 +78,6 @@ class SemanticCurator:
             similarity_threshold=similarity_threshold,
         )
 
-    def validate_domain_id(self, domain_id: str) -> None:
-        """
-        Validate domain_id against CHK079 namespace pattern.
-
-        Raises:
-            ValueError: If domain_id is invalid or reserved
-        """
-        if not re.match(DOMAIN_ISOLATION_PATTERN, domain_id):
-            raise ValueError(
-                f"Invalid domain_id '{domain_id}'. Must match pattern: ^[a-z0-9-]+$"
-            )
-        if domain_id in RESERVED_DOMAINS:
-            raise ValueError(f"Reserved domain_id '{domain_id}' cannot be used")
-
-    def enforce_domain_isolation(self, curator_input: CuratorInput) -> None:
-        """
-        Enforce CHK081-CHK082 domain isolation requirements.
-
-        Raises:
-            ValueError: If any bullet violates domain isolation
-        """
-        # Validate domain_id format (CHK079)
-        self.validate_domain_id(curator_input.domain_id)
-
-        # CHK082: Cross-domain guard - verify all existing bullets match domain_id
-        for bullet in curator_input.current_playbook:
-            if bullet.domain_id != curator_input.domain_id:
-                raise ValueError(
-                    f"Cross-domain access violation: attempted to merge insights from domain "
-                    f"'{curator_input.domain_id}' into playbook for domain '{bullet.domain_id}'"
-                )
-
-    def compute_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
-        """
-        Calculate cosine similarity between two embedding vectors.
-
-        Args:
-            embedding1: First embedding (384-dim)
-            embedding2: Second embedding (384-dim)
-
-        Returns:
-            Cosine similarity score (0.0 to 1.0, higher = more similar)
-        """
-        vec1 = np.array(embedding1, dtype=np.float32)
-        vec2 = np.array(embedding2, dtype=np.float32)
-
-        # Normalize vectors
-        norm1 = np.linalg.norm(vec1)
-        norm2 = np.linalg.norm(vec2)
-
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-
-        # Cosine similarity = dot product of normalized vectors
-        similarity = float(np.dot(vec1, vec2) / (norm1 * norm2))
-        return similarity
-
-    def should_promote(
-        self, bullet: PlaybookBullet, target_stage: PlaybookStage, curator_input: CuratorInput
-    ) -> bool:
-        """
-        Check if bullet meets promotion criteria for target stage.
-
-        Args:
-            bullet: Bullet to evaluate
-            target_stage: Desired stage (STAGING or PROD)
-            curator_input: CuratorInput with promotion gate thresholds
-
-        Returns:
-            True if bullet meets promotion gates (helpful_count, ratio)
-        """
-        if target_stage == PlaybookStage.SHADOW:
-            return True  # No gates for shadow
-
-        if target_stage == PlaybookStage.STAGING:
-            helpful_min = curator_input.promotion_helpful_min  # Default: 3
-            ratio_min = curator_input.promotion_ratio_min  # Default: 3.0
-        elif target_stage == PlaybookStage.PROD:
-            helpful_min = 5  # Hardcoded prod gate
-            ratio_min = 5.0
-        else:
-            return False
-
-        # Check helpful_count threshold
-        if bullet.helpful_count < helpful_min:
-            return False
-
-        # Check helpful:harmful ratio
-        if bullet.harmful_count == 0:
-            # No harmful signals = infinite ratio = pass
-            return True
-
-        ratio = bullet.helpful_count / bullet.harmful_count
-        return ratio >= ratio_min
-
-    def should_quarantine(self, bullet: PlaybookBullet) -> bool:
-        """
-        Check if bullet should be quarantined (excluded from retrieval).
-
-        Args:
-            bullet: Bullet to evaluate
-
-        Returns:
-            True if harmful_count ≥ helpful_count
-        """
-        return bullet.harmful_count >= bullet.helpful_count and bullet.helpful_count > 0
-
-    def compute_bullet_hash(self, bullet: PlaybookBullet) -> str:
-        """
-        Compute deterministic SHA-256 hash of bullet state.
-
-        Used for diff journal to track exactly what changed during updates.
-        Excludes timestamps to focus on semantic state.
-        """
-        stable_state = {
-            "id": bullet.id,
-            "domain_id": bullet.domain_id,
-            "content": bullet.content,
-            "section": bullet.section,
-            "helpful_count": bullet.helpful_count,
-            "harmful_count": bullet.harmful_count,
-            "tags": sorted(bullet.tags),
-        }
-        canonical_json = json.dumps(stable_state, sort_keys=True)
-        return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
-
     def apply_delta(self, curator_input: CuratorInput) -> CuratorOutput:
         """
         Apply semantic deduplication and merge insights into playbook.
@@ -291,7 +100,7 @@ class SemanticCurator:
         )
 
         # CHK081-CHK082: Enforce domain isolation
-        self.enforce_domain_isolation(curator_input)
+        enforce_domain_isolation(curator_input)
 
         delta_updates = []
         updated_playbook = list(curator_input.current_playbook)  # Copy
@@ -312,7 +121,7 @@ class SemanticCurator:
                 if bullet.section != insight["section"]:
                     continue  # Only compare within same section
 
-                similarity = self.compute_similarity(insight_embedding, bullet.embedding)
+                similarity = compute_similarity(insight_embedding, bullet.embedding)
                 if similarity > best_similarity:
                     best_similarity = similarity
                     best_match = bullet
@@ -320,7 +129,7 @@ class SemanticCurator:
             # Decide operation based on similarity threshold
             if best_similarity >= curator_input.similarity_threshold and best_match:
                 # Duplicate detected - increment counter
-                before_hash = self.compute_bullet_hash(best_match)
+                before_hash = compute_bullet_hash(best_match)
 
                 if insight["section"] == "Helpful":
                     best_match.helpful_count += 1
@@ -332,7 +141,7 @@ class SemanticCurator:
                     # Neutral - no counter increment
                     operation = "increment_neutral"
 
-                after_hash = self.compute_bullet_hash(best_match)
+                after_hash = compute_bullet_hash(best_match)
 
                 delta_updates.append(
                     DeltaUpdate(
@@ -353,8 +162,6 @@ class SemanticCurator:
                 )
             else:
                 # New distinct bullet - add to playbook
-                import uuid
-
                 new_bullet = PlaybookBullet(
                     id=str(uuid.uuid4()),
                     domain_id=curator_input.domain_id,
@@ -377,7 +184,7 @@ class SemanticCurator:
                         operation="add",
                         bullet_id=new_bullet.id,
                         new_bullet=new_bullet,
-                        after_hash=self.compute_bullet_hash(new_bullet),
+                        after_hash=compute_bullet_hash(new_bullet),
                     )
                 )
 
@@ -385,10 +192,10 @@ class SemanticCurator:
 
         # Check for quarantine/promotion status changes
         for bullet in updated_playbook:
-            if self.should_quarantine(bullet) and bullet.stage != PlaybookStage.QUARANTINED:
-                before_hash = self.compute_bullet_hash(bullet)
+            if should_quarantine(bullet) and bullet.stage != PlaybookStage.QUARANTINED:
+                before_hash = compute_bullet_hash(bullet)
                 bullet.stage = PlaybookStage.QUARANTINED
-                after_hash = self.compute_bullet_hash(bullet)
+                after_hash = compute_bullet_hash(bullet)
 
                 delta_updates.append(
                     DeltaUpdate(
@@ -454,35 +261,8 @@ class SemanticCurator:
         Raises:
             ValueError: If task_insights is empty, has mixed domains, or invalid structure
         """
-        # T070: Validate input before processing
-        if not task_insights:
-            raise ValueError("task_insights cannot be empty")
-
-        # Validate all tasks have same domain_id (reject mixed batches)
-        try:
-            domain_ids = {task["domain_id"] for task in task_insights}
-        except KeyError as e:
-            raise ValueError(f"Invalid task_insights structure: missing 'domain_id' key") from e
-
-        if len(domain_ids) > 1:
-            raise ValueError(
-                f"Multiple domain_ids in batch: {domain_ids}. "
-                f"Batch operations must operate on a single domain for isolation."
-            )
-
-        domain_id = task_insights[0]["domain_id"]
-
-        # Validate domain_id against CHK079 requirements
-        self.validate_domain_id(domain_id)
-
-        # Validate required keys in each task
-        for i, task_data in enumerate(task_insights):
-            if "task_id" not in task_data:
-                raise ValueError(f"Task at index {i} missing required 'task_id' key")
-            if "insights" not in task_data:
-                raise ValueError(f"Task at index {i} missing required 'insights' key")
-            if not isinstance(task_data["insights"], list):
-                raise ValueError(f"Task at index {i} 'insights' must be a list")
+        # T070: Validate input and extract domain_id
+        domain_id = validate_batch_task_insights(task_insights)
 
         logger.info(
             "batch_merge_start",
@@ -525,8 +305,6 @@ class SemanticCurator:
         # T072: Use try-finally to ensure FAISS index cleanup (prevent memory leak)
         try:
             # Build FAISS index for current playbook
-            # domain_id already validated above, no need to reassign
-
             if current_playbook:
                 # Add current playbook to FAISS index
                 playbook_embeddings = np.array([b.embedding for b in current_playbook], dtype=np.float32)
@@ -577,7 +355,7 @@ class SemanticCurator:
                 # Decide operation
                 if best_similarity >= similarity_threshold and best_match:
                     # Increment existing bullet
-                    before_hash = self.compute_bullet_hash(best_match)
+                    before_hash = compute_bullet_hash(best_match)
 
                     if insight["section"] == "Helpful":
                         best_match.helpful_count += 1
@@ -588,7 +366,7 @@ class SemanticCurator:
                     else:
                         operation = "increment_neutral"
 
-                    after_hash = self.compute_bullet_hash(best_match)
+                    after_hash = compute_bullet_hash(best_match)
 
                     delta_updates_all.append(
                         DeltaUpdate(
@@ -605,8 +383,6 @@ class SemanticCurator:
 
                 else:
                     # Add new bullet
-                    import uuid
-
                     # Convert embedding to list if it's a numpy array
                     embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
 
@@ -632,7 +408,7 @@ class SemanticCurator:
                             operation="add",
                             bullet_id=new_bullet.id,
                             new_bullet=new_bullet,
-                            after_hash=self.compute_bullet_hash(new_bullet),
+                            after_hash=compute_bullet_hash(new_bullet),
                             metadata={"task_id": task_id}
                         )
                     )
