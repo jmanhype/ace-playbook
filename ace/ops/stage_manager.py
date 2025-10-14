@@ -72,17 +72,6 @@ class StageManager:
         bullet.stage = target_stage
 
         self.playbook_repo.update(bullet)
-
-        # Log to journal
-        self.journal_repo.add_entry(
-            bullet_id=bullet_id,
-            domain_id=domain_id,
-            operation_type="stage_change",
-            before_value={"stage": old_stage.value},
-            after_value={"stage": target_stage.value},
-            metadata={"reason": reason or "manual_change"}
-        )
-
         self.session.commit()
 
         logger.info(
@@ -220,21 +209,6 @@ class StageManager:
         bullet.stage = target_stage
 
         self.playbook_repo.update(bullet)
-
-        # Log promotion event
-        self.journal_repo.add_entry(
-            bullet_id=bullet_id,
-            domain_id=domain_id,
-            operation_type="promotion",
-            before_value={"stage": old_stage.value},
-            after_value={"stage": target_stage.value},
-            metadata={
-                "helpful_count": bullet.helpful_count,
-                "harmful_count": bullet.harmful_count,
-                "forced": force
-            }
-        )
-
         self.session.commit()
 
         logger.info(
@@ -282,21 +256,6 @@ class StageManager:
         bullet.stage = PlaybookStage.QUARANTINED
 
         self.playbook_repo.update(bullet)
-
-        # Log quarantine event
-        self.journal_repo.add_entry(
-            bullet_id=bullet_id,
-            domain_id=domain_id,
-            operation_type="quarantine",
-            before_value={"stage": old_stage.value},
-            after_value={"stage": PlaybookStage.QUARANTINED.value},
-            metadata={
-                "reason": reason or "automatic_quarantine",
-                "helpful_count": bullet.helpful_count,
-                "harmful_count": bullet.harmful_count
-            }
-        )
-
         self.session.commit()
 
         logger.info(

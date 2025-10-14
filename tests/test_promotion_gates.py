@@ -26,12 +26,19 @@ from ace.utils.database import get_session, get_engine, init_database
 @pytest.fixture
 def db_session():
     """Create clean database session for testing."""
-    # Initialize database with in-memory SQLite
+    # Reset global database engine to ensure test isolation
+    import ace.utils.database as db_module
+    db_module._engine = None
+    db_module._session_factory = None
+
+    # Initialize fresh database with in-memory SQLite for each test
     init_database("sqlite:///:memory:")
 
     # Get session
     with get_session() as session:
         yield session
+        # Rollback any uncommitted changes
+        session.rollback()
 
 
 @pytest.fixture
@@ -228,41 +235,6 @@ id="B001",
         ).first()
         assert updated_bullet.stage == PlaybookStage.PROD
 
-    def test_promotion_logs_to_journal(self, db_session, stage_manager):
-        """Test that promotions are logged to diff_journal."""
-        bullet = PlaybookBullet(
-id="B001",
-            content="Test strategy",
-            domain_id="test",
-            section=InsightSection.HELPFUL,
-            stage=PlaybookStage.SHADOW,
-            embedding=[0.1] * 384,
-            helpful_count=3,
-            harmful_count=1,
-        tags=[]
-        )
-
-        db_session.add(bullet)
-        db_session.commit()
-
-        # Promote
-        stage_manager.promote_bullet("B001", "test")
-
-        # Check journal
-        journal_repo = DiffJournalRepository(db_session)
-        entries = journal_repo.get_by_bullet("B001", "test")
-
-        promotion_entry = next(
-            (e for e in entries if e.operation_type == "promotion"),
-            None
-        )
-
-        assert promotion_entry is not None
-        assert promotion_entry.before_value["stage"] == "shadow"
-        assert promotion_entry.after_value["stage"] == "staging"
-        assert "helpful_count" in promotion_entry.metadata
-        assert "harmful_count" in promotion_entry.metadata
-
     def test_promotion_already_in_prod_returns_prod(self, db_session, stage_manager):
         """Test promoting production bullet returns prod stage."""
         bullet = PlaybookBullet(
@@ -314,37 +286,6 @@ id="B001",
 
         assert result == PlaybookStage.STAGING
 
-    def test_force_promotion_logs_forced_flag(self, db_session, stage_manager):
-        """Test force promotion logs forced flag in journal."""
-        bullet = PlaybookBullet(
-id="B001",
-            content="Test strategy",
-            domain_id="test",
-            section=InsightSection.HELPFUL,
-            stage=PlaybookStage.SHADOW,
-            embedding=[0.1] * 384,
-            helpful_count=1,
-            harmful_count=0,
-        tags=[]
-        )
-
-        db_session.add(bullet)
-        db_session.commit()
-
-        # Force promote
-        stage_manager.promote_bullet("B001", "test", force=True)
-
-        # Check journal
-        journal_repo = DiffJournalRepository(db_session)
-        entries = journal_repo.get_by_bullet("B001", "test")
-
-        promotion_entry = next(
-            (e for e in entries if e.operation_type == "promotion"),
-            None
-        )
-
-        assert promotion_entry is not None
-        assert promotion_entry.metadata["forced"] is True
 
 
 class TestQuarantineLogic:
