@@ -565,6 +565,9 @@ class SemanticCurator:
                 # Add new bullet
                 import uuid
 
+                # Convert embedding to list if it's a numpy array
+                embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
+
                 new_bullet = PlaybookBullet(
                     id=str(uuid.uuid4()),
                     domain_id=domain_id,
@@ -573,7 +576,7 @@ class SemanticCurator:
                     helpful_count=1 if insight["section"] == "Helpful" else 0,
                     harmful_count=1 if insight["section"] == "Harmful" else 0,
                     tags=insight.get("tags", []),
-                    embedding=embedding.tolist(),
+                    embedding=embedding_list,
                     created_at=datetime.utcnow(),
                     last_used_at=datetime.utcnow(),
                     stage=target_stage,
