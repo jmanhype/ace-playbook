@@ -160,6 +160,29 @@ interrogate -vv ace/
 
 ## Documentation
 
+### Comprehensive Documentation (v1.14.0+)
+
+Build and view the complete documentation:
+
+```bash
+# Build HTML documentation
+make docs
+
+# Serve documentation locally
+make docs-serve  # http://localhost:8000
+```
+
+**Available Documentation:**
+
+- 📚 **API Reference**: Auto-generated Sphinx docs for all modules
+- 🏗️ **Architecture Guide**: System design with Mermaid diagrams ([docs/architecture.md](docs/architecture.md))
+- 🎓 **Developer Onboarding**: Setup, workflows, and best practices ([docs/onboarding.md](docs/onboarding.md))
+- ⚠️ **Edge Cases**: Error handling and recovery procedures ([docs/edge_cases.md](docs/edge_cases.md))
+- 🚀 **Tutorials**: Step-by-step guides ([docs/tutorials/01-quick-start.rst](docs/tutorials/01-quick-start.rst))
+- 📖 **Getting Started**: Quick installation guide ([docs/getting_started.rst](docs/getting_started.rst))
+
+### Specification Documents
+
 - **Specification**: `/Users/speed/specs/004-implementing-the-ace/spec.md`
 - **Implementation Plan**: `/Users/speed/specs/004-implementing-the-ace/plan.md`
 - **Data Model**: `/Users/speed/specs/004-implementing-the-ace/data-model.md`
