@@ -155,12 +155,20 @@ repos:
         always_run: false
         stages: [push]
 
-  # Dependency security scanning
+  # Dependency security scanning with Safety
   - repo: https://github.com/pyupio/safety
     rev: 3.0.1
     hooks:
       - id: safety
         args: ['check', '--bare']
+        stages: [push]
+
+  # Dependency security scanning with pip-audit (T075)
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.3
+    hooks:
+      - id: pip-audit
+        args: ['--desc', 'on', '--skip-editable']
         stages: [push]
 
   # Dead code detection

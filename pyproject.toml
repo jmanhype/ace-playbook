@@ -45,6 +45,7 @@ dev = [
     "pre-commit>=3.6.0",
     "radon>=6.0.1",
     "safety>=3.0.0",
+    "pip-audit>=2.7.0",
     "bandit[toml]>=1.7.8",
 ]
 
