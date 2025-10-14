@@ -60,6 +60,17 @@ from ace.ops.review_service import (
     create_review_service,
     REVIEW_CONFIDENCE_THRESHOLD
 )
+from ace.ops.metrics import (
+    MetricsCollector,
+    get_metrics_collector,
+    LatencyTimer
+)
+from ace.ops.guardrails import (
+    GuardrailMonitor,
+    PerformanceSnapshot,
+    RollbackTrigger,
+    create_guardrail_monitor
+)
 
 __all__ = [
     "DatasetLoader",
@@ -78,6 +89,13 @@ __all__ = [
     "ReviewService",
     "create_review_service",
     "REVIEW_CONFIDENCE_THRESHOLD",
+    "MetricsCollector",
+    "get_metrics_collector",
+    "LatencyTimer",
+    "GuardrailMonitor",
+    "PerformanceSnapshot",
+    "RollbackTrigger",
+    "create_guardrail_monitor",
 ]
 
 __version__ = "v1.2.0"

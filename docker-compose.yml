@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  ace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ace-playbook
+    environment:
+      # Database
+      - DATABASE_URL=sqlite:////data/ace_playbook.db
+
+      # LLM API Keys (set these in .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # DSPy Configuration
+      - DSPY_LM=openai
+      - DSPY_MODEL=gpt-4
+
+      # ACE Configuration
+      - ACE_DOMAIN=development
+      - ACE_LOG_LEVEL=INFO
+
+    volumes:
+      # Persist database
+      - ace-data:/data
+
+      # Mount source code for development (optional)
+      # - ./ace:/app/ace
+      # - ./tests:/app/tests
+
+    ports:
+      # Expose metrics endpoint
+      - "8000:8000"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "from ace.utils.database import get_engine; get_engine()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  ace-data:
+    driver: local

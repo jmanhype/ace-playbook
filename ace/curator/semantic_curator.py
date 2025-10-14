@@ -490,11 +490,16 @@ class SemanticCurator:
         insight_embeddings = self.embedding_service.encode_batch(insight_contents)
 
         # Build FAISS index for current playbook
+        domain_id = task_insights[0]["domain_id"] if task_insights else "default"
+
         if current_playbook:
+            # Add current playbook to FAISS index
             playbook_embeddings = np.array([b.embedding for b in current_playbook], dtype=np.float32)
-            self.faiss_manager.build_index(playbook_embeddings)
-        else:
-            playbook_embeddings = None
+            bullet_ids = [b.id for b in current_playbook]
+            self.faiss_manager.add_vectors(domain_id, playbook_embeddings, bullet_ids)
+
+        # Build mapping from bullet_id to bullet for quick lookup
+        bullet_id_to_bullet = {b.id: b for b in current_playbook}
 
         # Process all insights with single index
         updated_playbook = list(current_playbook)
@@ -505,31 +510,33 @@ class SemanticCurator:
 
         for idx, (insight, embedding) in enumerate(zip(all_insights, insight_embeddings)):
             task_id = insight["task_id"]
-            domain_id = insight["domain_id"]
+            insight_domain_id = insight["domain_id"]
 
             # Find most similar bullet
             best_match = None
             best_similarity = 0.0
 
-            if playbook_embeddings is not None:
+            if current_playbook:
                 # Use FAISS for fast similarity search
-                similarities, indices = self.faiss_manager.search_similar(
-                    embedding.reshape(1, -1), k=10  # Get top 10 candidates
+                # Convert embedding list to numpy array
+                embedding_array = np.array(embedding, dtype=np.float32)
+                search_results = self.faiss_manager.search(
+                    insight_domain_id, embedding_array, k=10  # Get top 10 candidates
                 )
 
-                for sim, idx_match in zip(similarities[0], indices[0]):
-                    if idx_match == -1:
-                        break
-                    bullet = current_playbook[idx_match]
+                for bullet_id, similarity in search_results:
+                    bullet = bullet_id_to_bullet.get(bullet_id)
+                    if not bullet:
+                        continue
 
                     # Filter by domain and section
-                    if bullet.domain_id != domain_id:
+                    if bullet.domain_id != insight_domain_id:
                         continue
                     if bullet.section != insight["section"]:
                         continue
 
-                    if sim > best_similarity:
-                        best_similarity = sim
+                    if similarity > best_similarity:
+                        best_similarity = similarity
                         best_match = bullet
 
             # Decide operation
