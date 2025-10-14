@@ -4,6 +4,8 @@ CuratorService - Integrated service for playbook management
 Combines SemanticCurator with database persistence (repositories).
 """
 
+from __future__ import annotations
+
 from typing import List, Dict
 from datetime import datetime
 
