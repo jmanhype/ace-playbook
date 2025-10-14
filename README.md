@@ -5,6 +5,7 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 ## Architecture
 
 **Generator-Reflector-Curator Pattern:**
+
 - **Generator**: DSPy ReAct/CoT modules that execute tasks using playbook strategies
 - **Reflector**: Analyzes outcomes and extracts labeled insights (Helpful/Harmful/Neutral)
 - **Curator**: Pure Python semantic deduplication with FAISS (0.8 cosine similarity threshold)
@@ -85,7 +86,7 @@ if trigger:
 
 ## Project Structure
 
-```
+```text
 ace-playbook/
 ├── ace/                    # Core ACE framework
 │   ├── generator/         # DSPy Generator modules
@@ -109,6 +110,33 @@ ace-playbook/
 
 ## Development
 
+### Pre-commit Hooks
+
+Pre-commit hooks automatically run code quality checks before each commit:
+
+```bash
+# Install pre-commit hooks (one-time setup)
+pre-commit install
+pre-commit install --hook-type commit-msg
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Skip hooks for a specific commit (use sparingly)
+git commit --no-verify -m "WIP: temporary commit"
+```
+
+**Installed Hooks:**
+
+- **Code Quality**: Black formatting, Ruff linting, isort import sorting
+- **Type Safety**: mypy static type checking
+- **Security**: Bandit vulnerability scanning, detect-secrets
+- **Documentation**: Docstring coverage (interrogate), markdown linting
+- **Standards**: Conventional commits validation, trailing whitespace, end-of-file fixes
+- **Infrastructure**: YAML/JSON/TOML validation, Dockerfile linting, SQL linting
+
+### Manual Testing
+
 ```bash
 # Run tests
 pytest tests/ -v
@@ -120,8 +148,11 @@ mypy ace/
 black ace/ tests/
 ruff check ace/ tests/
 
-# Run pre-commit hooks
-pre-commit run --all-files
+# Security scan
+bandit -r ace/
+
+# Docstring coverage
+interrogate -vv ace/
 ```
 
 ## Documentation

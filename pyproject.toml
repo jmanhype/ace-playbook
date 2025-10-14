@@ -87,6 +87,8 @@ extend-exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -123,3 +125,24 @@ module = [
     "sentence_transformers.*",
 ]
 ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "examples", ".venv", "venv", "alembic"]
+skips = ["B101"]  # assert_used - OK in tests
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = true
+ignore-private = true
+ignore-property-decorators = true
+ignore-module = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+fail-under = 80
+exclude = ["tests", "examples", "setup.py", "docs"]
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
