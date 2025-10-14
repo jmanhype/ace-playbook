@@ -13,8 +13,8 @@ sys.path.insert(0, os.path.abspath('..'))
 project = 'ACE Playbook'
 copyright = '2025, ACE Team'
 author = 'ACE Team'
-release = '0.1.0'
-version = '0.1'
+release = '1.14.0'
+version = '1.14'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

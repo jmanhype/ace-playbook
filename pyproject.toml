@@ -1,6 +1,6 @@
 [project]
 name = "ace-playbook"
-version = "0.1.0"
+version = "1.14.0"
 description = "Adaptive Code Evolution - Self-improving LLM system with Generator-Reflector-Curator pattern"
 readme = "README.md"
 requires-python = ">=3.11"

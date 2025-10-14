@@ -4,7 +4,7 @@ ACE (Adaptive Code Evolution) Framework
 Self-improving LLM system using Generator-Reflector-Curator pattern.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.14.0"
 
 from ace.models import (
     Base,
