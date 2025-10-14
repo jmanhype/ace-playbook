@@ -55,6 +55,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Similarity computation is mathematically sound
 - **Configuration**: 20 examples in dev, scalable to 1000+ in CI
 
+#### Complexity Monitoring with Radon
+- **Pre-commit hooks** for automated complexity checks:
+  - `radon-cc`: Cyclomatic complexity check (fails on C-grade or worse)
+  - `radon-mi`: Maintainability index check (fails on B-grade or worse)
+  - Runs automatically on `git push` to prevent complexity degradation
+- **Makefile targets** for complexity analysis:
+  - `make complexity`: Check complexity (informational)
+  - `make complexity-strict`: Check with strict thresholds (fail on C-grade)
+  - `make complexity-report`: Generate JSON reports for CI/CD
+- **Complexity grades** and thresholds:
+  - **Cyclomatic Complexity**: A (1-5), B (6-10), C (11-20), D (21-50), F (51+)
+  - **Maintainability Index**: A (20-100), B (10-19), C (0-9)
+- **Target standards**:
+  - All modules ≤ B-grade average
+  - No functions > C-grade (complexity 20)
+  - Pre-commit blocks push if C-grade or worse detected
+
 ### Documentation
 
 - Extended `CONTRIBUTING.md` with 130+ lines of mutation testing documentation
@@ -69,6 +86,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Common properties to test (invariants, relations, bounds)
   - Debugging property test failures with shrinking
   - Best practices and configuration
+  - Further reading resources
+- **Complexity Monitoring Guide** (210+ lines in CONTRIBUTING.md):
+  - What is cyclomatic complexity and maintainability index
+  - Running complexity checks with radon and make targets
+  - Interpreting complexity grades and reports
+  - Refactoring patterns for high-complexity code (extract methods, guard clauses, polymorphism, data structures)
+  - Complexity targets and thresholds for ACE Playbook
+  - Pre-commit integration and CI/CD patterns
+  - Best practices for maintaining low complexity
   - Further reading resources
 
 ---

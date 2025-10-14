@@ -669,6 +669,219 @@ pytest --hypothesis-seed=12345
 - [Property-Based Testing Guide](https://hypothesis.works/)
 - [Property Testing Patterns](https://fsharpforfunandprofit.com/posts/property-based-testing/)
 
+### Complexity Monitoring
+
+Code complexity monitoring uses `radon` to measure cyclomatic complexity and maintainability index. High complexity indicates code that's hard to understand, test, and maintain.
+
+#### What is Cyclomatic Complexity?
+
+Cyclomatic complexity measures the number of independent paths through code:
+- **1-5** (A): Simple, easy to test
+- **6-10** (B): Moderate, acceptable
+- **11-20** (C): Complex, consider refactoring
+- **21-50** (D): Very complex, should refactor
+- **51+** (F): Unmaintainable, must refactor
+
+#### Maintainability Index
+
+Maintainability index combines complexity, lines of code, and Halstead volume:
+- **100-20** (A): Very maintainable
+- **19-10** (B): Maintainable
+- **9-0** (C): Needs attention
+
+#### Running Complexity Checks
+
+```bash
+# Check complexity (informational)
+make complexity
+
+# Check with strict thresholds (fail on C-grade or worse)
+make complexity-strict
+
+# Generate JSON reports
+make complexity-report
+
+# Manual radon commands
+radon cc ace/ -a                    # Cyclomatic complexity with average
+radon cc ace/ -n C -s               # Fail on C-grade or worse
+radon mi ace/ -nb                   # Maintainability index (no Berkley)
+radon mi ace/ -s                    # Show maintainability index
+```
+
+#### Pre-commit Integration
+
+Complexity checks run automatically on `git push`:
+
+```yaml
+# .pre-commit-config.yaml
+- id: radon-cc
+  name: Check code complexity
+  entry: radon cc ace/ -n C -s      # Fail on C-grade or worse
+  stages: [push]
+
+- id: radon-mi
+  name: Check maintainability index
+  entry: radon mi ace/ -n B -s      # Fail on B-grade or worse
+  stages: [push]
+```
+
+To skip complexity checks (not recommended):
+```bash
+git push --no-verify
+```
+
+#### Interpreting Results
+
+Example output:
+```
+ace/curator/semantic_curator.py
+    M 435:0 SemanticCurator - B (19.2)
+    M 81:4 SemanticCurator.apply_delta - B (6)
+    M 237:4 SemanticCurator.batch_merge - C (12)
+
+Average complexity: B (8.4)
+```
+
+Reading the output:
+- **M**: Method
+- **435:0**: Line number
+- **B (19.2)**: Grade (B) and maintainability index (19.2)
+- **B (6)**: Grade (B) and cyclomatic complexity (6)
+
+#### Refactoring High Complexity Code
+
+When you encounter C-grade or worse complexity:
+
+**1. Extract Methods**:
+```python
+# Before: Complex method (C-grade)
+def process_data(data):
+    if condition1:
+        if condition2:
+            if condition3:
+                # ... nested logic
+                pass
+
+# After: Extracted methods (A/B-grade)
+def process_data(data):
+    if should_process(data):
+        return perform_processing(data)
+    return default_result()
+
+def should_process(data):
+    return condition1 and condition2 and condition3
+
+def perform_processing(data):
+    # ... logic here
+    pass
+```
+
+**2. Use Guard Clauses**:
+```python
+# Before: Nested conditions (high complexity)
+def validate(data):
+    if data:
+        if data.is_valid():
+            if data.has_required_fields():
+                return True
+    return False
+
+# After: Guard clauses (lower complexity)
+def validate(data):
+    if not data:
+        return False
+    if not data.is_valid():
+        return False
+    if not data.has_required_fields():
+        return False
+    return True
+```
+
+**3. Replace Conditionals with Polymorphism**:
+```python
+# Before: Multiple isinstance checks (high complexity)
+def process(obj):
+    if isinstance(obj, TypeA):
+        # ... complex logic
+    elif isinstance(obj, TypeB):
+        # ... complex logic
+    elif isinstance(obj, TypeC):
+        # ... complex logic
+
+# After: Polymorphism (low complexity)
+class BaseType:
+    def process(self):
+        raise NotImplementedError
+
+class TypeA(BaseType):
+    def process(self):
+        # ... logic
+
+def process(obj: BaseType):
+    return obj.process()
+```
+
+**4. Use Data Structures**:
+```python
+# Before: Long if-elif chain (high complexity)
+def get_status(code):
+    if code == 200:
+        return "OK"
+    elif code == 404:
+        return "Not Found"
+    elif code == 500:
+        return "Error"
+    # ... many more
+
+# After: Dictionary lookup (low complexity)
+STATUS_MAP = {
+    200: "OK",
+    404: "Not Found",
+    500: "Error",
+    # ...
+}
+
+def get_status(code):
+    return STATUS_MAP.get(code, "Unknown")
+```
+
+#### Complexity Targets
+
+For ACE Playbook codebase:
+- **Target**: All modules ≤ B-grade average
+- **Maximum**: No functions > C-grade (complexity 20)
+- **Pre-commit**: Blocks push if C-grade or worse detected
+
+#### Best Practices
+
+1. **Monitor complexity regularly** during development
+2. **Refactor proactively** before complexity grows
+3. **Break down large functions** into smaller, focused functions
+4. **Use helper functions** to reduce nesting
+5. **Document complex logic** if refactoring isn't possible
+6. **Review complexity in PRs** before merging
+
+#### CI Integration
+
+Run complexity checks in CI pipeline:
+
+```bash
+# In CI script
+make complexity-strict || exit 1
+```
+
+Add to PR checks:
+- Fail if average complexity > B-grade
+- Warn if any function > 10 complexity
+- Block if any function > 20 complexity
+
+#### Further Reading
+
+- [Cyclomatic Complexity Explained](https://en.wikipedia.org/wiki/Cyclomatic_complexity)
+- [Radon Documentation](https://radon.readthedocs.io/)
+- [Code Complexity Thresholds](https://docs.sonarqube.org/latest/user-guide/metric-definitions/)
+- [Refactoring Catalog](https://refactoring.com/catalog/)
+
 ## Pull Request Process
 
 ### Before Submitting

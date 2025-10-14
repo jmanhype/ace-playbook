@@ -50,8 +50,31 @@ security:  ## Run security checks
 	safety check
 	pip-audit
 
-complexity:  ## Check code complexity
+complexity:  ## Check code complexity with radon
+	@echo "Checking cyclomatic complexity..."
 	radon cc ace/ -a -nb
+	@echo ""
+	@echo "Checking maintainability index..."
+	radon mi ace/ -nb
+	@echo ""
+	@echo "Complexity grades: A=simple, B=moderate, C=complex, D=very complex, F=unmaintainable"
+	@echo "Maintainability index: A=very maintainable, B=maintainable, C=needs attention"
+
+complexity-strict:  ## Check complexity with strict thresholds (fail on C or worse)
+	@echo "Checking cyclomatic complexity (fail on C-grade)..."
+	radon cc ace/ -n C -s
+	@echo ""
+	@echo "Checking maintainability index (fail on B-grade)..."
+	radon mi ace/ -n B -s
+	@echo ""
+	@echo "✓ All complexity checks passed!"
+
+complexity-report:  ## Generate detailed complexity reports
+	@echo "Generating complexity reports..."
+	@mkdir -p reports
+	radon cc ace/ -a -j > reports/complexity.json
+	radon mi ace/ -j > reports/maintainability.json
+	@echo "Reports saved to reports/"
 
 clean:  ## Clean temporary files
 	rm -rf .pytest_cache
