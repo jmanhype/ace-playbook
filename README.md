@@ -17,8 +17,14 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 - **Multi-domain isolation**: Per-tenant namespaces with separate FAISS indices
 - **Rollback procedures**: <5 minute automated rollback on regression detection
 - **Performance budgets**: ≤10ms P50 playbook retrieval, ≤+15% end-to-end overhead
+- **Observability metrics**: Prometheus-format metrics for monitoring (T065)
+- **Guardrail monitoring**: Automated rollback on performance regression (T066)
+- **Docker support**: Full containerization with Docker Compose (T067)
+- **E2E testing**: Comprehensive smoke tests for production readiness (T068)
 
 ## Quick Start
+
+### Local Installation
 
 ```bash
 # Install dependencies with uv (fast package manager)
@@ -38,6 +44,45 @@ pytest tests/e2e/test_smoke.py -v
 python examples/arithmetic_learning.py
 ```
 
+### Docker Compose (Recommended for Production)
+
+```bash
+# Create .env file with your API keys
+echo "OPENAI_API_KEY=sk-..." > .env
+echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
+
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f ace
+
+# Stop services
+docker-compose down
+```
+
+### Observability
+
+```python
+# Export Prometheus metrics
+from ace.ops import get_metrics_collector
+
+collector = get_metrics_collector()
+print(collector.export_prometheus())
+```
+
+### Guardrail Monitoring
+
+```python
+# Check for performance regressions
+from ace.ops import create_guardrail_monitor
+
+monitor = create_guardrail_monitor(session)
+trigger = monitor.check_guardrails("customer-acme")
+if trigger:
+    print(f"Rollback triggered: {trigger.reason}")
+```
+
 ## Project Structure
 
 ```
@@ -47,15 +92,18 @@ ace-playbook/
 │   ├── reflector/         # Reflector analysis
 │   ├── curator/           # Semantic deduplication
 │   ├── models/            # Data models and schemas
+│   ├── repositories/      # Database access layer
 │   ├── utils/             # Embeddings, FAISS, logging
-│   └── ops/               # Guardrails, monitoring
+│   └── ops/               # Operations (metrics, guardrails, training)
 ├── tests/                  # Test suite
 │   ├── unit/              # Unit tests
 │   ├── integration/       # Integration tests
-│   └── e2e/               # End-to-end tests
+│   └── e2e/               # End-to-end smoke tests
 ├── examples/               # Usage examples
 ├── config/                 # Configuration files
 ├── alembic/                # Database migrations
+├── Dockerfile              # Container image definition
+├── docker-compose.yml      # Local development stack
 └── docs/                   # Additional documentation
 ```
 
