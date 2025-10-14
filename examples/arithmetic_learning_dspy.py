@@ -50,24 +50,34 @@ def configure_dspy_lm():
     """
     Configure DSPy with LLM backend.
 
-    Supports OpenAI and Anthropic models.
+    Supports OpenRouter, OpenAI, and Anthropic models.
     """
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
-    if openai_key:
+    if openrouter_key:
+        # Use OpenRouter with Qwen model (fast and capable)
+        lm = dspy.LM(
+            "openrouter/qwen/qwen-2.5-7b-instruct",
+            api_key=openrouter_key,
+            api_base="https://openrouter.ai/api/v1"
+        )
+        print("✓ Configured DSPy with OpenRouter (Qwen 2.5 7B Instruct)")
+        return lm, "qwen-2.5-7b-instruct"
+    elif openai_key and not openai_key.startswith("your_"):
         # Use OpenAI GPT models
         lm = dspy.LM("openai/gpt-4o-mini", api_key=openai_key)
         print("✓ Configured DSPy with OpenAI GPT-4o-mini")
         return lm, "gpt-4o-mini"
-    elif anthropic_key:
+    elif anthropic_key and not anthropic_key.startswith("your_"):
         # Use Anthropic Claude models
         lm = dspy.LM("anthropic/claude-3-haiku-20240307", api_key=anthropic_key)
         print("✓ Configured DSPy with Anthropic Claude-3-Haiku")
         return lm, "claude-3-haiku"
     else:
         raise ValueError(
-            "No API keys found! Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env file"
+            "No API keys found! Please set OPENROUTER_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in .env file"
         )
 
 
@@ -251,9 +261,9 @@ def demonstrate_dspy_learning(session: Session, generator: CoTGenerator, reflect
                 "answer": generator_output.answer,
                 "confidence": generator_output.confidence,
                 "bullets_referenced": generator_output.bullets_referenced,
-                "latency_ms": generator_output.latency_ms,
-                "prompt_tokens": generator_output.prompt_tokens,
-                "completion_tokens": generator_output.completion_tokens
+                "latency_ms": generator_output.latency_ms or 0,
+                "prompt_tokens": generator_output.prompt_tokens or 0,
+                "completion_tokens": generator_output.completion_tokens or 0
             })
 
             # Check correctness
