@@ -30,6 +30,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "structlog>=24.1.0",
     "prometheus-client>=0.19.0",
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.27.0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
+    "opentelemetry-instrumentation-requests>=0.48b0",
 ]
 
 [project.optional-dependencies]
