@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from ace.models.journal import DiffJournalEntry, MergeOperation
-from ace.curator.semantic_curator import DeltaUpdate
+from ace.curator.curator_models import DeltaUpdate
 from ace.utils.logging_config import get_logger
 
 logger = get_logger(__name__, component="journal_repository")

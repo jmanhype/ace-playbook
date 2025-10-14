@@ -7,6 +7,8 @@ Combines SemanticCurator with database persistence (repositories).
 from typing import List, Dict
 from datetime import datetime
 
+from typing import TYPE_CHECKING
+
 from ace.curator.semantic_curator import (
     SemanticCurator,
     CuratorInput,
@@ -15,9 +17,11 @@ from ace.curator.semantic_curator import (
 )
 from ace.models.playbook import PlaybookBullet, PlaybookStage
 from ace.repositories.playbook_repository import PlaybookRepository
-from ace.repositories.journal_repository import DiffJournalRepository
 from ace.utils.database import get_session
 from ace.utils.logging_config import get_logger
+
+if TYPE_CHECKING:
+    from ace.repositories.journal_repository import DiffJournalRepository
 
 logger = get_logger(__name__, component="curator_service")
 
@@ -86,6 +90,9 @@ class CuratorService:
             num_insights=len(insights),
             target_stage=target_stage,
         )
+
+        # Lazy import to avoid circular dependency
+        from ace.repositories.journal_repository import DiffJournalRepository
 
         with get_session() as session:
             playbook_repo = PlaybookRepository(session)
@@ -282,6 +289,9 @@ class CuratorService:
         Returns:
             List of recent DiffJournalEntry objects
         """
+        # Lazy import to avoid circular dependency
+        from ace.repositories.journal_repository import DiffJournalRepository
+
         with get_session() as session:
             journal_repo = DiffJournalRepository(session)
             entries = journal_repo.get_recent_changes(
