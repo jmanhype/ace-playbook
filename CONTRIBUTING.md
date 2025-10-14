@@ -330,6 +330,132 @@ class TestSemanticCurator:
 - **Speed**: Unit tests should run in <1s each
 - **Clarity**: Use descriptive test names and clear arrange-act-assert structure
 
+### Mutation Testing
+
+Mutation testing verifies test suite quality by introducing small code changes (mutations) and checking if tests catch them. A high mutation kill rate (≥90%) indicates a robust test suite.
+
+#### What is Mutation Testing?
+
+Mutation testing works by:
+1. Creating "mutants" - small modifications to source code (e.g., changing `>` to `>=`, `+` to `-`)
+2. Running your test suite against each mutant
+3. Checking if tests fail (killing the mutant) or pass (mutant survives)
+
+A surviving mutant indicates:
+- Missing test coverage
+- Weak assertions
+- Logic that doesn't affect behavior
+
+#### Running Mutation Tests
+
+```bash
+# Using Make (recommended)
+make mutation-test          # Test curator module
+make mutation-results       # Show results summary
+make mutation-show ID=1     # Show specific mutation
+
+# Using script directly
+./scripts/run_mutation_tests.sh
+
+# Manual mutmut usage
+mutmut run                  # Run on all code
+mutmut results              # Show summary
+mutmut show 5               # View mutation #5
+mutmut html                 # Generate HTML report
+```
+
+#### Interpreting Results
+
+Mutation Score Guide:
+- **100% killed**: Excellent - all mutations detected
+- **90-99% killed**: Good - minor gaps acceptable
+- **80-89% killed**: Acceptable - needs improvement
+- **<80% killed**: Poor - significant test gaps
+
+Example output:
+```
+Survived: 5 mutants
+Killed: 45 mutants
+Mutation score: 90%
+```
+
+#### Fixing Surviving Mutants
+
+If a mutant survives:
+
+1. **View the mutation**:
+   ```bash
+   mutmut show 5
+   ```
+
+2. **Analyze why it survived**:
+   - Missing test case?
+   - Weak assertion (e.g., checking type but not value)?
+   - Dead code that should be removed?
+
+3. **Add/improve tests**:
+   ```python
+   # Before: Weak assertion
+   def test_calculation():
+       result = calculate(5, 3)
+       assert isinstance(result, int)  # Mutant survives
+
+   # After: Strong assertion
+   def test_calculation():
+       result = calculate(5, 3)
+       assert result == 8  # Mutant killed
+   ```
+
+4. **Re-run mutation test** to verify the fix
+
+#### Common Mutation Types
+
+mutmut introduces various mutations:
+
+- **Arithmetic**: `+` → `-`, `*` → `/`, `//` → `%`
+- **Comparison**: `>` → `>=`, `==` → `!=`, `<` → `<=`
+- **Boolean**: `and` → `or`, `True` → `False`
+- **Numbers**: `0` → `1`, `1` → `0`, `n` → `n+1`
+- **Strings**: `"text"` → `"XXtextXX"`
+
+#### Best Practices
+
+1. **Run mutation tests periodically** (not on every commit - they're slow)
+2. **Focus on critical modules** first (curator, reflector, generator)
+3. **Aim for 90%+ mutation score** on core business logic
+4. **Use mutation testing to find test gaps**, not just coverage holes
+5. **Document surviving mutants** if they're intentional (e.g., logging code)
+
+#### CI Integration
+
+Mutation testing is resource-intensive. Consider:
+
+```bash
+# Run on specific modules only
+mutmut run ace/curator/semantic_curator.py
+
+# Run in CI on PRs to core modules
+if [ "$CHANGED_MODULE" = "ace/curator" ]; then
+  make mutation-test
+fi
+```
+
+#### Configuration
+
+Mutation testing is configured in `pyproject.toml`:
+
+```toml
+[tool.mutmut]
+# Configuration handled by .mutmut-config
+# See scripts/run_mutation_tests.sh for usage
+```
+
+#### Further Reading
+
+- [Mutation Testing Concepts](https://en.wikipedia.org/wiki/Mutation_testing)
+- [mutmut Documentation](https://mutmut.readthedocs.io/)
+- [Test Quality vs Coverage](https://martinfowler.com/bliki/TestCoverage.html)
+
 ## Pull Request Process
 
 ### Before Submitting

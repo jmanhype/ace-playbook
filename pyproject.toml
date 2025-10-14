@@ -52,6 +52,7 @@ dev = [
     "safety>=3.0.0",
     "pip-audit>=2.7.0",
     "bandit[toml]>=1.7.8",
+    "mutmut>=2.4.5",
 ]
 
 [build-system]
@@ -157,3 +158,8 @@ verbose = 2
 quiet = false
 whitelist-regex = []
 color = true
+
+# Mutation testing configuration
+# Run with: mutmut run
+# Note: mutmut 3.x uses directory scanning by default
+# See scripts/run_mutation_tests.sh for usage examples

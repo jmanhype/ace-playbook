@@ -1,0 +1,4 @@
+[mutmut]
+backup=False
+runner=pytest -x --tb=short -q
+tests_dir=tests/

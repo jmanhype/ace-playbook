@@ -5,6 +5,42 @@ All notable changes to the ACE Playbook project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added - Phase 12: Maintainability Improvements (Priority 3)
+
+#### Mutation Testing Infrastructure
+- **mutmut integration** for test suite quality verification:
+  - Added `mutmut>=2.4.5` to dev dependencies
+  - Mutation testing evaluates test robustness by introducing code mutations
+  - Target: ≥90% mutation kill rate for critical modules
+- **Mutation testing scripts**:
+  - `scripts/run_mutation_tests.sh`: Automated mutation test execution
+  - `Makefile` targets: `mutation-test`, `mutation-results`, `mutation-show`
+  - Colored output with progress tracking and result summaries
+- **Comprehensive documentation** in `CONTRIBUTING.md`:
+  - What is mutation testing and why it matters
+  - Running mutation tests with make/script/manual commands
+  - Interpreting results and mutation score guide
+  - Fixing surviving mutants with before/after examples
+  - Common mutation types (arithmetic, comparison, boolean, numbers, strings)
+  - Best practices for periodic testing and CI integration
+  - Configuration and further reading resources
+- **Makefile utilities** for development workflow:
+  - Test commands: `test`, `test-unit`, `test-integration`, `test-cov`
+  - Quality commands: `format`, `lint`, `security`, `complexity`
+  - Mutation commands: `mutation-test`, `mutation-results`, `mutation-show`
+  - Utility commands: `install`, `clean`, `ci`
+
+### Documentation
+
+- Extended `CONTRIBUTING.md` with 130+ lines of mutation testing documentation
+- Added practical examples of weak vs strong assertions
+- Documented mutation testing workflow from detection to fix
+- Included CI integration patterns for resource-intensive testing
+
+---
+
 ## [1.11.0] - 2025-10-14
 
 ### Added - Phase 11: Production Quality (Priority 2)
