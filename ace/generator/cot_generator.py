@@ -15,6 +15,7 @@ from datetime import datetime
 
 from ace.generator.signatures import TaskInput, ChainOfThoughtSignature
 from ace.utils.logging_config import get_logger
+from ace.utils.llm_circuit_breaker import protected_predict
 from pydantic import BaseModel, Field
 
 logger = get_logger(__name__, component="generator")
@@ -255,8 +256,12 @@ class CoTGenerator:
             # T041: Format playbook bullets into context
             playbook_context = self.format_playbook_context(task_input.playbook_bullets)
 
-            # Call DSPy ChainOfThought predictor
-            prediction = self.predictor(
+            # T071: Call DSPy ChainOfThought predictor with circuit breaker protection
+            prediction = protected_predict(
+                self.predictor,
+                circuit_name="generator",
+                failure_threshold=5,
+                recovery_timeout=60,
                 task_description=task_input.description,
                 playbook_context=playbook_context,
                 domain=task_input.domain

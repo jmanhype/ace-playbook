@@ -21,6 +21,7 @@ from ace.reflector.signatures import (
     InsightSection
 )
 from ace.utils.logging_config import get_logger
+from ace.utils.llm_circuit_breaker import protected_predict
 
 logger = get_logger(__name__, component="reflector")
 
@@ -426,8 +427,12 @@ Bullets Referenced: {bullets_text}
                     reflector_input.test_results
                 )
 
-            # Call DSPy predictor for analysis
-            prediction = self.predictor(
+            # T071: Call DSPy predictor for analysis with circuit breaker protection
+            prediction = protected_predict(
+                self.predictor,
+                circuit_name="reflector",
+                failure_threshold=5,
+                recovery_timeout=60,
                 task_context=task_context,
                 feedback_context=feedback_context,
                 domain=reflector_input.domain
