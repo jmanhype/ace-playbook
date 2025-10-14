@@ -122,6 +122,66 @@ repos:
       - id: hadolint-docker
         args: ['--ignore', 'DL3008', '--ignore', 'DL3013']
 
+  # Test coverage enforcement
+  - repo: local
+    hooks:
+      - id: pytest-coverage
+        name: Enforce ≥80% test coverage
+        entry: pytest --cov=ace --cov-fail-under=80 --cov-report=term-missing --cov-report=html
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [push]
+
+  # Cyclomatic complexity check
+  - repo: local
+    hooks:
+      - id: radon-cc
+        name: Check code complexity
+        entry: radon cc ace/ -n C -s
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [push]
+
+  # Maintainability index
+  - repo: local
+    hooks:
+      - id: radon-mi
+        name: Check maintainability index
+        entry: radon mi ace/ -n B -s
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [push]
+
+  # Dependency security scanning
+  - repo: https://github.com/pyupio/safety
+    rev: 3.0.1
+    hooks:
+      - id: safety
+        args: ['check', '--bare']
+        stages: [push]
+
+  # Dead code detection
+  - repo: https://github.com/asottile/dead
+    rev: v1.5.2
+    hooks:
+      - id: dead
+        args: ['--exclude=tests/']
+
+  # Unused imports and variables
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.0
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-all-unused-imports
+          - --remove-unused-variables
+          - --remove-duplicate-keys
+          - --ignore-init-module-imports
+
 # Global settings
 default_language_version:
   python: python3.11

@@ -37,10 +37,15 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-benchmark>=4.0.0",
+    "hypothesis>=6.98.0",
     "black>=24.0.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
     "pre-commit>=3.6.0",
+    "radon>=6.0.1",
+    "safety>=3.0.0",
+    "bandit[toml]>=1.7.8",
 ]
 
 [build-system]

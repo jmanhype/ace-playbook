@@ -128,12 +128,15 @@ git commit --no-verify -m "WIP: temporary commit"
 
 **Installed Hooks:**
 
-- **Code Quality**: Black formatting, Ruff linting, isort import sorting
+- **Code Quality**: Black formatting, Ruff linting, isort import sorting, autoflake (unused imports)
 - **Type Safety**: mypy static type checking
-- **Security**: Bandit vulnerability scanning, detect-secrets
+- **Security**: Bandit vulnerability scanning, detect-secrets, Safety (dependency vulnerabilities)
 - **Documentation**: Docstring coverage (interrogate), markdown linting
 - **Standards**: Conventional commits validation, trailing whitespace, end-of-file fixes
 - **Infrastructure**: YAML/JSON/TOML validation, Dockerfile linting, SQL linting
+- **Testing**: pytest coverage ≥80% (on push)
+- **Complexity**: Radon cyclomatic complexity and maintainability index (on push)
+- **Dead Code**: Dead code detection
 
 ### Manual Testing
 
