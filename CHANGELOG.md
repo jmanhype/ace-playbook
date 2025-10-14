@@ -32,12 +32,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mutation commands: `mutation-test`, `mutation-results`, `mutation-show`
   - Utility commands: `install`, `clean`, `ci`
 
+#### Property-Based Testing with Hypothesis
+- **Comprehensive property tests** in `tests/unit/test_curator_properties.py` (450+ lines):
+  - **Idempotence**: Applying same insight twice only adds one bullet
+  - **Monotonicity**: Counters never decrease during operations
+  - **Domain Isolation**: Cross-domain operations always fail (ValueError)
+  - **Completeness**: Every insight generates exactly one delta update
+  - **Bounded Growth**: Playbook size grows sublinearly with duplicates
+  - **Base Case**: First insight on empty playbook always adds bullet
+  - **Symmetry**: Cosine similarity is symmetric (sim(A,B) = sim(B,A))
+  - **Reflexivity**: Self-similarity is 1.0 for non-zero vectors
+  - **Boundedness**: Similarity always in [-1, 1] range
+- **Custom hypothesis strategies**:
+  - `domain_ids`: Valid domain ID generator (regex-based)
+  - `playbook_bullet`: Complete PlaybookBullet generator
+  - `insight_dict`: Valid insight dictionary generator
+  - `embeddings_384`: 384-dimensional embedding vectors
+- **Test properties verified**:
+  - Semantic deduplication invariants hold for ALL inputs
+  - Counter operations preserve monotonicity
+  - Domain isolation is absolute and enforceable
+  - Similarity computation is mathematically sound
+- **Configuration**: 20 examples in dev, scalable to 1000+ in CI
+
 ### Documentation
 
 - Extended `CONTRIBUTING.md` with 130+ lines of mutation testing documentation
 - Added practical examples of weak vs strong assertions
 - Documented mutation testing workflow from detection to fix
 - Included CI integration patterns for resource-intensive testing
+- **Property-Based Testing Guide** (210+ lines in CONTRIBUTING.md):
+  - What is property-based testing and why use it
+  - Running property tests with hypothesis options
+  - Writing property tests with idempotence, monotonicity, symmetry examples
+  - Hypothesis strategies (built-in, custom, composite)
+  - Common properties to test (invariants, relations, bounds)
+  - Debugging property test failures with shrinking
+  - Best practices and configuration
+  - Further reading resources
 
 ---
 

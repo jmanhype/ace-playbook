@@ -456,6 +456,219 @@ Mutation testing is configured in `pyproject.toml`:
 - [mutmut Documentation](https://mutmut.readthedocs.io/)
 - [Test Quality vs Coverage](https://martinfowler.com/bliki/TestCoverage.html)
 
+### Property-Based Testing
+
+Property-based testing automatically generates test inputs to verify invariants that should hold for ALL inputs, not just hand-picked examples. Uses the `hypothesis` library to find edge cases that break your code.
+
+#### What is Property-Based Testing?
+
+Instead of writing specific test cases:
+```python
+# Traditional example-based test
+def test_addition():
+    assert add(2, 3) == 5
+    assert add(0, 0) == 0
+    assert add(-1, 1) == 0
+```
+
+Write properties that should always be true:
+```python
+# Property-based test
+@given(x=st.integers(), y=st.integers())
+def test_addition_commutative(x, y):
+    assert add(x, y) == add(y, x)  # Tests MILLIONS of inputs
+```
+
+#### Why Use Property-Based Testing?
+
+1. **Finds edge cases** humans miss (negative numbers, zero, MAX_INT)
+2. **Acts as executable specification** (documents what code MUST do)
+3. **Shrinks failures** to minimal reproducing example
+4. **Tests more code paths** with less test code
+
+#### Running Property Tests
+
+```bash
+# Run property tests
+pytest tests/unit/test_curator_properties.py -v
+
+# Run with more examples (slower but more thorough)
+pytest tests/unit/test_curator_properties.py -v --hypothesis-max-examples=100
+
+# Show generated examples
+pytest tests/unit/test_curator_properties.py -v --hypothesis-show-most-frequent=10
+```
+
+#### Writing Property Tests
+
+Located in `tests/unit/test_curator_properties.py` with examples:
+
+**Property: Idempotence**
+```python
+@given(domain_id=domain_ids, section=insight_sections)
+def test_deduplication_idempotent(curator, domain_id, section):
+    """
+    Applying the same insight twice should only add one bullet.
+    curator(curator(playbook, insight)) = curator(playbook, insight)
+    """
+    playbook = []
+    insight = {"content": "Test", "section": section}
+
+    output1 = curator.apply_delta(playbook, [insight])
+    output2 = curator.apply_delta(output1.playbook, [insight])
+
+    assert len(output2.playbook) == 1  # Not 2!
+```
+
+**Property: Monotonicity**
+```python
+@given(domain_id=domain_ids)
+def test_counters_monotonic(curator, domain_id):
+    """
+    Counters never decrease during operations.
+    For all operations: counter_after ≥ counter_before
+    """
+    bullet = create_bullet(helpful_count=5, harmful_count=3)
+
+    output = curator.apply_delta([bullet], new_insights)
+
+    for updated in output.playbook:
+        assert updated.helpful_count >= 5
+        assert updated.harmful_count >= 3
+```
+
+**Property: Symmetry**
+```python
+@given(vec1=embeddings_384, vec2=embeddings_384)
+def test_similarity_symmetric(vec1, vec2):
+    """
+    Cosine similarity is symmetric.
+    sim(A, B) = sim(B, A)
+    """
+    assert compute_similarity(vec1, vec2) == compute_similarity(vec2, vec1)
+```
+
+#### Hypothesis Strategies
+
+Hypothesis provides generators for test data:
+
+```python
+from hypothesis import strategies as st
+
+# Built-in strategies
+integers = st.integers(min_value=0, max_value=100)
+floats = st.floats(min_value=0.0, max_value=1.0, allow_nan=False)
+text = st.text(min_size=1, max_size=100, alphabet=st.characters())
+lists = st.lists(st.integers(), min_size=0, max_size=10)
+
+# Custom strategies (domain IDs)
+domain_ids = st.from_regex(r"^[a-z0-9-]{3,20}$").filter(
+    lambda x: x not in {"system", "admin", "test"}
+)
+
+# Composite strategies (complex objects)
+@st.composite
+def playbook_bullet(draw):
+    domain_id = draw(domain_ids)
+    content = draw(st.text(min_size=10, max_size=200))
+    embedding = draw(st.lists(st.floats(), min_size=384, max_size=384))
+
+    return PlaybookBullet(
+        domain_id=domain_id,
+        content=content,
+        embedding=embedding,
+        ...
+    )
+```
+
+#### Common Properties to Test
+
+**Invariants** (always true):
+- Idempotence: `f(f(x)) = f(x)`
+- Commutativity: `f(x, y) = f(y, x)`
+- Associativity: `f(f(x, y), z) = f(x, f(y, z))`
+- Identity: `f(x, identity) = x`
+
+**Relations** (between operations):
+- Inverse: `g(f(x)) = x`
+- Monotonicity: `x < y → f(x) < f(y)`
+- Symmetry: `f(x, y) = f(y, x)`
+
+**Bounds**:
+- Range limits: `0 ≤ f(x) ≤ 1`
+- Size constraints: `len(result) ≤ len(input)`
+
+#### Debugging Property Test Failures
+
+When hypothesis finds a failure:
+
+1. **Read the minimal example**:
+   ```
+   Falsifying example: test_counters_monotonic(
+       curator=<SemanticCurator>,
+       domain_id='a-b-1',
+       section1='Helpful',
+       section2='Harmful'
+   )
+   ```
+
+2. **Reproduce with exact values**:
+   ```python
+   def test_regression_counters_monotonic():
+       curator = SemanticCurator()
+       domain_id = 'a-b-1'
+       # ... use exact failing values
+   ```
+
+3. **Fix the bug** or **adjust the property** if it's too strict
+
+4. **Add as regression test** to prevent future failures
+
+#### Best Practices
+
+1. **Start with simple properties** (symmetry, bounds, commutativity)
+2. **Use `assume()` to filter invalid inputs**:
+   ```python
+   @given(x=st.integers(), y=st.integers())
+   def test_division(x, y):
+       assume(y != 0)  # Skip zero divisor
+       assert x / y == x / y
+   ```
+
+3. **Combine with example-based tests** for clarity
+4. **Run property tests in CI** (they're slower than unit tests)
+5. **Document discovered properties** as they emerge
+6. **Keep max_examples low** in development (20-50), high in CI (100-1000)
+
+#### Configuration
+
+Property testing is configured in `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+markers = [
+    "property: Property-based tests with hypothesis",
+]
+```
+
+Run with custom settings:
+```bash
+# More examples (slower, more thorough)
+pytest --hypothesis-max-examples=1000
+
+# Print statistics
+pytest --hypothesis-show-statistics
+
+# Deterministic (for CI)
+pytest --hypothesis-seed=12345
+```
+
+#### Further Reading
+
+- [Hypothesis Documentation](https://hypothesis.readthedocs.io/)
+- [Property-Based Testing Guide](https://hypothesis.works/)
+- [Property Testing Patterns](https://fsharpforfunandprofit.com/posts/property-based-testing/)
+
 ## Pull Request Process
 
 ### Before Submitting
