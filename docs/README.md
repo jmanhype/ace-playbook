@@ -1,0 +1,248 @@
+# ACE Playbook Documentation
+
+Comprehensive documentation for the ACE Playbook system, built with Sphinx.
+
+## Quick Start
+
+### Build Documentation
+
+```bash
+# From project root
+make docs
+
+# View the built documentation
+open docs/_build/html/index.html
+```
+
+### Serve Documentation Locally
+
+```bash
+# Serve at http://localhost:8000
+make docs-serve
+
+# Auto-rebuild on changes (requires sphinx-autobuild)
+make docs-autobuild
+```
+
+### Clean Build
+
+```bash
+make docs-clean
+```
+
+## Documentation Structure
+
+```
+docs/
+├── README.md                  # This file
+├── conf.py                    # Sphinx configuration
+├── index.rst                  # Main documentation entry point
+├── getting_started.rst        # Installation and quickstart
+├── architecture.md            # System architecture with diagrams
+├── onboarding.md              # Developer onboarding guide
+├── edge_cases.md              # Edge cases and error handling
+├── runbook.rst                # Operations runbook
+├── changelog.rst              # Changelog reference
+├── api/                       # API reference documentation
+│   ├── index.rst             # API overview
+│   ├── generator.rst         # Generator module
+│   ├── reflector.rst         # Reflector module
+│   ├── curator.rst           # Curator module
+│   ├── models.rst            # Data models
+│   ├── repositories.rst      # Database repositories
+│   ├── utils.rst             # Utilities
+│   ├── ops.rst               # Operations tools
+│   └── runner.rst            # Task runner
+└── tutorials/                 # Step-by-step tutorials
+    ├── index.rst             # Tutorial overview
+    ├── 01-quick-start.rst    # Quick start tutorial
+    ├── 02-offline-training.rst
+    ├── 03-domain-isolation.rst
+    └── 04-shadow-promotion.rst
+```
+
+## Prerequisites
+
+Install documentation dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Or manually:
+
+```bash
+pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
+```
+
+## Key Documentation Pages
+
+### For New Users
+- **[Getting Started](getting_started.rst)**: Installation and first steps
+- **[Quick Start Tutorial](tutorials/01-quick-start.rst)**: Complete pipeline walkthrough
+
+### For Developers
+- **[Architecture Guide](architecture.md)**: System design and component interaction
+- **[Developer Onboarding](onboarding.md)**: Setup, workflows, and best practices
+- **[API Reference](api/index.rst)**: Complete API documentation
+
+### For Operations
+- **[Edge Cases](edge_cases.md)**: Error handling and recovery procedures
+- **[Runbook](runbook.rst)**: Operational procedures
+
+## Writing Documentation
+
+### reStructuredText (.rst)
+
+Used for Sphinx-integrated documentation:
+
+```rst
+Section Title
+=============
+
+Subsection
+----------
+
+.. code-block:: python
+
+   # Python code example
+   from ace.generator import CoTGenerator
+
+   generator = CoTGenerator(model="gpt-4")
+```
+
+### Markdown (.md)
+
+Used for standalone guides (with MyST parser):
+
+```markdown
+# Section Title
+
+## Subsection
+
+```python
+# Python code example
+from ace.generator import CoTGenerator
+
+generator = CoTGenerator(model="gpt-4")
+```
+```
+
+### Adding New Pages
+
+1. Create your `.rst` or `.md` file in the appropriate directory
+2. Add it to the relevant `toctree` directive:
+
+```rst
+.. toctree::
+   :maxdepth: 2
+
+   existing_page
+   your_new_page
+```
+
+3. Rebuild the documentation: `make docs`
+
+## Sphinx Configuration
+
+Key settings in `conf.py`:
+
+- **Theme**: Read the Docs theme (`sphinx_rtd_theme`)
+- **Extensions**: autodoc, napoleon, autodoc-typehints, myst-parser
+- **Docstring Style**: Google-style docstrings
+- **Auto-generation**: API docs auto-generated from source code
+
+## Docstring Format
+
+Use Google-style docstrings for automatic API documentation:
+
+```python
+def example_function(param1: str, param2: int) -> bool:
+    """Brief one-line description.
+
+    Longer description with more details about what this
+    function does and how to use it.
+
+    Args:
+        param1: Description of param1
+        param2: Description of param2
+
+    Returns:
+        Description of return value
+
+    Raises:
+        ValueError: When param2 is negative
+
+    Example:
+        >>> example_function("test", 42)
+        True
+    """
+    pass
+```
+
+## Mermaid Diagrams
+
+Architecture diagrams use Mermaid syntax:
+
+```markdown
+```mermaid
+graph LR
+    A[Component A] --> B[Component B]
+    B --> C[Component C]
+```
+```
+
+## Contributing
+
+When adding new features to the codebase:
+
+1. **Update docstrings** using Google-style format
+2. **Add examples** to relevant tutorial files
+3. **Update architecture docs** if changing system design
+4. **Document edge cases** in `edge_cases.md`
+5. **Rebuild docs** to ensure no errors: `make docs`
+
+## Troubleshooting
+
+### Build Errors
+
+**Error**: `Module not found`
+```bash
+# Ensure ace package is installed
+pip install -e ".[dev]"
+```
+
+**Error**: `Sphinx extension not found`
+```bash
+# Reinstall documentation dependencies
+pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
+```
+
+### Missing Content
+
+If API documentation is missing:
+
+```bash
+# Clean and rebuild
+make docs-clean
+make docs
+```
+
+### Broken Links
+
+Check for broken links in the build output. Fix by:
+- Ensuring referenced files exist
+- Using correct relative paths
+- Adding files to `toctree` directives
+
+## Resources
+
+- [Sphinx Documentation](https://www.sphinx-doc.org/)
+- [reStructuredText Primer](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html)
+- [MyST Parser (Markdown)](https://myst-parser.readthedocs.io/)
+- [Google-style Docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+- [Mermaid Diagrams](https://mermaid.js.org/)
+
+## Questions?
+
+See the main [project README](../README.md) or open an issue on GitHub.
