@@ -43,6 +43,9 @@ pytest tests/e2e/test_smoke.py -v
 
 # Start with examples
 python examples/arithmetic_learning.py
+
+# Or run the single-domain validation
+python examples/single_domain_arithmetic_validation.py
 ```
 
 ### Docker Compose (Recommended for Production)
