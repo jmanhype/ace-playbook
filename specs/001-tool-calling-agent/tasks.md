@@ -107,8 +107,8 @@
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Integration test for playbook strategy retrieval in `tests/integration/test_tool_strategy_learning.py` - verify strategies are organized by domain with success metrics after 100+ tasks
-- [ ] T034 [P] [US3] Integration test for strategy reuse in `tests/integration/test_tool_strategy_learning.py` - verify new tasks in learned domains use proven patterns from playbook (initial tool selections match strategies)
+- [X] T033 [P] [US3] Integration test for playbook strategy retrieval in `tests/integration/test_tool_strategy_learning.py` - verify strategies are organized by domain with success metrics after 100+ tasks
+- [X] T034 [P] [US3] Integration test for strategy reuse in `tests/integration/test_tool_strategy_learning.py` - verify new tasks in learned domains use proven patterns from playbook (initial tool selections match strategies)
 
 ### Implementation for User Story 3
 
