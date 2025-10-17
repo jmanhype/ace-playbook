@@ -83,6 +83,7 @@ markers = [
     "performance: Performance benchmark tests",
     "react: ReAct agent-specific tests",
     "backward_compat: Backward compatibility tests",
+    "validation: Quickstart validation tests",
 ]
 
 [tool.black]
