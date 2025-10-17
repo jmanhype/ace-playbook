@@ -34,28 +34,30 @@ make docs-clean
 
 ```
 docs/
-├── README.md                  # This file
-├── conf.py                    # Sphinx configuration
-├── index.rst                  # Main documentation entry point
-├── getting_started.rst        # Installation and quickstart
-├── architecture.md            # System architecture with diagrams
-├── onboarding.md              # Developer onboarding guide
-├── edge_cases.md              # Edge cases and error handling
-├── runbook.rst                # Operations runbook
-├── changelog.rst              # Changelog reference
-├── api/                       # API reference documentation
-│   ├── index.rst             # API overview
-│   ├── generator.rst         # Generator module
-│   ├── reflector.rst         # Reflector module
-│   ├── curator.rst           # Curator module
-│   ├── models.rst            # Data models
-│   ├── repositories.rst      # Database repositories
-│   ├── utils.rst             # Utilities
-│   ├── ops.rst               # Operations tools
-│   └── runner.rst            # Task runner
-└── tutorials/                 # Step-by-step tutorials
-    ├── index.rst             # Tutorial overview
-    ├── 01-quick-start.rst    # Quick start tutorial
+├── README.md                        # This file
+├── conf.py                          # Sphinx configuration
+├── index.rst                        # Main documentation entry point
+├── getting_started.rst              # Installation and quickstart
+├── architecture.md                  # System architecture with diagrams
+├── onboarding.md                    # Developer onboarding guide
+├── edge_cases.md                    # Edge cases and error handling
+├── runbook.rst                      # Operations runbook
+├── changelog.rst                    # Changelog reference
+├── MODEL_TRANSFER_ANALYSIS.md       # ⭐ Research: Model transfer findings
+├── MULTI_MODEL_DEPLOYMENT_GUIDE.md  # ⭐ Guide: Multi-model deployment patterns
+├── api/                             # API reference documentation
+│   ├── index.rst                   # API overview
+│   ├── generator.rst               # Generator module
+│   ├── reflector.rst               # Reflector module
+│   ├── curator.rst                 # Curator module
+│   ├── models.rst                  # Data models
+│   ├── repositories.rst            # Database repositories
+│   ├── utils.rst                   # Utilities
+│   ├── ops.rst                     # Operations tools
+│   └── runner.rst                  # Task runner
+└── tutorials/                       # Step-by-step tutorials
+    ├── index.rst                   # Tutorial overview
+    ├── 01-quick-start.rst          # Quick start tutorial
     ├── 02-offline-training.rst
     ├── 03-domain-isolation.rst
     └── 04-shadow-promotion.rst
@@ -89,6 +91,20 @@ pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
 ### For Operations
 - **[Edge Cases](edge_cases.md)**: Error handling and recovery procedures
 - **[Runbook](runbook.rst)**: Operational procedures
+
+### Research & Advanced Topics ⭐ NEW
+- **[Model Transfer Analysis](MODEL_TRANSFER_ANALYSIS.md)**: Research findings on cross-model strategy transfer
+  - Extends ACE paper findings with novel cross-model evaluation
+  - Documents 0% transfer accuracy across model families (Qwen → Claude/Llama)
+  - Quantifies formatting (10%) vs fundamental (90%) failure modes
+  - Provides theoretical implications and future research directions
+
+- **[Multi-Model Deployment Guide](MULTI_MODEL_DEPLOYMENT_GUIDE.md)**: Practical patterns for multi-model ACE deployment
+  - Code examples for model-specific playbook management
+  - Database schema options (model-scoped domains vs separate DBs)
+  - Transfer testing patterns before production deployment
+  - Migration guide from single-model to multi-model setup
+  - Cost analysis and best practices
 
 ## Writing Documentation
 
