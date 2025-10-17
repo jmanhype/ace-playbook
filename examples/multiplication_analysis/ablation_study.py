@@ -73,7 +73,7 @@ def run_ablation_study(
 
     control_correct = 0
     control_total = 0
-    control_results = []
+    control_results = {}
 
     for idx, prob in enumerate(test_problems, 1):
         task_db = create_task_db(session, prob["problem"], prob["answer"], control_domain)
@@ -95,11 +95,11 @@ def run_ablation_study(
                 control_correct += 1
             control_total += 1
 
-            control_results.append({
+            control_results[prob["problem"]] = {
                 "problem": prob["problem"],
                 "answer": generator_output.answer,
                 "correct": is_correct
-            })
+            }
 
             save_task_output(session, task_db, {
                 "reasoning_trace": generator_output.reasoning_trace,
@@ -129,7 +129,7 @@ def run_ablation_study(
 
     treatment_correct = 0
     treatment_total = 0
-    treatment_results = []
+    treatment_results = {}
 
     for idx, prob in enumerate(test_problems, 1):
         task_db = create_task_db(session, prob["problem"], prob["answer"], treatment_domain)
@@ -151,11 +151,11 @@ def run_ablation_study(
                 treatment_correct += 1
             treatment_total += 1
 
-            treatment_results.append({
+            treatment_results[prob["problem"]] = {
                 "problem": prob["problem"],
                 "answer": generator_output.answer,
                 "correct": is_correct
-            })
+            }
 
             save_task_output(session, task_db, {
                 "reasoning_trace": generator_output.reasoning_trace,
@@ -217,9 +217,16 @@ def run_ablation_study(
     regressed = 0
     unchanged = 0
 
-    for i in range(len(test_problems)):
-        control_correct = control_results[i]["correct"]
-        treatment_correct = treatment_results[i]["correct"]
+    for prob in test_problems:
+        problem_str = prob["problem"]
+        control_result = control_results.get(problem_str)
+        treatment_result = treatment_results.get(problem_str)
+
+        if not control_result or not treatment_result:
+            continue  # Skip if a result is missing for this problem
+
+        control_correct = control_result["correct"]
+        treatment_correct = treatment_result["correct"]
 
         if not control_correct and treatment_correct:
             improved += 1

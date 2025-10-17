@@ -401,13 +401,17 @@ def calculate_statistics(baseline_results: List[bool], ace_results: List[bool]) 
     lift = ace_acc - baseline_acc
 
     # T-test
-    try:
-        t_stat, p_value = stats.ttest_rel(
-            [1 if x else 0 for x in ace_results],
-            [1 if x else 0 for x in baseline_results]
-        )
-    except:
-        t_stat, p_value = 0, 1.0
+    ace_scores = [1 if x else 0 for x in ace_results]
+    baseline_scores = [1 if x else 0 for x in baseline_results]
+
+    # Check for zero variance case which causes ttest_rel to fail
+    differences = [ace - base for ace, base in zip(ace_scores, baseline_scores)]
+    if statistics.variance(differences) == 0:
+        mean_diff = statistics.mean(differences)
+        t_stat = float('inf') if mean_diff > 0 else float('-inf') if mean_diff < 0 else 0
+        p_value = 0.0 if mean_diff != 0 else 1.0
+    else:
+        t_stat, p_value = stats.ttest_rel(ace_scores, baseline_scores)
 
     # Confidence interval for lift
     n = len(baseline_results)

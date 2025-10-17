@@ -460,7 +460,12 @@ def calculate_statistics(baseline_results: List[bool], ace_results: List[bool]) 
         std_error = 0
 
     # T-statistic
-    t_stat = mean_diff / std_error if std_error > 0 else 0
+    if std_error > 0:
+        t_stat = mean_diff / std_error
+    else:
+        # If std_error is 0, all differences are the same.
+        # If mean_diff is not 0, the result is perfectly consistent and significant.
+        t_stat = float('inf') if mean_diff > 0 else float('-inf') if mean_diff < 0 else 0
 
     # Degrees of freedom
     df = n - 1

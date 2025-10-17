@@ -334,12 +334,24 @@ def run_ace_training(session, generator, reflector, problems, domain_name, num_e
     """Run ACE training and return final accuracy."""
     print(f"\n  Training ACE playbook for {domain_name} ({num_epochs} epochs)...")
 
+    # Split problems into training and testing sets to prevent data leakage
+    random.shuffle(problems)
+    split_point = len(problems) // 2
+    train_problems = problems[:split_point]
+    test_problems = problems[split_point:]
+
+    if not train_problems or not test_problems:
+        print("  ⚠️ Not enough problems to split into train/test sets. Using all for training and testing.")
+        train_problems = test_problems = problems
+
+    print(f"  Split: {len(train_problems)} training, {len(test_problems)} testing")
+
     domain_id = f"{domain_name}-ace"
 
     for epoch in range(1, num_epochs + 1):
         epoch_correct = 0
 
-        for prob in problems:
+        for prob in train_problems:
             task_db = create_task_db(session, prob["problem"], prob["answer"], domain_id)
 
             # Get current playbook
@@ -404,17 +416,18 @@ def run_ace_training(session, generator, reflector, problems, domain_name, num_e
         # Promote bullets after each epoch
         promote_bullets(session, domain_id)
 
-        accuracy = (epoch_correct / len(problems) * 100) if problems else 0
+        accuracy = (epoch_correct / len(train_problems) * 100) if train_problems else 0
         print(f"    Epoch {epoch}: {accuracy:.1f}%")
 
-    # Final test
+    # Final test on held-out test set
     final_correct = 0
     bullets = get_playbook_bullets(session, domain_id)
     bullet_contents = [b.content for b in bullets]
 
     print(f"  ✓ Final playbook: {len(bullet_contents)} PROD bullets")
+    print(f"  Testing on held-out set ({len(test_problems)} problems)...")
 
-    for prob in problems:
+    for prob in test_problems:
         task_input = TaskInput(
             task_id=str(uuid.uuid4()),
             description=prob["problem"],
@@ -436,8 +449,8 @@ def run_ace_training(session, generator, reflector, problems, domain_name, num_e
         except Exception:
             continue
 
-    final_accuracy = (final_correct / len(problems) * 100) if problems else 0
-    print(f"  ✓ ACE-optimized: {final_correct}/{len(problems)} = {final_accuracy:.1f}%")
+    final_accuracy = (final_correct / len(test_problems) * 100) if test_problems else 0
+    print(f"  ✓ ACE-optimized (test set): {final_correct}/{len(test_problems)} = {final_accuracy:.1f}%")
 
     return final_accuracy
 
