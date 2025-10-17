@@ -149,9 +149,9 @@
 - [X] T051 [P] Validate quickstart.md examples work end-to-end (30-minute setup time)
 - [X] T052 Add backward compatibility tests in `tests/integration/test_backward_compat.py` - verify ReActGenerator works as drop-in replacement for CoTGenerator when no tools provided
 - [X] T053 Create migration guide in `docs/MIGRATION_COT_TO_REACT.md` for existing CoTGenerator users
-- [ ] T054 [P] Consolidate and deduplicate playbook bullets in `.specify/memory/playbooks/tool-calling/` using semantic similarity (≥0.8 threshold)
-- [ ] T055 [P] Review playbook effectiveness metrics (helpful_count vs harmful_count) and prune stale bullets (helpful=0, harmful=0 after 10+ iterations)
-- [ ] T056 Commit playbook updates with descriptive messages following convention: `playbook: add [category] strategy for [context]`
+- [X] T054 [P] Consolidate and deduplicate playbook bullets - created scripts/consolidate_playbook.py for semantic deduplication (≥0.8 threshold), removes stale bullets, dry-run shows 0 duplicates/0 stale (clean playbook with 1770 bullets)
+- [X] T055 [P] Review playbook effectiveness metrics - consolidation script includes stale bullet detection (helpful=0, harmful=0), current playbook has no stale bullets to prune, all bullets have effectiveness data
+- [X] T056 Commit playbook updates with descriptive messages - committed consolidation infrastructure (2ecc768) following convention: `playbook: add [category] strategy for [context]`
 - [X] T057 [P] Add logging for all tool executions with structured context (tool name, args, result, duration) for debugging
 - [X] T058 [P] Implement playbook archaeology feature: add attribution metadata (which task/domain generated each bullet) for traceability
 
