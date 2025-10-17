@@ -53,6 +53,7 @@ class SemanticCurator:
     playbook bloat while preserving distinct strategies.
 
     Implements CHK081-CHK082, CHK086 for multi-domain isolation.
+    T023: Extended with tool sequence deduplication for ReAct insights.
     """
 
     def __init__(
@@ -77,6 +78,142 @@ class SemanticCurator:
             embedding_model=embedding_model,
             similarity_threshold=similarity_threshold,
         )
+
+    def tool_sequences_match(
+        self,
+        seq1: List[str] | None,
+        seq2: List[str] | None
+    ) -> bool:
+        """
+        T023: Check if two tool sequences are equivalent for deduplication.
+
+        Two insights are only duplicates if:
+        1. Both have no tool sequences (regular CoT insights), OR
+        2. Both have identical tool sequences (same tools in same order)
+
+        Args:
+            seq1: First tool sequence (None for non-ReAct insights)
+            seq2: Second tool sequence (None for non-ReAct insights)
+
+        Returns:
+            True if sequences are compatible for deduplication
+        """
+        # Both None → compatible (both are CoT insights)
+        if seq1 is None and seq2 is None:
+            return True
+
+        # One None, one not → incompatible (CoT vs ReAct)
+        if (seq1 is None) != (seq2 is None):
+            return False
+
+        # Both have sequences → must match exactly
+        return seq1 == seq2
+
+    def calculate_tool_success_rate(
+        self,
+        helpful_count: int,
+        harmful_count: int
+    ) -> float:
+        """
+        T037: Calculate tool success rate from helpful/harmful counts.
+
+        Args:
+            helpful_count: Number of successful uses
+            harmful_count: Number of failed uses
+
+        Returns:
+            Success rate between 0.0 and 1.0
+        """
+        total = helpful_count + harmful_count
+        if total == 0:
+            return 0.0
+
+        return helpful_count / total
+
+    def get_high_success_strategies(
+        self,
+        playbook: List[PlaybookBullet],
+        domain_id: str,
+        min_success_rate: float = 0.7,
+        max_results: int = 10
+    ) -> List[PlaybookBullet]:
+        """
+        T037: Retrieve high-success tool strategies prioritized by success rate.
+
+        Args:
+            playbook: Current playbook bullets
+            domain_id: Domain to filter by
+            min_success_rate: Minimum success rate threshold (default: 0.7)
+            max_results: Maximum number of strategies to return
+
+        Returns:
+            List of PlaybookBullet sorted by tool_success_rate (highest first)
+        """
+        # Filter for tool-calling strategies in the domain
+        tool_strategies = [
+            b for b in playbook
+            if b.domain_id == domain_id
+            and b.tool_sequence is not None
+            and b.tool_success_rate is not None
+            and b.tool_success_rate >= min_success_rate
+        ]
+
+        # Sort by success rate (highest first)
+        sorted_strategies = sorted(
+            tool_strategies,
+            key=lambda b: b.tool_success_rate,
+            reverse=True
+        )
+
+        return sorted_strategies[:max_results]
+
+    def find_cross_domain_patterns(
+        self,
+        playbook: List[PlaybookBullet],
+        source_domain: str,
+        related_domains: List[str],
+        query_embedding: List[float],
+        similarity_threshold: float = 0.75,
+        max_results: int = 5
+    ) -> List[PlaybookBullet]:
+        """
+        T038: Enable cross-domain pattern transfer for related tasks.
+
+        Finds strategies from related domains that are semantically similar
+        to the query, enabling knowledge transfer across domain boundaries.
+
+        Args:
+            playbook: Current playbook bullets
+            source_domain: Primary domain for the query
+            related_domains: List of related domain IDs to search
+            query_embedding: Query embedding vector
+            similarity_threshold: Minimum semantic similarity (default: 0.75)
+            max_results: Maximum patterns to return
+
+        Returns:
+            List of PlaybookBullet from related domains, sorted by similarity
+        """
+        from ace.curator.curator_utils import compute_similarity
+
+        # Filter bullets from related domains (not source domain)
+        related_bullets = [
+            b for b in playbook
+            if b.domain_id in related_domains
+            and b.domain_id != source_domain
+        ]
+
+        # Calculate similarity for each bullet
+        scored_bullets = []
+        for bullet in related_bullets:
+            similarity = compute_similarity(query_embedding, bullet.embedding)
+            if similarity >= similarity_threshold:
+                scored_bullets.append((bullet, similarity))
+
+        # Sort by similarity (highest first)
+        sorted_bullets = sorted(scored_bullets, key=lambda x: x[1], reverse=True)
+
+        # Return top results (bullet only, not score)
+        return [bullet for bullet, _ in sorted_bullets[:max_results]]
 
     def apply_delta(self, curator_input: CuratorInput) -> CuratorOutput:
         """
@@ -121,6 +258,11 @@ class SemanticCurator:
                 if bullet.section != insight["section"]:
                     continue  # Only compare within same section
 
+                # T023: Check tool sequence compatibility for ReAct insights
+                insight_tool_seq = insight.get("tool_sequence")
+                if not self.tool_sequences_match(insight_tool_seq, bullet.tool_sequence):
+                    continue  # Different tool sequences → treat as distinct
+
                 similarity = compute_similarity(insight_embedding, bullet.embedding)
                 if similarity > best_similarity:
                     best_similarity = similarity
@@ -140,6 +282,13 @@ class SemanticCurator:
                 else:
                     # Neutral - no counter increment
                     operation = "increment_neutral"
+
+                # T037: Recalculate tool success rate based on updated counts
+                if best_match.tool_sequence:
+                    best_match.tool_success_rate = self.calculate_tool_success_rate(
+                        best_match.helpful_count,
+                        best_match.harmful_count
+                    )
 
                 after_hash = compute_bullet_hash(best_match)
 
@@ -162,6 +311,12 @@ class SemanticCurator:
                 )
             else:
                 # New distinct bullet - add to playbook
+                # T023/T031: Extract tool metadata if present (from ReAct insights)
+                tool_sequence = insight.get("tool_sequence")
+                tool_success_rate = insight.get("tool_success_rate")
+                avg_iterations = insight.get("avg_iterations")
+                avg_execution_time_ms = insight.get("avg_execution_time_ms")  # T031
+
                 new_bullet = PlaybookBullet(
                     id=str(uuid.uuid4()),
                     domain_id=curator_input.domain_id,
@@ -174,6 +329,20 @@ class SemanticCurator:
                     created_at=datetime.utcnow(),
                     last_used_at=datetime.utcnow(),
                     stage=curator_input.target_stage,
+                    # T023/T031: Tool-calling metadata (optional)
+                    tool_sequence=tool_sequence,
+                    tool_success_rate=tool_success_rate,
+                    avg_iterations=avg_iterations,
+                    avg_execution_time_ms=avg_execution_time_ms,  # T031
+                    # T058: Playbook archaeology - attribution metadata
+                    source_task_id=curator_input.task_id,
+                    source_reflection_id=insight.get("reflection_id"),
+                    generated_by="curator",
+                    generation_context={
+                        "curator_method": "apply_delta",
+                        "similarity_threshold": curator_input.similarity_threshold,
+                        "target_stage": curator_input.target_stage.value,
+                    },
                 )
 
                 updated_playbook.append(new_bullet)
@@ -348,6 +517,11 @@ class SemanticCurator:
                         if bullet.section != insight["section"]:
                             continue
 
+                        # T023: Check tool sequence compatibility for ReAct insights
+                        insight_tool_seq = insight.get("tool_sequence")
+                        if not self.tool_sequences_match(insight_tool_seq, bullet.tool_sequence):
+                            continue  # Different tool sequences → treat as distinct
+
                         if similarity > best_similarity:
                             best_similarity = similarity
                             best_match = bullet
@@ -365,6 +539,13 @@ class SemanticCurator:
                         operation = "increment_harmful"
                     else:
                         operation = "increment_neutral"
+
+                    # T037: Recalculate tool success rate based on updated counts
+                    if best_match.tool_sequence:
+                        best_match.tool_success_rate = self.calculate_tool_success_rate(
+                            best_match.helpful_count,
+                            best_match.harmful_count
+                        )
 
                     after_hash = compute_bullet_hash(best_match)
 
@@ -386,6 +567,12 @@ class SemanticCurator:
                     # Convert embedding to list if it's a numpy array
                     embedding_list = embedding.tolist() if hasattr(embedding, 'tolist') else embedding
 
+                    # T023/T031: Extract tool metadata if present (from ReAct insights)
+                    tool_sequence = insight.get("tool_sequence")
+                    tool_success_rate = insight.get("tool_success_rate")
+                    avg_iterations = insight.get("avg_iterations")
+                    avg_execution_time_ms = insight.get("avg_execution_time_ms")  # T031
+
                     new_bullet = PlaybookBullet(
                         id=str(uuid.uuid4()),
                         domain_id=domain_id,
@@ -398,6 +585,21 @@ class SemanticCurator:
                         created_at=datetime.utcnow(),
                         last_used_at=datetime.utcnow(),
                         stage=target_stage,
+                        # T023/T031: Tool-calling metadata (optional)
+                        tool_sequence=tool_sequence,
+                        tool_success_rate=tool_success_rate,
+                        avg_iterations=avg_iterations,
+                        avg_execution_time_ms=avg_execution_time_ms,  # T031
+                        # T058: Playbook archaeology - attribution metadata
+                        source_task_id=task_id,
+                        source_reflection_id=insight.get("reflection_id"),
+                        generated_by="curator",
+                        generation_context={
+                            "curator_method": "batch_merge",
+                            "similarity_threshold": similarity_threshold,
+                            "target_stage": target_stage.value,
+                            "batch_size": len(task_insights),
+                        },
                     )
 
                     updated_playbook.append(new_bullet)

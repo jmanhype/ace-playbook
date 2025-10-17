@@ -56,9 +56,57 @@ class PlaybookBullet(Base):
         comment="Shadow/Staging/Prod/Quarantined",
     )
 
+    # NEW: Tool-calling strategy fields (optional, for ReAct agent support)
+    tool_sequence = Column(
+        JSON,
+        nullable=True,
+        comment="Optional[List[str]] - Ordered sequence of tool names used in successful execution",
+    )
+    tool_success_rate = Column(
+        Float,
+        nullable=True,
+        comment="Optional[float] - Success rate for this tool sequence (0.0-1.0)",
+    )
+    avg_iterations = Column(
+        Integer,
+        nullable=True,
+        comment="Optional[int] - Average iterations when this tool sequence was used",
+    )
+    # T031: Tool reliability metrics
+    avg_execution_time_ms = Column(
+        Float,
+        nullable=True,
+        comment="Optional[float] - Average execution time in milliseconds for tool sequence",
+    )
+
+    # T058: Playbook archaeology - attribution metadata for traceability
+    source_task_id = Column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="Task ID that generated this bullet (for traceability)",
+    )
+    source_reflection_id = Column(
+        String(36),
+        nullable=True,
+        comment="Reflection ID that created this bullet (foreign key to reflections table)",
+    )
+    generated_by = Column(
+        String(32),
+        nullable=True,
+        comment="Component that generated this: 'reflector', 'curator', 'manual', 'import'",
+    )
+    generation_context = Column(
+        JSON,
+        nullable=True,
+        comment="Additional context about how this bullet was generated (metadata dict)",
+    )
+
     __table_args__ = (
         # CHK081: Enforce domain_id filtering for all queries
         Index("idx_domain_stage", "domain_id", "stage"),
         # Semantic search performance
         Index("idx_domain_section", "domain_id", "section"),
+        # Tool-calling strategy filtering
+        Index("idx_domain_tool_sequence", "domain_id", "tool_sequence"),
     )

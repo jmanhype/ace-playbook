@@ -153,7 +153,7 @@
 - [ ] T055 [P] Review playbook effectiveness metrics (helpful_count vs harmful_count) and prune stale bullets (helpful=0, harmful=0 after 10+ iterations)
 - [ ] T056 Commit playbook updates with descriptive messages following convention: `playbook: add [category] strategy for [context]`
 - [X] T057 [P] Add logging for all tool executions with structured context (tool name, args, result, duration) for debugging
-- [ ] T058 [P] Implement playbook archaeology feature: add attribution metadata (which task/domain generated each bullet) for traceability
+- [X] T058 [P] Implement playbook archaeology feature: add attribution metadata (which task/domain generated each bullet) for traceability
 
 ---
 
