@@ -79,6 +79,10 @@ markers = [
     "integration: Integration tests",
     "e2e: End-to-end tests",
     "slow: Slow-running tests",
+    "tool_validation: Tool signature validation tests",
+    "performance: Performance benchmark tests",
+    "react: ReAct agent-specific tests",
+    "backward_compat: Backward compatibility tests",
 ]
 
 [tool.black]

@@ -10,7 +10,7 @@ Based on contracts/generator.py and tasks.md T039-T041.
 import dspy
 import re
 import time
-from typing import List, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 
 from ace.generator.signatures import TaskInput, ChainOfThoughtSignature
@@ -27,6 +27,11 @@ class TaskOutput(BaseModel):
 
     Pydantic model (not DSPy Signature) to support optional fields
     that DSPy doesn't handle well.
+
+    Backward Compatibility (T052):
+    - Core fields (task_id, reasoning_trace, answer, confidence) are required
+    - ReAct-specific fields (structured_trace, tools_used, etc.) are optional
+    - CoTGenerator leaves ReAct fields empty/default, ReActGenerator populates them
     """
     task_id: str = Field(..., description="Task identifier")
     reasoning_trace: List[str] = Field(..., description="Step-by-step reasoning")
@@ -37,6 +42,13 @@ class TaskOutput(BaseModel):
     model_name: Optional[str] = Field(None, description="LLM model used")
     prompt_tokens: Optional[int] = Field(None, description="Input tokens")
     completion_tokens: Optional[int] = Field(None, description="Output tokens")
+
+    # ReAct-specific optional fields (T052 - backward compatibility)
+    structured_trace: List[Any] = Field(default_factory=list, description="Structured reasoning steps with metadata")
+    tools_used: List[str] = Field(default_factory=list, description="Tools used during execution")
+    total_iterations: int = Field(default=0, description="Number of ReAct iterations")
+    iteration_limit_reached: bool = Field(default=False, description="Whether max iterations was hit")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
 class CoTGenerator:
