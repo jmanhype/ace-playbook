@@ -780,6 +780,8 @@ class ReActGenerator:
             bullets_referenced=[],
             latency_ms=latency_ms,
             model_name=self.model,
+            prompt_tokens=None,  # T049: Add optional token count fields
+            completion_tokens=None,
         )
 
         # Add ReAct-specific fields as attributes
