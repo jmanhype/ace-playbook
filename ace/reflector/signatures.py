@@ -79,6 +79,24 @@ class ReflectorInput(dspy.Signature):
         desc="Task domain (arithmetic, code_gen, qa, agent_workflow)"
     )
 
+    # T022: ReAct-specific fields (optional, only present for tool-calling tasks)
+    structured_trace: List[Any] = dspy.InputField(
+        default_factory=list,
+        desc="ReAct structured trace with tool calls (List[ReasoningStep])"
+    )
+    tools_used: List[str] = dspy.InputField(
+        default_factory=list,
+        desc="List of tool names used during execution"
+    )
+    total_iterations: int = dspy.InputField(
+        default=0,
+        desc="Total ReAct iterations performed"
+    )
+    iteration_limit_reached: bool = dspy.InputField(
+        default=False,
+        desc="Whether max iterations was hit without completion"
+    )
+
 
 class AnalysisSignature(dspy.Signature):
     """

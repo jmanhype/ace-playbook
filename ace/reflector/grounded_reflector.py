@@ -31,6 +31,7 @@ class InsightCandidate(BaseModel):
     Single insight extracted from task analysis.
 
     T045: Pydantic model for type safety and validation.
+    T022: Extended with tool-calling metadata for ReAct agents.
     """
     content: str = Field(..., description="Strategy or observation text")
     section: InsightSection = Field(..., description="Helpful/Harmful/Neutral")
@@ -38,6 +39,13 @@ class InsightCandidate(BaseModel):
     rationale: str = Field(..., description="Explanation linking to feedback")
     tags: List[str] = Field(default_factory=list, description="Domain/category tags")
     referenced_steps: List[int] = Field(default_factory=list, description="Trace step indices")
+
+    # T022: Tool-calling metadata (optional, only for ReAct tasks)
+    tool_sequence: Optional[List[str]] = Field(None, description="Ordered tool names used")
+    tool_success_rate: Optional[float] = Field(None, ge=0.0, le=1.0, description="Success rate for this sequence")
+    avg_iterations: Optional[int] = Field(None, ge=0, description="Average iterations for this pattern")
+    # T031: Tool reliability metrics
+    avg_execution_time_ms: Optional[float] = Field(None, ge=0.0, description="Average execution time in milliseconds")
 
 
 class ReflectorOutput(BaseModel):
@@ -338,6 +346,163 @@ Bullets Referenced: {bullets_text}
 
         return insights[:self.max_insights]
 
+    def analyze_tool_usage(
+        self,
+        task_output: Any,
+        task_successful: bool,
+        domain: str
+    ) -> List[InsightCandidate]:
+        """
+        T022/T030: Extract tool usage patterns from ReAct task execution.
+
+        Analyzes structured_trace to identify:
+        - Successful tool sequences (T022)
+        - Tool failure patterns (T030)
+        - Tool adaptations after errors (T030)
+
+        Args:
+            task_output: TaskOutput from ReActGenerator (must have structured_trace)
+            task_successful: Whether task completed successfully
+            domain: Task domain for tagging
+
+        Returns:
+            List of InsightCandidate objects with tool metadata (empty if no tools used)
+        """
+        # Check if this is a ReAct task output (has structured_trace)
+        if not hasattr(task_output, 'structured_trace'):
+            logger.debug("analyze_tool_usage_skipped", reason="Not a ReAct task output")
+            return []
+
+        structured_trace = task_output.structured_trace
+        if not structured_trace:
+            logger.debug("analyze_tool_usage_skipped", reason="Empty structured trace")
+            return []
+
+        insights = []
+
+        # Extract tool sequence and identify failures/adaptations
+        tool_sequence = []
+        tool_steps = []
+        failed_tools = []  # T030: Track failed tool attempts
+        adaptations = []  # T030: Track tool switches after errors
+        tool_execution_times = []  # T031: Track execution durations
+
+        for i, step in enumerate(structured_trace):
+            if step.action == "call_tool" and step.tool_name:
+                tool_sequence.append(step.tool_name)
+                tool_steps.append(step.iteration)
+
+                # T031: Collect execution time
+                duration_ms = getattr(step, 'duration_ms', 0.0)
+                if duration_ms > 0:
+                    tool_execution_times.append(duration_ms)
+
+                # T030: Check if tool call resulted in error
+                observation = getattr(step, 'observation', '')
+                if observation and ('error' in observation.lower() or 'failed' in observation.lower()):
+                    failed_tools.append(step.tool_name)
+
+                    # Check if next step switches to different tool (adaptation)
+                    if i + 1 < len(structured_trace):
+                        next_step = structured_trace[i + 1]
+                        if (next_step.action == "call_tool" and
+                            next_step.tool_name and
+                            next_step.tool_name != step.tool_name):
+                            adaptations.append({
+                                'from_tool': step.tool_name,
+                                'to_tool': next_step.tool_name,
+                                'iteration': step.iteration
+                            })
+
+        if not tool_sequence:
+            logger.debug("analyze_tool_usage_skipped", reason="No tools used in trace")
+            return []
+
+        # Calculate metadata
+        total_iterations = getattr(task_output, 'total_iterations', 0)
+        success_rate = 1.0 if task_successful else 0.0
+
+        # T031: Calculate average execution time
+        avg_exec_time = sum(tool_execution_times) / len(tool_execution_times) if tool_execution_times else None
+
+        # Create main tool sequence insight
+        if len(tool_sequence) == 1:
+            content = f"Used '{tool_sequence[0]}' tool to solve the task"
+        else:
+            tool_chain = " → ".join(tool_sequence)
+            content = f"Tool sequence: {tool_chain}"
+
+        # Determine section based on success
+        section = InsightSection.HELPFUL if task_successful else InsightSection.HARMFUL
+
+        # Create rationale
+        outcome = "successful" if task_successful else "unsuccessful"
+        rationale = f"Tool sequence led to {outcome} task completion in {total_iterations} iterations"
+
+        # Create main InsightCandidate with tool metadata
+        main_insight = InsightCandidate(
+            content=content,
+            section=section,
+            confidence=0.9 if task_successful else 0.7,
+            rationale=rationale,
+            tags=[domain, "tool-calling"] if domain else ["tool-calling"],
+            referenced_steps=tool_steps,
+            tool_sequence=tool_sequence,
+            tool_success_rate=success_rate,
+            avg_iterations=total_iterations,
+            avg_execution_time_ms=avg_exec_time  # T031
+        )
+        insights.append(main_insight)
+
+        # T030: Create insights for tool failures (Harmful patterns)
+        if failed_tools:
+            unique_failures = list(set(failed_tools))
+            failure_content = f"Tool failures: {', '.join(unique_failures)} caused errors or timeouts"
+            failure_insight = InsightCandidate(
+                content=failure_content,
+                section=InsightSection.HARMFUL,
+                confidence=0.8,
+                rationale=f"Tools {', '.join(unique_failures)} encountered errors during execution",
+                tags=[domain, "tool-calling", "tool-failure"] if domain else ["tool-calling", "tool-failure"],
+                referenced_steps=tool_steps,
+                tool_sequence=unique_failures,
+                tool_success_rate=0.0,
+                avg_iterations=total_iterations,
+                avg_execution_time_ms=avg_exec_time  # T031
+            )
+            insights.append(failure_insight)
+
+        # T030: Create insights for tool adaptations (learning pattern)
+        if adaptations:
+            for adaptation in adaptations:
+                adapt_content = f"After '{adaptation['from_tool']}' failed, switched to '{adaptation['to_tool']}'"
+                adapt_insight = InsightCandidate(
+                    content=adapt_content,
+                    section=InsightSection.HELPFUL if task_successful else InsightSection.HARMFUL,
+                    confidence=0.75,
+                    rationale=f"Tool adaptation at iteration {adaptation['iteration']}",
+                    tags=[domain, "tool-calling", "adaptation"] if domain else ["tool-calling", "adaptation"],
+                    referenced_steps=[adaptation['iteration']],
+                    tool_sequence=[adaptation['from_tool'], adaptation['to_tool']],
+                    tool_success_rate=success_rate,
+                    avg_iterations=total_iterations,
+                    avg_execution_time_ms=avg_exec_time  # T031
+                )
+                insights.append(adapt_insight)
+
+        logger.info(
+            "tool_usage_analyzed",
+            task_id=getattr(task_output, 'task_id', 'unknown'),
+            tool_sequence=tool_sequence,
+            num_tools=len(tool_sequence),
+            success=task_successful,
+            iterations=total_iterations,
+            failures=len(failed_tools),
+            adaptations=len(adaptations)
+        )
+
+        return insights
+
     def validate_reflector_input(self, reflector_input: ReflectorInput) -> None:
         """
         Validate ReflectorInput before analysis.
@@ -445,6 +610,36 @@ Bullets Referenced: {bullets_text}
                 float(prediction.confidence),
                 reflector_input.domain
             )
+
+            # T022: Analyze tool usage for ReAct tasks
+            if reflector_input.structured_trace:
+                # Determine task success from feedback signals
+                task_successful = is_correct or tests_passed
+
+                # Create a mock task output object with ReAct fields
+                class TaskOutputMock:
+                    def __init__(self):
+                        self.task_id = reflector_input.task_id
+                        self.structured_trace = reflector_input.structured_trace
+                        self.tools_used = reflector_input.tools_used
+                        self.total_iterations = reflector_input.total_iterations
+                        self.iteration_limit_reached = reflector_input.iteration_limit_reached
+
+                mock_output = TaskOutputMock()
+                tool_insights = self.analyze_tool_usage(
+                    mock_output,
+                    task_successful,
+                    reflector_input.domain
+                )
+
+                # Add tool insights to overall insights
+                insights.extend(tool_insights)
+
+                logger.debug(
+                    "tool_insights_added",
+                    task_id=reflector_input.task_id,
+                    num_tool_insights=len(tool_insights)
+                )
 
             # Determine feedback types used
             feedback_types = self.determine_feedback_types(

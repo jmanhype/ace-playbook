@@ -8,7 +8,27 @@ Version: v1.0.0
 """
 
 import dspy
-from typing import List, Optional
+from typing import List, Optional, Literal, Dict, Any
+from dataclasses import dataclass, field
+
+
+@dataclass
+class ReasoningStep:
+    """
+    One iteration of the ReAct cycle: thought → action → observation.
+
+    Used to capture structured reasoning traces from ReActGenerator.
+    Maps to ReasoningStep entity from data-model.md.
+    """
+
+    iteration: int
+    thought: str
+    action: Literal["call_tool", "finish"]
+    tool_name: Optional[str] = None
+    tool_args: Optional[Dict[str, Any]] = None
+    observation: Optional[str] = None
+    timestamp: float = 0.0
+    duration_ms: float = 0.0
 
 
 class TaskInput(dspy.Signature):
@@ -47,6 +67,16 @@ class TaskInput(dspy.Signature):
         desc="Maximum number of reasoning steps before termination"
     )
 
+    # NEW: ReAct-specific fields (optional for backward compatibility)
+    available_tools: Optional[List[str]] = dspy.InputField(
+        default=None,
+        desc="Subset of registered tools to use for this task (None = all tools available)"
+    )
+    max_iterations: Optional[int] = dspy.InputField(
+        default=None,
+        desc="Task-level override for iteration limit (takes precedence over agent-level)"
+    )
+
 
 class TaskOutput(dspy.Signature):
     """
@@ -74,6 +104,24 @@ class TaskOutput(dspy.Signature):
     bullets_referenced: List[str] = dspy.OutputField(
         default_factory=list,
         desc="IDs of playbook bullets explicitly consulted during reasoning"
+    )
+
+    # NEW: ReAct-specific fields
+    structured_trace: List[ReasoningStep] = dspy.OutputField(
+        default_factory=list,
+        desc="Detailed reasoning steps from ReAct execution (empty for CoT)"
+    )
+    tools_used: List[str] = dspy.OutputField(
+        default_factory=list,
+        desc="Names of tools called during execution (empty for CoT)"
+    )
+    total_iterations: int = dspy.OutputField(
+        default=0,
+        desc="Number of ReAct iterations executed (0 for CoT)"
+    )
+    iteration_limit_reached: bool = dspy.OutputField(
+        default=False,
+        desc="True if max iterations hit without finishing (False for CoT)"
     )
 
 
