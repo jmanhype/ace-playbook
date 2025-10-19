@@ -24,6 +24,17 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 - **E2E testing**: Comprehensive smoke tests for production readiness (T068)
 - **Runtime adaptation**: Merge coordinator + runtime adapter enable in-flight learning with optional benchmark harness
 
+### Guardrails as High-Precision Sensors
+
+ACE turns tiny heuristic checks into reusable guardrails without manual babysitting:
+
+- **Detect**: Domain heuristics (e.g., ±0.4% drift, missing "%") label a generator trajectory as a precise failure mode.
+- **Distill**: The reflector converts that signal into a lesson (“round to whole percent and append %”).
+- **Persist**: The curator records a typed delta with helpful/harmful counters and merges it into the playbook.
+- **Reuse**: Runtime adapter + merge coordinator surface the tactic immediately so later tasks cannot repeat the mistake.
+
+This loop mirrors the +8.6% improvements reported on FiNER/XBRL benchmarks—subtle finance errors become actionable context upgrades instead of one-off patches.
+
 ## Quick Start
 
 ### Local Installation
