@@ -243,6 +243,15 @@ FINANCE_GUARDRAILS: Dict[str, FinanceGuardrail] = {
         calculator=lambda: _compound_interest_interest(Decimal("400"), Decimal("0.06"), 4, 3),
         format="number",
     ),
+    "fin-012": FinanceGuardrail(
+        instructions=(
+            "Compute gross margin percentage as ((revenue - COGS) / revenue) * 100 with revenue 9000 and COGS 6300. "
+            "Return only the percentage rounded to the nearest whole percent with a trailing % sign."),
+        calculator=lambda: _percentage((Decimal("9000") - Decimal("6300")) / Decimal("9000")),
+        format="percent",
+        auto_correct=True,
+        decimals=0,
+    ),
     "fin-020": FinanceGuardrail(
         instructions=(
             "Compute the fixed monthly payment for a $10,000 loan at 5% annual interest over 5 years with monthly compounding. "
@@ -270,6 +279,15 @@ FINANCE_GUARDRAILS: Dict[str, FinanceGuardrail] = {
         format="percent",
         auto_correct=True,
         decimals=2,
+    ),
+    "fin-017": FinanceGuardrail(
+        instructions=(
+            "Calculate dividend yield as (dividend per share / share price) * 100 using dividend per share 2 and share price 40. "
+            "Return only the percentage rounded to the nearest whole percent with a trailing % sign."),
+        calculator=lambda: _percentage(Decimal("2") / Decimal("40")),
+        format="percent",
+        auto_correct=True,
+        decimals=0,
     ),
     "fin-018": FinanceGuardrail(
         instructions=(
