@@ -89,3 +89,4 @@ site/
 tmp/
 temp/
 *.tmp
+.cache/
