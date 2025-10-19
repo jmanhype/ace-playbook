@@ -91,6 +91,7 @@ pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints myst-parser
 ### For Operations
 - **[Edge Cases](edge_cases.md)**: Error handling and recovery procedures
 - **[Runbook](runbook.rst)**: Operational procedures
+- **[Runtime Adaptation & Benchmarks](runtime_benchmarks.rst)**: Benchmark harness, runtime adapter workflow, and guardrail reporting
 
 ### Research & Advanced Topics ⭐ NEW
 - **[Model Transfer Analysis](MODEL_TRANSFER_ANALYSIS.md)**: Research findings on cross-model strategy transfer

@@ -22,6 +22,7 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 - **Guardrail monitoring**: Automated rollback on performance regression (T066)
 - **Docker support**: Full containerization with Docker Compose (T067)
 - **E2E testing**: Comprehensive smoke tests for production readiness (T068)
+- **Runtime adaptation**: Merge coordinator + runtime adapter enable in-flight learning with optional benchmark harness
 
 ## Quick Start
 
@@ -46,6 +47,9 @@ python examples/arithmetic_learning.py
 
 # Or run the single-domain validation
 python examples/single_domain_arithmetic_validation.py
+
+# Generate structured benchmark reports
+python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/ace_full_finance_subset.json
 ```
 
 ### Docker Compose (Recommended for Production)
@@ -194,3 +198,5 @@ make docs-serve  # http://localhost:8000
 ## License
 
 MIT
+# Benchmark automation
+python scripts/run_benchmark.py benchmarks/agent_small.jsonl baseline --output results/baseline_agent_small.json

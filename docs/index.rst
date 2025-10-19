@@ -11,6 +11,7 @@ ACE Playbook Documentation
    api/index
    tutorials/index
    edge_cases
+   runtime_benchmarks
    runbook
    changelog
 

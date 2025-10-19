@@ -1,34 +1,50 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 26,
-  "promotions": 5,
+  "correct": 24,
+  "promotions": 9,
   "quarantines": 0,
-  "new_bullets": 4,
-  "increments": 12,
+  "new_bullets": 6,
+  "increments": 14,
   "latency_ms": [],
-  "failures": [],
+  "failures": [
+    {
+      "task_id": "fin-012",
+      "answer": "(9000 - 6300) / 9000 * 100 = 3000 / 9000 * 100 = 33.33%",
+      "ground_truth": "30%"
+    },
+    {
+      "task_id": "fin-017",
+      "answer": "0.05",
+      "ground_truth": "5%"
+    }
+  ],
   "auto_corrections": [
     {
       "task_id": "fin-002",
-      "original_answer": "40%",
+      "original_answer": "38%",
       "corrected_answer": "30%"
     },
     {
+      "task_id": "fin-005",
+      "original_answer": "200",
+      "corrected_answer": "250"
+    },
+    {
       "task_id": "fin-014",
-      "original_answer": "29.99%",
+      "original_answer": "25.00%",
       "corrected_answer": "19.11%"
     },
     {
       "task_id": "fin-019",
-      "original_answer": "23.38%",
+      "original_answer": "21.64%",
       "corrected_answer": "21.65%"
     }
   ],
   "format_corrections": [
     {
       "task_id": "fin-006",
-      "original_answer": "The ROI is 30.0%.",
+      "original_answer": "The ROI for the investment is 30%.",
       "corrected_answer": "30%"
     },
     {
@@ -37,18 +53,8 @@
       "corrected_answer": "15%"
     },
     {
-      "task_id": "fin-012",
-      "original_answer": "(9000 - 6300) / 9000 * 100 = 29.999999999999996",
-      "corrected_answer": "30%"
-    },
-    {
-      "task_id": "fin-017",
-      "original_answer": "The dividend yield is 0.05 or 5%.",
-      "corrected_answer": "5%"
-    },
-    {
       "task_id": "fin-026",
-      "original_answer": "The retention ratio is 0.75 (or 75%).",
+      "original_answer": "The retention ratio is 0.75 (or 75%). This is calculated as 1 - (Dividends/Earnings) = 1 - (300/1200) = 0.75.",
       "corrected_answer": "75%"
     }
   ]
