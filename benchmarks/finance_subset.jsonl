@@ -1,0 +1,26 @@
+{"task_id": "fin-001", "description": "Compute net income from revenue 1200 and expenses 450", "ground_truth": "750"}
+{"task_id": "fin-002", "description": "Calculate CAGR for value 100 to 169 over 2 years", "ground_truth": "30%"}
+{"task_id": "fin-003", "description": "Calculate simple interest on principal 600 at 5% annual rate over 4 years", "ground_truth": "120"}
+{"task_id": "fin-004", "description": "Determine break-even units for fixed costs 1500, unit price 50, unit cost 20", "ground_truth": "50"}
+{"task_id": "fin-005", "description": "Compute straight-line depreciation for asset cost 1200, salvage 200, life 4 years", "ground_truth": "250"}
+{"task_id": "fin-006", "description": "Calculate ROI for investment cost 800 and return 1040", "ground_truth": "30%"}
+{"task_id": "fin-007", "description": "Compute net profit margin for revenue 5000 and net income 750", "ground_truth": "15%"}
+{"task_id": "fin-008", "description": "Determine payback period for project costing 2000 with annual cash inflow 500", "ground_truth": "4"}
+{"task_id": "fin-009", "description": "Calculate compound interest for principal 400 at 6% annual rate compounded quarterly for 3 years", "ground_truth": "78.25"}
+{"task_id": "fin-010", "description": "Compute EBITDA given revenue 8000, COGS 3000, operating expenses 2500", "ground_truth": "2500"}
+{"task_id": "fin-011", "description": "Calculate working capital with current assets 4200 and current liabilities 1600", "ground_truth": "2600"}
+{"task_id": "fin-012", "description": "Determine gross margin percentage with revenue 9000 and COGS 6300", "ground_truth": "30%"}
+{"task_id": "fin-013", "description": "Compute inventory turnover given COGS 12000 and average inventory 2000", "ground_truth": "6"}
+{"task_id": "fin-014", "description": "Calculate annualized return for investment that grows from 2000 to 2600 in 18 months", "ground_truth": "19.11%"}
+{"task_id": "fin-015", "description": "Compute debt-to-equity ratio for total liabilities 3500 and equity 2500", "ground_truth": "1.4"}
+{"task_id": "fin-016", "description": "Determine price-to-earnings ratio for share price 45 and EPS 3", "ground_truth": "15"}
+{"task_id": "fin-017", "description": "Calculate dividend yield for dividend per share 2 and share price 40", "ground_truth": "5%"}
+{"task_id": "fin-018", "description": "Compute net present value for cash flows [ -5000, 2000, 2500, 3000 ] at discount rate 10%", "ground_truth": "1138.24"}
+{"task_id": "fin-019", "description": "Determine internal rate of return for cash flows [ -3000, 1200, 1500, 1800 ]", "ground_truth": "21.65%"}
+{"task_id": "fin-020", "description": "Calculate amortization payment for loan principal 10000, annual rate 5%, 5-year term", "ground_truth": "188.71"}
+{"task_id": "fin-021", "description": "Compute contribution margin ratio given sales price 70 and variable cost 28", "ground_truth": "60%"}
+{"task_id": "fin-022", "description": "Determine operating leverage with contribution margin 4500 and operating income 1500", "ground_truth": "3"}
+{"task_id": "fin-023", "description": "Calculate effective annual rate for nominal 9% compounded monthly", "ground_truth": "9.38%"}
+{"task_id": "fin-024", "description": "Compute future value of annuity paying 400 annually for 8 years at 4%", "ground_truth": "3685.69"}
+{"task_id": "fin-025", "description": "Calculate weighted average cost of capital given equity 60%, debt 40%, cost of equity 10%, cost of debt 6%, tax rate 25%", "ground_truth": "8.40%"}
+{"task_id": "fin-026", "description": "Determine retention ratio with earnings 1200 and dividends 300", "ground_truth": "75%"}

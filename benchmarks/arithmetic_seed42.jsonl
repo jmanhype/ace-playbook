@@ -1,0 +1,5 @@
+{"task_id": "arith-001", "description": "124 * 35", "ground_truth": "4340"}
+{"task_id": "arith-002", "description": "224 + 112", "ground_truth": "336"}
+{"task_id": "arith-003", "description": "628 - 280", "ground_truth": "348"}
+{"task_id": "arith-004", "description": "377 - 109", "ground_truth": "268"}
+{"task_id": "arith-005", "description": "990 + 791", "ground_truth": "1781"}

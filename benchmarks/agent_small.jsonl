@@ -1,0 +1,26 @@
+{"task_id": "agent-001", "description": "Plan a 3-step errand route", "ground_truth": "success"}
+{"task_id": "agent-002", "description": "Schedule meeting with 3 constraints", "ground_truth": "success"}
+{"task_id": "agent-003", "description": "Create a 4-step morning routine plan", "ground_truth": "success"}
+{"task_id": "agent-004", "description": "Draft a checklist for preparing a remote presentation", "ground_truth": "success"}
+{"task_id": "agent-005", "description": "Outline a weekend trip itinerary with activities", "ground_truth": "success"}
+{"task_id": "agent-006", "description": "Design a daily workout schedule balancing cardio and strength", "ground_truth": "success"}
+{"task_id": "agent-007", "description": "Plan a healthy meal prep schedule for a week", "ground_truth": "success"}
+{"task_id": "agent-008", "description": "Organize a quarterly project review agenda", "ground_truth": "success"}
+{"task_id": "agent-009", "description": "Prepare a study plan for covering an entire textbook", "ground_truth": "success"}
+{"task_id": "agent-010", "description": "Develop a protocol for onboarding remote employees", "ground_truth": "success"}
+{"task_id": "agent-011", "description": "Plan a home office setup checklist", "ground_truth": "success"}
+{"task_id": "agent-012", "description": "Create a travel preparation plan for international trips", "ground_truth": "success"}
+{"task_id": "agent-013", "description": "Build a timeline for launching a new web feature", "ground_truth": "success"}
+{"task_id": "agent-014", "description": "Lay out steps to respond to a critical customer incident", "ground_truth": "success"}
+{"task_id": "agent-015", "description": "Draft a maintenance schedule for office equipment", "ground_truth": "success"}
+{"task_id": "agent-016", "description": "Plan a volunteer event logistics checklist", "ground_truth": "success"}
+{"task_id": "agent-017", "description": "Organize a weekly family responsibilities chart", "ground_truth": "success"}
+{"task_id": "agent-018", "description": "Design a schedule for rotating night shifts", "ground_truth": "success"}
+{"task_id": "agent-019", "description": "Prepare a budget review meeting structure", "ground_truth": "success"}
+{"task_id": "agent-020", "description": "Outline a training curriculum for new hires", "ground_truth": "success"}
+{"task_id": "agent-021", "description": "Plan a workflow for handling high-priority support tickets", "ground_truth": "success"}
+{"task_id": "agent-022", "description": "Create a gardening care calendar for seasonal plants", "ground_truth": "success"}
+{"task_id": "agent-023", "description": "Develop a marketing campaign rollout plan", "ground_truth": "success"}
+{"task_id": "agent-024", "description": "Plan a book club meeting series outline", "ground_truth": "success"}
+{"task_id": "agent-025", "description": "Design a checklist for a data migration project", "ground_truth": "success"}
+{"task_id": "agent-026", "description": "Prepare a post-mortem review template with steps", "ground_truth": "success"}

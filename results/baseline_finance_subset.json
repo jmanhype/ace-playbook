@@ -1,0 +1,10 @@
+{
+  "variant": "baseline",
+  "total": 26,
+  "correct": 13,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 0,
+  "increments": 86,
+  "latency_ms": []
+}

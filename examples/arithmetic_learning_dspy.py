@@ -8,20 +8,23 @@ Demonstrates the complete ACE framework with REAL DSPy LLM integration:
 - Curator: Deduplicates and promotes insights through stages
 - Learning: System improves accuracy over iterations using learned strategies
 
-This example shows how ACE automatically discovers effective prompting strategies,
-similar to what Matt Mazur is trying to do manually.
+This example shows how ACE automatically discovers effective prompting strategies
+across multiple epochs on randomized arithmetic tasks, mirroring the reporting
+style from the multiplication learning suite while staying in the arithmetic
+domain.
 
 Requirements:
-- Set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env
+- Set OPENROUTER_API_KEY in .env (preferred) or OPENAI/ANTHROPIC fallbacks
+- Optional: configure NUM_PROBLEMS and NUM_EPOCHS in .env
 - Run: python examples/arithmetic_learning_dspy.py
 """
 
 import os
 import sys
+import random
 from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime, timezone
 from typing import List, Dict
 from dotenv import load_dotenv
 
@@ -35,6 +38,8 @@ import dspy
 from ace.models import Base, Task, TaskOutput as TaskOutputDB, PlaybookStage, PlaybookBullet
 from ace.generator import CoTGenerator, TaskInput
 from ace.reflector import GroundedReflector, ReflectorInput
+from ace.curator import CuratorService
+from ace.ops.stage_manager import StageManager
 
 
 def setup_database():
@@ -57,14 +62,16 @@ def configure_dspy_lm():
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
     if openrouter_key:
-        # Use OpenRouter with Qwen model (fast and capable)
+        default_model = "openrouter/qwen/qwen-2.5-7b-instruct"
+        openrouter_model = os.getenv("OPENROUTER_MODEL", default_model)
         lm = dspy.LM(
-            "openrouter/qwen/qwen-2.5-7b-instruct",
+            openrouter_model,
             api_key=openrouter_key,
             api_base="https://openrouter.ai/api/v1"
         )
-        print("✓ Configured DSPy with OpenRouter (Qwen 2.5 7B Instruct)")
-        return lm, "qwen-2.5-7b-instruct"
+        model_label = openrouter_model.split("/")[-1]
+        print(f"✓ Configured DSPy with OpenRouter ({model_label})")
+        return lm, model_label
     elif openai_key and not openai_key.startswith("your_"):
         # Use OpenAI GPT models
         lm = dspy.LM("openai/gpt-4o-mini", api_key=openai_key)
@@ -81,6 +88,42 @@ def configure_dspy_lm():
         )
 
 
+def generate_arithmetic_problems(
+    num_problems: int,
+    min_val: int = 10,
+    max_val: int = 999,
+    seed: int = 42
+) -> List[Dict]:
+    """Generate a list of random arithmetic problems."""
+
+    random.seed(seed)
+    problems: List[Dict] = []
+    operations = [
+        ("+", lambda a, b: a + b),
+        ("-", lambda a, b: a - b if a >= b else b - a),
+        ("×", lambda a, b: a * b),
+    ]
+
+    for _ in range(num_problems):
+        op_symbol, op_fn = random.choice(operations)
+        a = random.randint(min_val, max_val)
+        b = random.randint(min_val, max_val)
+
+        if op_symbol == "-" and b > a:
+            a, b = b, a
+
+        result = op_fn(a, b)
+        problems.append(
+            {
+                "problem": f"{a} {op_symbol} {b}",
+                "answer": str(result),
+                "operation": op_symbol,
+            }
+        )
+
+    return problems
+
+
 def create_task_db(session: Session, problem: str, ground_truth: str, domain_id: str) -> Task:
     """Create a task in the database."""
     task = Task(
@@ -95,15 +138,6 @@ def create_task_db(session: Session, problem: str, ground_truth: str, domain_id:
     session.refresh(task)
     return task
 
-
-def get_playbook_bullets(session: Session, domain_id: str, stage: PlaybookStage = PlaybookStage.PROD) -> List[PlaybookBullet]:
-    """Get playbook bullets for context injection."""
-    return session.query(PlaybookBullet).filter_by(
-        domain_id=domain_id,
-        stage=stage
-    ).all()
-
-
 def save_task_output(session: Session, task: Task, generator_output: Dict) -> TaskOutputDB:
     """Save generator output to database."""
     output = TaskOutputDB(
@@ -112,8 +146,8 @@ def save_task_output(session: Session, task: Task, generator_output: Dict) -> Ta
         answer=generator_output["answer"],
         confidence=generator_output["confidence"],
         bullets_referenced=generator_output["bullets_referenced"],
-        latency_ms=generator_output.get("latency_ms", 0),
-        token_count=generator_output.get("prompt_tokens", 0) + generator_output.get("completion_tokens", 0)
+        latency_ms=generator_output.get("latency_ms") or 0,
+        token_count=(generator_output.get("prompt_tokens") or 0) + (generator_output.get("completion_tokens") or 0)
     )
     session.add(output)
     session.commit()
@@ -121,225 +155,249 @@ def save_task_output(session: Session, task: Task, generator_output: Dict) -> Ta
     return output
 
 
-def curate_insights(session: Session, task: Task, insights: List[Dict]):
-    """
-    Curator: Deduplicate and add insights to playbook.
+def get_active_playbook_context(stage_manager: StageManager, domain_id: str, max_bullets: int = 40) -> List[str]:
+    """Retrieve active playbook strategies for context injection."""
+    bullets = stage_manager.playbook_repo.get_active_playbook(
+        domain_id=domain_id,
+        exclude_quarantined=True
+    )
 
-    Uses simple content matching for deduplication.
-    """
-    new_bullets = []
-    incremented_bullets = []
-
-    for insight in insights:
-        # Check for duplicates
-        existing = session.query(PlaybookBullet).filter_by(
-            domain_id=task.domain_id,
-            content=insight["content"]
-        ).first()
-
-        if existing:
-            # Increment counter
-            if insight["section"] == "Helpful":
-                existing.helpful_count += 1
-            elif insight["section"] == "Harmful":
-                existing.harmful_count += 1
-
-            existing.last_used_at = datetime.now(timezone.utc)
-            incremented_bullets.append(existing)
-        else:
-            # Add new bullet in shadow stage
-            bullet = PlaybookBullet(
-                content=insight["content"],
-                domain_id=task.domain_id,
-                section=insight["section"],
-                helpful_count=1 if insight["section"] == "Helpful" else 0,
-                harmful_count=1 if insight["section"] == "Harmful" else 0,
-                tags=["arithmetic", "dspy-learned"],
-                embedding=[0.0] * 384,  # Simplified
-                stage=PlaybookStage.SHADOW
-            )
-            session.add(bullet)
-            new_bullets.append(bullet)
-
-    session.commit()
-
-    return {
-        "new_bullets": len(new_bullets),
-        "incremented": len(incremented_bullets)
-    }
-
-
-def promote_bullets(session: Session, domain_id: str):
-    """Apply promotion gates: shadow → staging → prod"""
-    shadow_helpful_min = int(os.getenv("STAGING_HELPFUL_MIN", "3"))
-    prod_helpful_min = int(os.getenv("PROD_HELPFUL_MIN", "5"))
-    staging_ratio_min = float(os.getenv("STAGING_RATIO_MIN", "3.0"))
-    prod_ratio_min = float(os.getenv("PROD_RATIO_MIN", "5.0"))
-
-    promotions = {"shadow_to_staging": 0, "staging_to_prod": 0}
-
-    # Promote shadow → staging
-    for bullet in session.query(PlaybookBullet).filter_by(domain_id=domain_id, stage=PlaybookStage.SHADOW).all():
-        if bullet.helpful_count >= shadow_helpful_min:
-            ratio = bullet.helpful_count / max(bullet.harmful_count, 1)
-            if ratio >= staging_ratio_min:
-                bullet.stage = PlaybookStage.STAGING
-                promotions["shadow_to_staging"] += 1
-
-    # Promote staging → prod
-    for bullet in session.query(PlaybookBullet).filter_by(domain_id=domain_id, stage=PlaybookStage.STAGING).all():
-        if bullet.helpful_count >= prod_helpful_min:
-            ratio = bullet.helpful_count / max(bullet.harmful_count, 1)
-            if ratio >= prod_ratio_min:
-                bullet.stage = PlaybookStage.PROD
-                promotions["staging_to_prod"] += 1
-
-    session.commit()
-    return promotions
-
-
-def demonstrate_dspy_learning(session: Session, generator: CoTGenerator, reflector: GroundedReflector):
-    """Demonstrate full ACE learning cycle with DSPy."""
-
-    print("\n" + "="*75)
-    print("ACE Playbook - DSPy-Powered Learning Demonstration")
-    print("="*75 + "\n")
-
-    domain_id = "dspy-arithmetic"
-
-    # Arithmetic problems with ground truth
-    problems = [
-        {"problem": "137 + 248", "answer": "385"},
-        {"problem": "456 - 189", "answer": "267"},
-        {"problem": "23 × 17", "answer": "391"},
-        {"problem": "892 + 147", "answer": "1039"},
-        {"problem": "500 - 278", "answer": "222"},
+    eligible = [
+        bullet for bullet in bullets
+        if bullet.stage in (PlaybookStage.PROD, PlaybookStage.STAGING)
     ]
 
-    for iteration, prob in enumerate(problems, 1):
-        print(f"\n{'='*75}")
-        print(f"ITERATION {iteration}: {prob['problem']}")
-        print(f"{'='*75}\n")
-
-        # Create task
-        task_db = create_task_db(session, prob["problem"], prob["answer"], domain_id)
-        print(f"📋 Task: {task_db.prompt}")
-        print(f"   Ground truth: {task_db.ground_truth}")
-
-        # Get current playbook bullets for context
-        bullets = get_playbook_bullets(session, domain_id, stage=PlaybookStage.PROD)
-        bullet_contents = [b.content for b in bullets]
-        bullet_ids = [b.id for b in bullets]
-
-        if bullets:
-            print(f"\n📖 Using {len(bullets)} production strategies:")
-            for i, bullet in enumerate(bullets[:3], 1):
-                print(f"   {i}. {bullet.content[:60]}...")
-        else:
-            print("\n📖 No production strategies yet (learning from scratch)")
-
-        # GENERATOR: Use DSPy to solve with playbook context
-        print(f"\n🤖 Generator: Solving with DSPy...")
-        task_input = TaskInput(
-            task_id=task_db.id,
-            description=task_db.prompt,
-            domain="arithmetic",
-            playbook_bullets=bullet_contents,
-            max_reasoning_steps=10
+    prioritized = sorted(
+        eligible,
+        key=lambda bullet: (
+            0 if bullet.stage == PlaybookStage.PROD else 1,
+            -bullet.helpful_count,
+            bullet.created_at
         )
+    )
 
-        try:
-            generator_output = generator(task_input)
+    return [bullet.content for bullet in prioritized[:max_bullets]]
 
-            print(f"   Answer: {generator_output.answer}")
-            print(f"   Confidence: {generator_output.confidence:.2f}")
-            print(f"   Reasoning steps: {len(generator_output.reasoning_trace)}")
 
-            # Save to database
-            output_db = save_task_output(session, task_db, {
-                "reasoning_trace": generator_output.reasoning_trace,
-                "answer": generator_output.answer,
-                "confidence": generator_output.confidence,
-                "bullets_referenced": generator_output.bullets_referenced,
-                "latency_ms": generator_output.latency_ms or 0,
-                "prompt_tokens": generator_output.prompt_tokens or 0,
-                "completion_tokens": generator_output.completion_tokens or 0
-            })
+def run_arithmetic_experiment(
+    session: Session,
+    generator: CoTGenerator,
+    reflector: GroundedReflector,
+    stage_manager: StageManager,
+    curator_service: CuratorService,
+    num_problems: int = 20,
+    num_epochs: int = 3
+):
+    """Run multi-epoch arithmetic learning with reporting akin to multiplication suite."""
 
-            # Check correctness
-            is_correct = generator_output.answer.strip() == prob["answer"]
-            print(f"   Correct: {'✅ YES' if is_correct else '❌ NO'}")
+    print("\n" + "=" * 80)
+    print("ACE Framework - Arithmetic Learning Challenge")
+    print("Discovering prompting strategies for random arithmetic problems")
+    print("=" * 80 + "\n")
 
-            # REFLECTOR: Analyze with DSPy
-            print(f"\n🔍 Reflector: Analyzing outcome...")
-            reflector_input = ReflectorInput(
+    domain_id = "arithmetic-learning"
+
+    print(f"📊 Generating {num_problems} arithmetic problems...")
+    problems = generate_arithmetic_problems(num_problems)
+    print("✓ Generated problem set\n")
+
+    epoch_metrics: List[Dict] = []
+    total_insights = 0
+    helpful_insights = 0
+    harmful_insights = 0
+    curator_totals = {
+        "new_bullets": 0,
+        "increments": 0,
+        "quarantined": 0
+    }
+
+    for epoch in range(1, num_epochs + 1):
+        print("\n" + "=" * 80)
+        print(f"EPOCH {epoch}/{num_epochs}")
+        print("=" * 80 + "\n")
+
+        correct_count = 0
+        total_count = 0
+
+        for idx, prob in enumerate(problems, 1):
+            task_db = create_task_db(session, prob["problem"], prob["answer"], domain_id)
+
+            playbook_context = get_active_playbook_context(stage_manager, domain_id)
+
+            if idx == 1 or idx % 10 == 0:
+                print(f"[{idx}/{num_problems}] {prob['problem']}")
+                if playbook_context:
+                    print(f"  Using {len(playbook_context)} live strategies (prod + staging)")
+                else:
+                    print("  No staged strategies yet")
+
+            task_input = TaskInput(
                 task_id=task_db.id,
-                reasoning_trace=generator_output.reasoning_trace,
-                answer=generator_output.answer,
-                confidence=generator_output.confidence,
-                bullets_referenced=generator_output.bullets_referenced,
+                description=task_db.prompt,
                 domain="arithmetic",
-                ground_truth=prob["answer"],
-                test_results="",
-                error_messages=[],
-                performance_metrics=""
+                playbook_bullets=playbook_context,
+                max_reasoning_steps=10
             )
 
-            reflector_output = reflector(reflector_input)
-            print(f"   Extracted {len(reflector_output.insights)} insights")
-            print(f"   Confidence: {reflector_output.confidence_score:.2f}")
+            try:
+                generator_output = generator(task_input)
 
-            # Convert insights to dict format for curator
-            insights_for_curator = [
-                {
-                    "content": insight.content,
-                    "section": insight.section.value,
-                    "confidence": insight.confidence
-                }
-                for insight in reflector_output.insights
-            ]
+                is_correct = generator_output.answer.strip() == prob["answer"]
+                if is_correct:
+                    correct_count += 1
+                total_count += 1
 
-            # CURATOR: Deduplicate and store
-            print(f"\n📚 Curator: Storing insights...")
-            result = curate_insights(session, task_db, insights_for_curator)
-            print(f"   New bullets: {result['new_bullets']}")
-            print(f"   Incremented: {result['incremented']}")
+                if idx == 1 or idx % 10 == 0:
+                    print(
+                        f"  Answer: {generator_output.answer} (Expected: {prob['answer']})\n"
+                        f"  {'✅ CORRECT' if is_correct else '❌ WRONG'}"
+                    )
 
-        except Exception as e:
-            print(f"\n❌ Error in iteration {iteration}: {e}")
-            import traceback
-            traceback.print_exc()
-            continue
+                save_task_output(session, task_db, {
+                    "reasoning_trace": generator_output.reasoning_trace,
+                    "answer": generator_output.answer,
+                    "confidence": generator_output.confidence,
+                    "bullets_referenced": generator_output.bullets_referenced,
+                    "latency_ms": generator_output.latency_ms or 0,
+                    "prompt_tokens": generator_output.prompt_tokens or 0,
+                    "completion_tokens": generator_output.completion_tokens or 0
+                })
 
-    # Apply promotion gates
-    print(f"\n{'='*75}")
-    print("PROMOTION: Applying gates")
-    print(f"{'='*75}\n")
+                reflector_input = ReflectorInput(
+                    task_id=task_db.id,
+                    reasoning_trace=generator_output.reasoning_trace,
+                    answer=generator_output.answer,
+                    confidence=generator_output.confidence,
+                    bullets_referenced=generator_output.bullets_referenced,
+                    domain="arithmetic",
+                    ground_truth=prob["answer"],
+                    test_results="",
+                    error_messages=[],
+                    performance_metrics=""
+                )
 
-    promotions = promote_bullets(session, domain_id)
-    print(f"✓ Shadow → Staging: {promotions['shadow_to_staging']} bullets")
-    print(f"✓ Staging → Prod: {promotions['staging_to_prod']} bullets")
+                reflector_output = reflector(reflector_input)
 
-    # Show final statistics
-    print(f"\n{'='*75}")
-    print("FINAL STATISTICS")
-    print(f"{'='*75}\n")
+                for insight in reflector_output.insights:
+                    total_insights += 1
+                    if insight.section.value == "Helpful":
+                        helpful_insights += 1
+                    elif insight.section.value == "Harmful":
+                        harmful_insights += 1
 
-    for stage in [PlaybookStage.SHADOW, PlaybookStage.STAGING, PlaybookStage.PROD]:
+                insights_for_curator = [
+                    {
+                        "content": insight.content,
+                        "section": insight.section.value,
+                        "confidence": insight.confidence,
+                        "tags": insight.tags,
+                        "source_task_id": task_db.id
+                    }
+                    for insight in reflector_output.insights
+                ]
+                if insights_for_curator:
+                    curator_output = curator_service.merge_insights(
+                        task_id=task_db.id,
+                        domain_id=domain_id,
+                        insights=insights_for_curator,
+                        target_stage=PlaybookStage.SHADOW
+                    )
+
+                    curator_totals["new_bullets"] += curator_output.new_bullets_added
+                    curator_totals["increments"] += curator_output.existing_bullets_incremented
+                    curator_totals["quarantined"] += curator_output.bullets_quarantined
+
+                    # Ensure the local session sees updates performed by the curator service
+                    session.expire_all()
+
+            except Exception as e:
+                print(f"  ❌ Error on problem {idx}: {e}")
+                continue
+
+        accuracy = (correct_count / total_count * 100) if total_count else 0
+        epoch_metrics.append(
+            {
+                "epoch": epoch,
+                "correct": correct_count,
+                "total": total_count,
+                "accuracy": accuracy,
+            }
+        )
+
+        print("\n" + "─" * 80)
+        print(f"EPOCH {epoch} RESULTS: {correct_count}/{total_count} = {accuracy:.1f}%")
+        print("─" * 80)
+
+        promotion_result = stage_manager.check_all_promotions(domain_id)
+        session.expire_all()
+
+        curator_totals["quarantined"] += len(promotion_result["quarantined"])
+
+        print("📈 Promotions:")
+        print(f"  Promoted: {len(promotion_result['promoted'])}")
+        print(f"  Quarantined: {len(promotion_result['quarantined'])}")
+        print(f"  No Action: {len(promotion_result['no_action'])}")
+
+    print("\n" + "=" * 80)
+    print("FINAL RESULTS")
+    print("=" * 80 + "\n")
+
+    baseline_accuracy = epoch_metrics[0]["accuracy"] if epoch_metrics else 0.0
+    header = f"  {'Epoch':<5}{'Correct':<10}{'Total':<10}{'Accuracy':<12}{'Improvement':<12}"
+    print("📊 Accuracy Progression:")
+    print(header)
+    print("  " + "-" * (len(header) - 2))
+    for metric in epoch_metrics:
+        improvement = metric["accuracy"] - baseline_accuracy
+        print(
+            f"  {metric['epoch']:<5}{metric['correct']:<10}{metric['total']:<10}"
+            f"{metric['accuracy']:<12.1f}{improvement:<+12.1f}"
+        )
+
+    print(
+        f"\n🧠 Insights Discovered: {total_insights} "
+        f"(Helpful: {helpful_insights}, Harmful: {harmful_insights})"
+    )
+
+    print(
+        f"🧮 Curator Updates: New {curator_totals['new_bullets']} | "
+        f"Reinforced {curator_totals['increments']} | "
+        f"Quarantined {curator_totals['quarantined']}"
+    )
+
+    stage_labels = {
+        PlaybookStage.PROD: "Production (active)",
+        PlaybookStage.STAGING: "Staging (candidate)",
+        PlaybookStage.SHADOW: "Shadow (emerging)",
+    }
+    stage_icons = {
+        PlaybookStage.PROD: "✅",
+        PlaybookStage.STAGING: "🔄",
+        PlaybookStage.SHADOW: "•",
+    }
+
+    session.expire_all()
+
+    for stage in [PlaybookStage.PROD, PlaybookStage.STAGING, PlaybookStage.SHADOW]:
         bullets = session.query(PlaybookBullet).filter_by(
             domain_id=domain_id,
             stage=stage
         ).all()
-        print(f"  {stage.value.upper():10} stage: {len(bullets)} bullets")
+        print(f"\n{stage_labels[stage]} — {len(bullets)} strategies")
 
-        for bullet in bullets[:5]:  # Show top 5
+        top_bullets = sorted(bullets, key=lambda b: b.helpful_count, reverse=True)[:5]
+        for bullet in top_bullets:
             ratio = bullet.helpful_count / max(bullet.harmful_count, 1)
-            print(f"    • {bullet.content[:55]}...")
-            print(f"      H:{bullet.helpful_count} / Harm:{bullet.harmful_count} / Ratio:{ratio:.1f}")
+            icon = stage_icons[stage]
+            print(f"  {icon} {bullet.content[:90]}...")
+            print(
+                f"    Helpful: {bullet.helpful_count}  "
+                f"Harmful: {bullet.harmful_count}  Ratio: {ratio:.1f}"
+            )
 
-    print(f"\n{'='*75}")
-    print("✅ DSPy Learning Cycle Complete!")
-    print(f"{'='*75}\n")
+    print("\n" + "=" * 80)
+    print("✅ Arithmetic Learning Experiment Complete!")
+    print("=" * 80 + "\n")
 
 
 def main():
@@ -357,23 +415,38 @@ def main():
         # Initialize ACE components with DSPy
         generator = CoTGenerator(model=model_name, temperature=0.7)
         reflector = GroundedReflector(model=model_name, temperature=0.3)
+        stage_manager = StageManager(session)
+        curator_service = CuratorService()
 
         print(f"✓ Initialized Generator with {model_name}")
         print(f"✓ Initialized Reflector with {model_name}")
 
-        # Run demonstration
-        demonstrate_dspy_learning(session, generator, reflector)
+        num_problems = int(os.getenv("NUM_PROBLEMS", "20"))
+        num_epochs = int(os.getenv("NUM_EPOCHS", "3"))
+
+        print("\n📋 Configuration:")
+        print(f"  Problems: {num_problems}")
+        print(f"  Epochs: {num_epochs}")
+        print(f"  Model: {model_name}")
+
+        run_arithmetic_experiment(
+            session=session,
+            generator=generator,
+            reflector=reflector,
+            stage_manager=stage_manager,
+            curator_service=curator_service,
+            num_problems=num_problems,
+            num_epochs=num_epochs
+        )
 
         session.close()
 
         print("\n💡 What happened:")
         print("  1. Generator used DSPy with playbook strategies as context")
-        print("  2. LLM generated solutions with explicit reasoning traces")
+        print("  2. Multi-epoch runs let strategies accrue helpful votes")
         print("  3. Reflector analyzed outcomes and extracted insights")
         print("  4. Curator deduplicated and promoted successful strategies")
-        print("  5. Future tasks automatically benefit from learned patterns!")
-        print("\n  This is exactly what Matt Mazur is trying to achieve - automated")
-        print("  discovery of effective prompting strategies through execution feedback.\n")
+        print("  5. Final summary highlights accuracy and stage distribution\n")
 
     except ValueError as e:
         print(f"\n❌ Configuration Error: {e}")
