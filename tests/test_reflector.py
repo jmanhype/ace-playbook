@@ -58,6 +58,33 @@ class TestGroundedReflector:
         assert reflector.model == "gpt-4o-mini"
         assert reflector.temperature == 0.2
 
+    @patch("ace.reflector.grounded_reflector.protected_predict")
+    def test_suppresses_helpful_insights_when_guardrail_fails(self, mock_predict):
+        """Helpful insights should be dropped when guardrail validation fails."""
+        mock_prediction = Mock()
+        mock_prediction.helpful_insights = "Helpful insight that should be suppressed"
+        mock_prediction.harmful_insights = "Harmful insight that should remain"
+        mock_prediction.confidence = 0.8
+        mock_prediction.analysis = "analysis"
+        mock_predict.return_value = mock_prediction
+
+        reflector = GroundedReflector()
+        reflector_input = ReflectorInput(
+            task_id="fin-014",
+            reasoning_trace=["Step 1"],
+            answer="16.67%",
+            confidence=0.6,
+            bullets_referenced=[],
+            ground_truth="19.11%",
+            domain="benchmark",
+        )
+
+        output = reflector(reflector_input)
+
+        assert output.insights  # At least the harmful insight remains
+        assert all(ins.section != InsightSection.HELPFUL for ins in output.insights)
+        assert any(ins.section == InsightSection.HARMFUL for ins in output.insights)
+
 
 class TestGroundTruthComparison:
     """Test suite for ground-truth comparison (T048)."""
@@ -68,7 +95,7 @@ class TestGroundTruthComparison:
         answer = "42"
         ground_truth = "42"
 
-        is_correct, rationale = reflector.compare_with_ground_truth(answer, ground_truth)
+        is_correct, rationale = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
 
         assert is_correct is True
         assert "matches ground truth" in rationale
@@ -80,7 +107,7 @@ class TestGroundTruthComparison:
         answer = "41"
         ground_truth = "42"
 
-        is_correct, rationale = reflector.compare_with_ground_truth(answer, ground_truth)
+        is_correct, rationale = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
 
         assert is_correct is False
         assert "does not match" in rationale
@@ -93,7 +120,7 @@ class TestGroundTruthComparison:
         answer = "Paris"
         ground_truth = "paris"
 
-        is_correct, rationale = reflector.compare_with_ground_truth(answer, ground_truth)
+        is_correct, rationale = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
 
         assert is_correct is True
 
@@ -103,7 +130,37 @@ class TestGroundTruthComparison:
         answer = "  42  "
         ground_truth = "42"
 
-        is_correct, rationale = reflector.compare_with_ground_truth(answer, ground_truth)
+        is_correct, rationale = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
+
+        assert is_correct is True
+
+    def test_compare_accepts_percentage_with_context(self):
+        """Test comparison allows explanations around percentage answers."""
+        reflector = GroundedReflector()
+        answer = "The ROI is calculated as (net profit / cost) * 100 = 30%."
+        ground_truth = "30%"
+
+        is_correct, _ = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
+
+        assert is_correct is True
+
+    def test_compare_accepts_decimal_for_percentage(self):
+        """Test comparison treats decimal equivalent of a percentage as correct."""
+        reflector = GroundedReflector()
+        answer = "0.3"
+        ground_truth = "30%"
+
+        is_correct, _ = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
+
+        assert is_correct is True
+
+    def test_compare_allows_small_rounding_difference(self):
+        """Test comparison tolerates small rounding differences."""
+        reflector = GroundedReflector()
+        answer = "The final balance is $120.40"
+        ground_truth = "120"
+
+        is_correct, _ = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
 
         assert is_correct is True
 
@@ -113,10 +170,28 @@ class TestGroundTruthComparison:
         answer = "42"
         ground_truth = ""
 
-        is_correct, rationale = reflector.compare_with_ground_truth(answer, ground_truth)
+        is_correct, rationale = reflector.compare_with_ground_truth("test-task", answer, ground_truth)
 
         assert is_correct is False
         assert "No ground truth available" in rationale
+
+    def test_finance_guardrail_requires_exact_format(self):
+        """Finance guardrail should enforce exact-match percent formatting."""
+        reflector = GroundedReflector()
+
+        is_correct, rationale = reflector.compare_with_ground_truth("fin-014", "19.11", "19.11%")
+
+        assert is_correct is False
+        assert "Finance guardrail" in rationale
+
+    def test_finance_guardrail_accepts_exact_answer(self):
+        """Finance guardrail should accept correctly formatted answers."""
+        reflector = GroundedReflector()
+
+        is_correct, rationale = reflector.compare_with_ground_truth("fin-014", "19.11%", "19.11%")
+
+        assert is_correct is True
+        assert "Finance guardrail" in rationale
 
 
 class TestTestResultAnalysis:

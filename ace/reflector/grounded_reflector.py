@@ -10,9 +10,12 @@ Based on contracts/reflector.py and tasks.md T047-T049.
 import dspy
 import json
 import time
+import math
+import re
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
+from dspy.utils.exceptions import AdapterParseError
 
 from ace.reflector.signatures import (
     ReflectorInput,
@@ -20,6 +23,7 @@ from ace.reflector.signatures import (
     FeedbackType,
     InsightSection
 )
+from ace.utils.finance_guardrails import get_guardrail
 from ace.utils.logging_config import get_logger
 from ace.utils.llm_circuit_breaker import protected_predict
 
@@ -170,8 +174,89 @@ Bullets Referenced: {bullets_text}
 
         return "\n\n".join(parts)
 
+    @staticmethod
+    def _answers_match(predicted: str, ground_truth: str) -> bool:
+        if ground_truth is None:
+            return False
+
+        raw_pred = (predicted or "").strip()
+        raw_gt = (ground_truth or "").strip()
+
+        if not raw_pred or not raw_gt:
+            return False
+
+        pred_lower = raw_pred.lower()
+        gt_lower = raw_gt.lower()
+
+        if gt_lower in {"success", "failure"}:
+            success_tokens = {"success", "successful", "done", "completed", "complete", "resolved", "yes"}
+            failure_tokens = {"fail", "failed", "failure", "unable", "cannot", "can't", "won't", "error", "issue", "unsuccessful", "no"}
+
+            contains_success = any(token in pred_lower for token in success_tokens)
+            contains_failure = any(token in pred_lower for token in failure_tokens)
+
+            if gt_lower == "success":
+                return not contains_failure and (contains_success or bool(pred_lower))
+
+            if gt_lower == "failure":
+                return contains_failure and not contains_success
+
+        pred_trimmed = pred_lower.rstrip(" .")
+        gt_trimmed = gt_lower.rstrip(" .")
+
+        if pred_trimmed == gt_trimmed:
+            return True
+
+        if gt_trimmed and pred_trimmed.endswith(gt_trimmed):
+            return True
+
+        if gt_trimmed and " " not in gt_trimmed:
+            token_pattern = rf"(?<![\w\d]){re.escape(gt_trimmed)}(?![\w\d])"
+            if re.search(token_pattern, pred_trimmed):
+                return True
+
+        gt_numbers = GroundedReflector._extract_numeric_candidates(raw_gt)
+        pred_numbers = GroundedReflector._extract_numeric_candidates(raw_pred)
+
+        if gt_numbers and pred_numbers:
+            for target in gt_numbers:
+                for candidate in pred_numbers:
+                    if GroundedReflector._numbers_match(candidate, target):
+                        return True
+
+        return False
+
+    @staticmethod
+    def _extract_numeric_candidates(value: str) -> List[float]:
+        if not value:
+            return []
+
+        cleaned = value.replace(",", "")
+        candidates: List[float] = []
+
+        for match in re.finditer(r"-?\d+(?:\.\d+)?", cleaned):
+            number_text = match.group()
+            try:
+                parsed = float(number_text)
+            except ValueError:
+                continue
+
+            candidates.append(parsed)
+
+            suffix_index = match.end()
+            if suffix_index < len(cleaned) and cleaned[suffix_index] == '%':
+                candidates.append(parsed / 100.0)
+
+        return candidates
+
+    @staticmethod
+    def _numbers_match(candidate: float, target: float) -> bool:
+        tolerance = max(1e-6, 0.01 * abs(target))
+        return math.isclose(candidate, target, rel_tol=0.01, abs_tol=tolerance)
+
     def compare_with_ground_truth(
         self,
+        task_id: str,
         answer: str,
         ground_truth: str
     ) -> tuple[bool, str]:
@@ -188,11 +273,24 @@ Bullets Referenced: {bullets_text}
         if not ground_truth:
             return False, "No ground truth available for comparison"
 
-        # Normalize for comparison
-        answer_norm = answer.strip().lower()
-        truth_norm = ground_truth.strip().lower()
+        guardrail = get_guardrail(task_id)
+        if guardrail:
+            is_correct = guardrail.validate(answer, ground_truth)
+            if is_correct:
+                rationale = "Finance guardrail passed exact-match validation"
+            else:
+                rationale = (
+                    "Finance guardrail mismatch: expected "
+                    f"'{ground_truth}', received '{answer.strip() or '<empty>'}'"
+                )
+            logger.debug(
+                "finance_guardrail_validation",
+                task_id=task_id,
+                is_correct=is_correct
+            )
+            return is_correct, rationale
 
-        is_correct = answer_norm == truth_norm
+        is_correct = self._answers_match(answer, ground_truth)
 
         if is_correct:
             rationale = f"Answer matches ground truth: '{ground_truth}'"
@@ -415,6 +513,7 @@ Bullets Referenced: {bullets_text}
             correctness_rationale = ""
             if reflector_input.ground_truth:
                 is_correct, correctness_rationale = self.compare_with_ground_truth(
+                    reflector_input.task_id,
                     reflector_input.answer,
                     reflector_input.ground_truth
                 )
@@ -428,15 +527,22 @@ Bullets Referenced: {bullets_text}
                 )
 
             # T071: Call DSPy predictor for analysis with circuit breaker protection
-            prediction = protected_predict(
-                self.predictor,
-                circuit_name="reflector",
-                failure_threshold=5,
-                recovery_timeout=60,
-                task_context=task_context,
-                feedback_context=feedback_context,
-                domain=reflector_input.domain
-            )
+            try:
+                prediction = protected_predict(
+                    self.predictor,
+                    circuit_name="reflector",
+                    failure_threshold=5,
+                    recovery_timeout=60,
+                    task_context=task_context,
+                    feedback_context=feedback_context,
+                    domain=reflector_input.domain
+                )
+            except AdapterParseError as parse_error:
+                return self._handle_adapter_parse_failure(
+                    reflector_input=reflector_input,
+                    start_time=start_time,
+                    error=parse_error
+                )
 
             # Parse insights from analysis
             insights = self.parse_insights_from_analysis(
@@ -445,6 +551,18 @@ Bullets Referenced: {bullets_text}
                 float(prediction.confidence),
                 reflector_input.domain
             )
+
+            if reflector_input.ground_truth and not is_correct:
+                suppressed_count = sum(1 for ins in insights if ins.section == InsightSection.HELPFUL)
+                if suppressed_count:
+                    insights = [
+                        ins for ins in insights if ins.section != InsightSection.HELPFUL
+                    ]
+                    logger.info(
+                        "helpful_insights_suppressed_due_to_ground_truth_failure",
+                        task_id=reflector_input.task_id,
+                        suppressed=suppressed_count
+                    )
 
             # Determine feedback types used
             feedback_types = self.determine_feedback_types(
@@ -491,6 +609,48 @@ Bullets Referenced: {bullets_text}
                 error_type=type(e).__name__
             )
             raise RuntimeError(f"Reflection failed: {str(e)}") from e
+
+    def _handle_adapter_parse_failure(
+        self,
+        reflector_input: ReflectorInput,
+        start_time: float,
+        error: Exception
+    ) -> ReflectorOutput:
+        """Produce a safe fallback output when DSPy adapter parsing fails."""
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        feedback_types = self.determine_feedback_types(
+            reflector_input.ground_truth,
+            reflector_input.test_results,
+            reflector_input.error_messages,
+            reflector_input.performance_metrics
+        )
+
+        summary = (
+            "Reflection parsing failed; returning empty insights. "
+            f"Original error: {error}"
+        )
+
+        output = ReflectorOutput(
+            task_id=reflector_input.task_id,
+            insights=[],
+            analysis_summary=summary,
+            referenced_steps=list(range(len(reflector_input.reasoning_trace))),
+            confidence_score=0.0,
+            feedback_types_used=feedback_types,
+            requires_human_review=True,
+            contradicts_existing=[]
+        )
+
+        logger.warning(
+            "reflection_parse_failure_recovered",
+            task_id=reflector_input.task_id,
+            latency_ms=latency_ms,
+            error=str(error)
+        )
+
+        return output
 
 
 def create_grounded_reflector(
