@@ -4,9 +4,36 @@ Embedding Generation Utilities
 Wraps sentence-transformers for consistent 384-dim embeddings across ACE framework.
 """
 
+import os
+import builtins
+import warnings
 from typing import List, Union
+
 import numpy as np
-from sentence_transformers import SentenceTransformer
+
+# Disable bitsandbytes auto-detection on CPU-only environments to avoid AttributeError
+os.environ.setdefault("BITSANDBYTES_NOWELCOME", "1")
+
+# Suppress noisy CPU-only bitsandbytes initialization message during import
+_original_print = builtins.print
+
+
+def _suppress_bitsandbytes_message(*args, **kwargs):
+    if len(args) == 1 and isinstance(args[0], str) and "cadam32bit_grad_fp32" in args[0]:
+        return
+    _original_print(*args, **kwargs)
+
+
+builtins.print = _suppress_bitsandbytes_message
+warnings.filterwarnings(
+    "ignore",
+    message="The installed version of bitsandbytes was compiled without GPU support.*",
+)
+try:
+    from sentence_transformers import SentenceTransformer
+finally:
+    builtins.print = _original_print
+    del _suppress_bitsandbytes_message
 
 from ace.utils.logging_config import get_logger
 

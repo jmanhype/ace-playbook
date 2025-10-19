@@ -51,6 +51,7 @@ from ace.ops.online_loop import (
     OnlineLoopMetrics,
     create_online_loop
 )
+from ace.ops.refinement_scheduler import RefinementScheduler, RefinementResult
 from ace.ops.stage_manager import (
     StageManager,
     create_stage_manager
@@ -84,6 +85,8 @@ __all__ = [
     "OnlineLoopConfig",
     "OnlineLoopMetrics",
     "create_online_loop",
+    "RefinementScheduler",
+    "RefinementResult",
     "StageManager",
     "create_stage_manager",
     "ReviewService",

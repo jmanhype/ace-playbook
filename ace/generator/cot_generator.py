@@ -14,6 +14,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 
 from ace.generator.signatures import TaskInput, ChainOfThoughtSignature
+from ace.generator.context_builder import build_strings
 from ace.utils.logging_config import get_logger
 from ace.utils.llm_circuit_breaker import protected_predict
 from pydantic import BaseModel, Field
@@ -223,7 +224,8 @@ class CoTGenerator:
             "task_input_validated",
             task_id=task_input.task_id,
             domain=task_input.domain,
-            num_bullets=len(task_input.playbook_bullets)
+            num_bullets=len(task_input.playbook_bullets),
+            num_structured=len(getattr(task_input, "playbook_context_entries", []))
         )
 
     def __call__(self, task_input: TaskInput) -> TaskOutput:
@@ -245,16 +247,25 @@ class CoTGenerator:
         # Validate input
         self.validate_task_input(task_input)
 
+        structured_entries = getattr(task_input, "playbook_context_entries", []) or []
+
         logger.info(
             "cot_generation_start",
             task_id=task_input.task_id,
             domain=task_input.domain,
-            num_bullets=len(task_input.playbook_bullets)
+            num_bullets=len(task_input.playbook_bullets),
+            num_structured=len(structured_entries)
         )
 
         try:
             # T041: Format playbook bullets into context
-            playbook_context = self.format_playbook_context(task_input.playbook_bullets)
+            if structured_entries:
+                context_strings, bullet_ids = build_strings(structured_entries)
+            else:
+                context_strings = list(task_input.playbook_bullets)
+                bullet_ids = None
+
+            playbook_context = self.format_playbook_context(context_strings, bullet_ids)
 
             # T071: Call DSPy ChainOfThought predictor with circuit breaker protection
             prediction = protected_predict(

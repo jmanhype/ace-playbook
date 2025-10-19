@@ -8,7 +8,7 @@ Version: v1.0.0
 """
 
 import dspy
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class TaskInput(dspy.Signature):
@@ -35,6 +35,10 @@ class TaskInput(dspy.Signature):
     playbook_bullets: List[str] = dspy.InputField(
         default_factory=list,
         desc="Top-K relevant strategy bullets from playbook (≤40 per invocation)"
+    )
+    playbook_context_entries: List[Dict] = dspy.InputField(
+        default_factory=list,
+        desc="Optional structured context entries with metadata (ids, stage, counters)"
     )
     context: str = dspy.InputField(
         default="",
@@ -105,6 +109,20 @@ class ChainOfThoughtSignature(dspy.Signature):
     confidence: float = dspy.OutputField(
         desc="Confidence score between 0.0 and 1.0"
     )
+
+
+class ReActStepSignature(dspy.Signature):
+    """Single ReAct reasoning step with optional tool invocation."""
+
+    task_description: str = dspy.InputField(desc="Problem statement")
+    playbook_context: str = dspy.InputField(desc="Formatted playbook strategies")
+    interaction_trace: str = dspy.InputField(desc="Prior actions and observations")
+
+    thought: str = dspy.OutputField(desc="Current reasoning step")
+    action: str = dspy.OutputField(desc="Tool to invoke or 'finish'")
+    action_input: str = dspy.OutputField(desc="Input for selected tool")
+    final_answer: str = dspy.OutputField(desc="Answer when action == finish")
+    confidence: float = dspy.OutputField(desc="Confidence estimate 0-1")
 
 
 __version__ = "v1.0.0"

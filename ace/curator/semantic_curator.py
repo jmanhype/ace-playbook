@@ -105,90 +105,131 @@ class SemanticCurator:
         delta_updates = []
         updated_playbook = list(curator_input.current_playbook)  # Copy
         updated_playbook_dict = {b.id: b for b in updated_playbook}
+        section_to_bullets: Dict[str, List[PlaybookBullet]] = {}
+        for bullet in updated_playbook:
+            section_to_bullets.setdefault(bullet.section, []).append(bullet)
 
-        # Process each insight
-        for insight in curator_input.insights:
-            # Generate embedding for insight content
-            insight_embedding = self.embedding_service.encode_single(insight["content"])
+        index_used = False
 
-            # Find most similar existing bullet in same section and domain
-            best_match = None
-            best_similarity = 0.0
+        try:
+            if updated_playbook:
+                embeddings = np.array([b.embedding for b in updated_playbook], dtype=np.float32)
+                bullet_ids = list(updated_playbook_dict.keys())
+                self.faiss_manager.add_vectors(curator_input.domain_id, embeddings, bullet_ids)
+                index_used = True
 
-            for bullet in updated_playbook:
-                if bullet.domain_id != curator_input.domain_id:
-                    continue  # Skip cross-domain bullets (CHK081)
-                if bullet.section != insight["section"]:
-                    continue  # Only compare within same section
+            # Process each insight
+            for insight in curator_input.insights:
+                insight_embedding = self.embedding_service.encode_single(insight["content"])
+                insight_section = insight["section"]
 
-                similarity = compute_similarity(insight_embedding, bullet.embedding)
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = bullet
+                best_match = None
+                best_similarity = 0.0
 
-            # Decide operation based on similarity threshold
-            if best_similarity >= curator_input.similarity_threshold and best_match:
-                # Duplicate detected - increment counter
-                before_hash = compute_bullet_hash(best_match)
+                # Prefer FAISS retrieval for fast similarity search
+                if index_used:
+                    query_vector = np.array(insight_embedding, dtype=np.float32)
+                    search_results = self.faiss_manager.search(
+                        curator_input.domain_id,
+                        query_vector,
+                        k=10
+                    )
 
-                if insight["section"] == "Helpful":
-                    best_match.helpful_count += 1
-                    operation = "increment_helpful"
-                elif insight["section"] == "Harmful":
-                    best_match.harmful_count += 1
-                    operation = "increment_harmful"
-                else:
-                    # Neutral - no counter increment
-                    operation = "increment_neutral"
+                    for bullet_id, similarity in search_results:
+                        bullet = updated_playbook_dict.get(bullet_id)
+                        if not bullet or bullet.section != insight_section:
+                            continue
+                        if similarity > best_similarity:
+                            best_similarity = float(similarity)
+                            best_match = bullet
 
-                after_hash = compute_bullet_hash(best_match)
+                # Fallback to section-restricted scan if needed
+                if best_match is None:
+                    for bullet in section_to_bullets.get(insight_section, []):
+                        similarity = compute_similarity(insight_embedding, bullet.embedding)
+                        if similarity > best_similarity:
+                            best_similarity = similarity
+                            best_match = bullet
 
-                delta_updates.append(
-                    DeltaUpdate(
-                        operation=operation,
+                if best_similarity >= curator_input.similarity_threshold and best_match:
+                    before_hash = compute_bullet_hash(best_match)
+
+                    if insight_section == "Helpful":
+                        best_match.helpful_count += 1
+                        operation = "increment_helpful"
+                    elif insight_section == "Harmful":
+                        best_match.harmful_count += 1
+                        operation = "increment_harmful"
+                    else:
+                        operation = "increment_neutral"
+
+                    after_hash = compute_bullet_hash(best_match)
+
+                    delta_updates.append(
+                        DeltaUpdate(
+                            operation=operation,
+                            bullet_id=best_match.id,
+                            before_hash=before_hash,
+                            after_hash=after_hash,
+                            similar_to=best_match.id,
+                            similarity_score=best_similarity,
+                        )
+                    )
+
+                    logger.debug(
+                        "duplicate_detected",
                         bullet_id=best_match.id,
-                        before_hash=before_hash,
-                        after_hash=after_hash,
-                        similar_to=best_match.id,
-                        similarity_score=best_similarity,
+                        similarity=best_similarity,
+                        operation=operation,
                     )
-                )
-
-                logger.debug(
-                    "duplicate_detected",
-                    bullet_id=best_match.id,
-                    similarity=best_similarity,
-                    operation=operation,
-                )
-            else:
-                # New distinct bullet - add to playbook
-                new_bullet = PlaybookBullet(
-                    id=str(uuid.uuid4()),
-                    domain_id=curator_input.domain_id,
-                    content=insight["content"],
-                    section=insight["section"],
-                    helpful_count=1 if insight["section"] == "Helpful" else 0,
-                    harmful_count=1 if insight["section"] == "Harmful" else 0,
-                    tags=insight.get("tags", []),
-                    embedding=insight_embedding,
-                    created_at=datetime.utcnow(),
-                    last_used_at=datetime.utcnow(),
-                    stage=curator_input.target_stage,
-                )
-
-                updated_playbook.append(new_bullet)
-                updated_playbook_dict[new_bullet.id] = new_bullet
-
-                delta_updates.append(
-                    DeltaUpdate(
-                        operation="add",
-                        bullet_id=new_bullet.id,
-                        new_bullet=new_bullet,
-                        after_hash=compute_bullet_hash(new_bullet),
+                else:
+                    # Add new bullet and extend FAISS index for future comparisons
+                    embedding_list = (
+                        insight_embedding.tolist()
+                        if hasattr(insight_embedding, "tolist")
+                        else insight_embedding
                     )
-                )
 
-                logger.debug("new_bullet_added", bullet_id=new_bullet.id, section=insight["section"])
+                    new_bullet = PlaybookBullet(
+                        id=str(uuid.uuid4()),
+                        domain_id=curator_input.domain_id,
+                        content=insight["content"],
+                        section=insight_section,
+                        helpful_count=1 if insight_section == "Helpful" else 0,
+                        harmful_count=1 if insight_section == "Harmful" else 0,
+                        tags=insight.get("tags", []),
+                        embedding=embedding_list,
+                        created_at=datetime.utcnow(),
+                        last_used_at=datetime.utcnow(),
+                        stage=curator_input.target_stage,
+                    )
+
+                    updated_playbook.append(new_bullet)
+                    updated_playbook_dict[new_bullet.id] = new_bullet
+                    section_to_bullets.setdefault(insight_section, []).append(new_bullet)
+
+                    delta_updates.append(
+                        DeltaUpdate(
+                            operation="add",
+                            bullet_id=new_bullet.id,
+                            new_bullet=new_bullet,
+                            after_hash=compute_bullet_hash(new_bullet),
+                        )
+                    )
+
+                    logger.debug("new_bullet_added", bullet_id=new_bullet.id, section=insight_section)
+
+                    # Keep FAISS index in sync for subsequent insights
+                    new_vector = np.array([embedding_list], dtype=np.float32)
+                    self.faiss_manager.add_vectors(
+                        curator_input.domain_id,
+                        new_vector,
+                        [new_bullet.id]
+                    )
+                    index_used = True
+        finally:
+            if index_used:
+                self.faiss_manager.clear_index(curator_input.domain_id)
 
         # Check for quarantine/promotion status changes
         for bullet in updated_playbook:

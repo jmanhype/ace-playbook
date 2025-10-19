@@ -17,8 +17,11 @@ from sqlalchemy.orm import Session
 
 from ace.generator import CoTGenerator, TaskInput
 from ace.reflector import GroundedReflector, ReflectorInput
-from ace.curator import SemanticCurator
+from ace.curator import CuratorService
+from ace.curator.merge_coordinator import MergeCoordinator, MergeEvent
 from ace.ops.stage_manager import StageManager
+from ace.ops.refinement_scheduler import RefinementScheduler
+from ace.runtime import RuntimeAdapter
 from ace.ops.review_service import ReviewService, REVIEW_CONFIDENCE_THRESHOLD
 from ace.models.playbook import PlaybookStage
 from ace.utils.database import get_session
@@ -37,6 +40,8 @@ class OnlineLoopConfig:
     promotion_check_interval: int = 10  # Check every N tasks
     max_iterations: Optional[int] = None  # None = run forever
     use_shadow_mode: bool = True  # If True, new insights go to shadow stage
+    merge_batch_size: int = 8
+    merge_flush_interval: float = 5.0
 
 
 @dataclass
@@ -49,6 +54,7 @@ class OnlineLoopMetrics:
     insights_queued_for_review: int = 0  # T062: Track queued insights
     promotions_performed: int = 0
     quarantines_performed: int = 0
+    prunes_performed: int = 0
     start_time: Optional[datetime] = None
     last_promotion_check: Optional[datetime] = None
 
@@ -73,7 +79,14 @@ class OnlineLearningLoop:
         # Initialize ACE components
         self.generator = CoTGenerator(model=config.generator_model)
         self.reflector = GroundedReflector(model=config.reflector_model)
-        self.curator = SemanticCurator()
+        self.curator_service = CuratorService()
+        self.merge_coordinator = MergeCoordinator(
+            self.curator_service,
+            batch_size=config.merge_batch_size,
+            flush_interval=config.merge_flush_interval,
+        )
+        self.refinement_scheduler: Optional[RefinementScheduler] = None
+        self.runtime_adapter: Optional[RuntimeAdapter] = None
 
         # Stage manager for promotions
         self.stage_manager: Optional[StageManager] = None
@@ -130,6 +143,42 @@ class OnlineLearningLoop:
             return self._task_queue_callback()
         return None
 
+    def _get_playbook_context(self, max_bullets: int = 40) -> tuple[list[str], list[Dict]]:
+        """Retrieve active playbook bullets plus runtime entries."""
+        entries: List[Dict] = []
+
+        if self.runtime_adapter:
+            entries.extend(self.runtime_adapter.get_hot_entries())
+
+        if self.stage_manager:
+            bullets = self.stage_manager.playbook_repo.get_active_playbook(
+                domain_id=self.config.domain_id,
+                exclude_quarantined=True
+            )
+
+            prioritized = sorted(
+                bullets,
+                key=lambda b: (
+                    0 if b.stage == PlaybookStage.PROD else 1,
+                    -b.helpful_count,
+                    b.created_at
+                )
+            )
+
+            for bullet in prioritized[:max_bullets]:
+                entries.append(
+                    {
+                        "id": bullet.id,
+                        "content": bullet.content,
+                        "stage": bullet.stage.value,
+                        "helpful_count": bullet.helpful_count,
+                        "harmful_count": bullet.harmful_count,
+                    }
+                )
+
+        strings = [entry["content"] for entry in entries]
+        return strings, entries
+
     def _process_task(
         self,
         task_data: Dict[str, Any],
@@ -146,12 +195,14 @@ class OnlineLearningLoop:
             True if successful, False on failure
         """
         try:
-            # Create TaskInput
+            # Create TaskInput with current playbook context
+            playbook_strings, structured_entries = self._get_playbook_context()
             task_input = TaskInput(
                 task_id=task_data["task_id"],
                 description=task_data["description"],
                 domain=task_data.get("domain", self.config.domain_id),
-                playbook_bullets=[],  # Retrieved from active playbook
+                playbook_bullets=playbook_strings,
+                playbook_context_entries=structured_entries,
                 max_reasoning_steps=10
             )
 
@@ -215,40 +266,32 @@ class OnlineLearningLoop:
 
             # Merge high-confidence insights with Curator (shadow mode)
             if high_confidence_insights:
-                # Get current playbook for domain
-                current_playbook = self.stage_manager.playbook_repo.get_by_domain(
-                    domain_id=self.config.domain_id
-                )
-
-                # Convert high-confidence insights to CuratorInput format
                 insight_dicts = [
                     {
                         "content": ins.content,
-                        "section": ins.section,
+                        "section": ins.section.value,
                         "confidence": ins.confidence,
-                        "source_task_id": task_input.task_id
+                        "tags": ins.tags,
+                        "source_task_id": task_input.task_id,
                     }
                     for ins in high_confidence_insights
                 ]
 
-                # Merge with curator (creates bullets in shadow stage)
-                merge_result = self.curator.batch_merge(
-                    task_insights=[{
-                        "task_id": task_input.task_id,
-                        "domain_id": self.config.domain_id,
-                        "insights": insight_dicts
-                    }],
-                    current_playbook=current_playbook,
+                event = MergeEvent(
+                    task_id=task_input.task_id,
+                    insights=insight_dicts,
                     target_stage=PlaybookStage.SHADOW if self.config.use_shadow_mode else PlaybookStage.PROD,
-                    similarity_threshold=0.8
                 )
 
-                logger.info(
-                    "task_insights_merged",
-                    task_id=task_input.task_id,
-                    new_bullets=merge_result["total_new_bullets"],
-                    increments=merge_result["total_increments"]
-                )
+                merge_result = self.merge_coordinator.submit(self.config.domain_id, event)
+                if merge_result:
+                    logger.info(
+                        "task_batch_merged",
+                        domain_id=self.config.domain_id,
+                        new_bullets=merge_result.new_bullets_added,
+                        increments=merge_result.existing_bullets_incremented,
+                    )
+                    session.expire_all()
 
             self.metrics.successful_tasks += 1
             return True
@@ -263,30 +306,15 @@ class OnlineLearningLoop:
             self.metrics.failed_tasks += 1
             return False
 
-    def _check_promotions(self, session: Session) -> None:
-        """
-        Check all bullets for promotion/quarantine eligibility.
-
-        Args:
-            session: Database session
-        """
-        if not self.stage_manager:
+    def _run_refinement_cycle(self, session: Session) -> None:
+        if not self.refinement_scheduler:
             return
 
-        result = self.stage_manager.check_all_promotions(
-            domain_id=self.config.domain_id
-        )
-
-        self.metrics.promotions_performed += len(result["promoted"])
-        self.metrics.quarantines_performed += len(result["quarantined"])
-        self.metrics.last_promotion_check = datetime.utcnow()
-
-        logger.info(
-            "promotion_check_performed",
-            promoted=len(result["promoted"]),
-            quarantined=len(result["quarantined"]),
-            no_action=len(result["no_action"])
-        )
+        result = self.refinement_scheduler.run(self.config.domain_id)
+        self.metrics.promotions_performed += result.promotions
+        self.metrics.quarantines_performed += result.quarantines
+        self.metrics.prunes_performed += result.pruned
+        self.metrics.last_promotion_check = result.last_run
 
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
@@ -321,6 +349,16 @@ class OnlineLearningLoop:
                 # Initialize stage manager and review service with session
                 self.stage_manager = StageManager(session)
                 self.review_service = ReviewService(session)
+                self.refinement_scheduler = RefinementScheduler(
+                    self.merge_coordinator,
+                    self.stage_manager,
+                    self.curator_service,
+                    min_interval_seconds=self.config.merge_flush_interval,
+                )
+                self.runtime_adapter = RuntimeAdapter(
+                    self.config.domain_id,
+                    self.merge_coordinator,
+                )
 
                 while not self._should_stop:
                     # Check iteration limit
@@ -345,11 +383,16 @@ class OnlineLearningLoop:
                     self._process_task(task_data, session)
 
                     # Periodic promotion check
-                    if self.metrics.total_tasks_processed % self.config.promotion_check_interval == 0:
-                        self._check_promotions(session)
+                    if (
+                        self.metrics.total_tasks_processed % self.config.promotion_check_interval == 0
+                    ):
+                        self._run_refinement_cycle(session)
 
                     # Commit session after each task
                     session.commit()
+
+                # Ensure a final refinement pass before exiting context
+                self._run_refinement_cycle(session)
 
         except Exception as e:
             logger.error(
@@ -359,6 +402,12 @@ class OnlineLearningLoop:
             )
             raise
         finally:
+            flush_results = self.merge_coordinator.flush_all()
+            if flush_results:
+                logger.info(
+                    "merge_coordinator_drain",
+                    batches=len(flush_results)
+                )
             logger.info(
                 "online_loop_stopped",
                 total_tasks=self.metrics.total_tasks_processed,
@@ -367,7 +416,8 @@ class OnlineLearningLoop:
                 insights_extracted=self.metrics.insights_extracted,
                 insights_queued_for_review=self.metrics.insights_queued_for_review,
                 promotions=self.metrics.promotions_performed,
-                quarantines=self.metrics.quarantines_performed
+                quarantines=self.metrics.quarantines_performed,
+                prunes=self.metrics.prunes_performed
             )
 
         return self.metrics

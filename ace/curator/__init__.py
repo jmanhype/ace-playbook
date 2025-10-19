@@ -12,6 +12,7 @@ from ace.curator.curator_models import (
     SIMILARITY_THRESHOLD_DEFAULT,
 )
 from ace.curator.curator_service import CuratorService
+from ace.curator.merge_coordinator import MergeCoordinator, MergeEvent
 
 __all__ = [
     "SemanticCurator",
@@ -20,4 +21,6 @@ __all__ = [
     "DeltaUpdate",
     "CuratorService",
     "SIMILARITY_THRESHOLD_DEFAULT",
+    "MergeCoordinator",
+    "MergeEvent",
 ]

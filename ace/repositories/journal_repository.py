@@ -124,7 +124,8 @@ class DiffJournalRepository:
         entries = []
 
         for delta_update in delta_updates:
-            entry = self.add_entry(task_id, domain_id, delta_update)
+            effective_task_id = delta_update.metadata.get("task_id") if delta_update.metadata else None
+            entry = self.add_entry(effective_task_id or task_id, domain_id, delta_update)
             entries.append(entry)
 
         self.session.flush()

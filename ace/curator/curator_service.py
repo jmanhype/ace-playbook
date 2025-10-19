@@ -11,16 +11,20 @@ from datetime import datetime
 
 from typing import TYPE_CHECKING
 
+import hashlib
+
 from ace.curator.semantic_curator import (
     SemanticCurator,
     CuratorInput,
     CuratorOutput,
     SIMILARITY_THRESHOLD_DEFAULT,
 )
+from ace.curator.curator_models import DeltaUpdate
 from ace.models.playbook import PlaybookBullet, PlaybookStage
 from ace.repositories.playbook_repository import PlaybookRepository
 from ace.utils.database import get_session
 from ace.utils.logging_config import get_logger
+from ace.curator.curator_utils import compute_bullet_hash
 
 if TYPE_CHECKING:
     from ace.repositories.journal_repository import DiffJournalRepository
@@ -151,6 +155,149 @@ class CuratorService:
 
             return curator_output
 
+    def merge_batch(
+        self,
+        domain_id: str,
+        task_insights: List[Dict],
+        target_stage: PlaybookStage = PlaybookStage.SHADOW,
+    ) -> CuratorOutput:
+        """Batch merge multiple task insights atomically."""
+
+        if not task_insights:
+            raise ValueError("task_insights cannot be empty")
+
+        logger.info(
+            "merge_batch_start",
+            domain_id=domain_id,
+            num_tasks=len(task_insights),
+            target_stage=target_stage,
+        )
+
+        from ace.repositories.journal_repository import DiffJournalRepository
+
+        with get_session() as session:
+            playbook_repo = PlaybookRepository(session)
+            journal_repo = DiffJournalRepository(session)
+
+            current_playbook = playbook_repo.get_active_playbook(
+                domain_id=domain_id,
+                exclude_quarantined=False,
+            )
+
+            curator_dict = self.semantic_curator.batch_merge(
+                task_insights=task_insights,
+                current_playbook=current_playbook,
+                target_stage=target_stage,
+            )
+
+            delta_updates = curator_dict["batch_results"]
+            updated_playbook = curator_dict["updated_playbook"]
+
+            output = CuratorOutput(
+                task_id="batch",
+                domain_id=domain_id,
+                delta_updates=delta_updates,
+                updated_playbook=updated_playbook,
+            )
+            output.new_bullets_added = curator_dict.get("total_new_bullets", 0)
+            output.existing_bullets_incremented = curator_dict.get("total_increments", 0)
+            output.duplicates_detected = curator_dict.get("total_increments", 0)
+
+            self._persist_curator_output(
+                session=session,
+                curator_output=output,
+                playbook_repo=playbook_repo,
+                journal_repo=journal_repo,
+            )
+
+            session.commit()
+
+            logger.info(
+                "merge_batch_complete",
+                domain_id=domain_id,
+                new_bullets=output.new_bullets_added,
+                increments=output.existing_bullets_incremented,
+            )
+
+            return output
+
+    def prune_redundant(
+        self,
+        domain_id: str,
+        reason: str = "prune_duplicate",
+    ) -> int:
+        """Quarantine duplicate bullets within a domain."""
+
+        from ace.repositories.journal_repository import DiffJournalRepository
+
+        with get_session() as session:
+            playbook_repo = PlaybookRepository(session)
+            journal_repo = DiffJournalRepository(session)
+
+            bullets = playbook_repo.get_active_playbook(
+                domain_id=domain_id,
+                exclude_quarantined=False,
+            )
+
+            groups: Dict[str, List[PlaybookBullet]] = {}
+            for bullet in bullets:
+                key = bullet.content.strip().lower()
+                groups.setdefault(key, []).append(bullet)
+
+            delta_updates: List[DeltaUpdate] = []
+            updated_playbook = list(bullets)
+
+            for duplicates in groups.values():
+                if len(duplicates) <= 1:
+                    continue
+                keep = max(
+                    duplicates,
+                    key=lambda b: (b.helpful_count - b.harmful_count, -b.harmful_count, b.created_at),
+                )
+                for bullet in duplicates:
+                    if bullet.id == keep.id or bullet.stage == PlaybookStage.QUARANTINED:
+                        continue
+                    before_hash = compute_bullet_hash(bullet)
+                    bullet.stage = PlaybookStage.QUARANTINED
+                    after_hash = compute_bullet_hash(bullet)
+                    delta_updates.append(
+                        DeltaUpdate(
+                            operation="quarantine",
+                            bullet_id=bullet.id,
+                            before_hash=before_hash,
+                            after_hash=after_hash,
+                            metadata={"reason": reason},
+                        )
+                    )
+
+            if not delta_updates:
+                return 0
+
+            output = CuratorOutput(
+                task_id="prune",
+                domain_id=domain_id,
+                delta_updates=delta_updates,
+                updated_playbook=updated_playbook,
+            )
+            output.bullets_quarantined = len(delta_updates)
+
+            self._persist_curator_output(
+                session=session,
+                curator_output=output,
+                playbook_repo=playbook_repo,
+                journal_repo=journal_repo,
+            )
+
+            session.commit()
+
+        logger.info(
+            "prune_redundant_complete",
+            domain_id=domain_id,
+            quarantined=len(delta_updates),
+        )
+
+        return len(delta_updates)
+
     def _persist_curator_output(
         self,
         session,
@@ -188,6 +335,16 @@ class CuratorService:
             playbook_repo.add(bullet)
 
         if bullets_to_update:
+            immutable_fields = ("content", "tags", "embedding")
+            for bullet in bullets_to_update:
+                current = playbook_repo.get_by_id(bullet.id, bullet.domain_id)
+                if current is None:
+                    continue
+                for field in immutable_fields:
+                    if getattr(current, field) != getattr(bullet, field):
+                        raise ValueError(
+                            f"Immutable field '{field}' modified for bullet {bullet.id}"
+                        )
             playbook_repo.bulk_update(bullets_to_update)
 
         logger.debug(
@@ -197,6 +354,20 @@ class CuratorService:
         )
 
         # Persist journal entries
+        snapshot_source = "|".join(
+            sorted(
+                f"{bullet.id}:{bullet.stage}:{bullet.helpful_count}:{bullet.harmful_count}:{bullet.content.strip()}"
+                for bullet in curator_output.updated_playbook
+            )
+        )
+        snapshot_hash = hashlib.sha256(snapshot_source.encode("utf-8")).hexdigest() if snapshot_source else ""
+
+        for delta_update in curator_output.delta_updates:
+            metadata = delta_update.metadata or {}
+            metadata.setdefault("context_snapshot_hash", snapshot_hash)
+            metadata.setdefault("summary", f"{delta_update.operation}:{delta_update.bullet_id}")
+            delta_update.metadata = metadata
+
         journal_repo.add_entries_batch(
             task_id=curator_output.task_id,
             domain_id=curator_output.domain_id,
