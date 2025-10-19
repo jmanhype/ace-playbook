@@ -12,6 +12,7 @@ ACE Playbook Documentation
    tutorials/index
    edge_cases
    runtime_benchmarks
+   domains/index
    runbook
    changelog
 

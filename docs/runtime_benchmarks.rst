@@ -99,3 +99,32 @@ Continuous Integration Ideas
 * Cache embeddings or mock the LLM through environment toggles if CI cannot access external APIs.
 * Surface benchmark metrics as artifacts for quick comparison between branches.
 
+Adding a New Domain
+-------------------
+
+Use this checklist to bootstrap a fresh benchmark + guardrail setup:
+
+1. **Harvest exemplar tasks**
+   * Collect reliable input/output pairs with unambiguous ground truth.
+   * Normalize them into newline-delimited JSON (``benchmarks/<domain>.jsonl``).
+
+2. **Map failure modes**
+   * Identify the mistakes you want to prevent: numeric drift, missing fields, tone violations, etc.
+   * Decide whether each can be auto-corrected or only flagged.
+
+3. **Implement guardrails**
+   * Create ``ace/utils/<domain>_guardrails.py`` mirroring the finance module.
+   * Define instructions, calculators/validators, format specifiers, and set ``auto_correct=True`` where appropriate.
+   * Expose a ``get_guardrail(task_id)`` helper.
+
+4. **Wire into the benchmark runner**
+   * Import your guardrail getter in ``scripts/run_benchmark.py``.
+   * Update ``augment_description`` and ``evaluate_answer`` to use it.
+   * Add any domain-specific CLI variants if needed.
+
+5. **Run & document**
+   * Execute the harness (``ace_full`` variant) and inspect ``results/<domain>.json``.
+   * Commit the benchmark, guardrails, results, and README/docs updates.
+   * Optionally add a CI job or docs entry so others can rerun it.
+
+Tip: If you expect to repeat this often, create a cookiecutter or script that scaffolds the benchmark file, guardrail module, and docs stub.

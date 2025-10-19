@@ -149,6 +149,27 @@ Key metrics in the JSON output:
 
 Pro tip: keep regenerated results in source control so regressions surface in diffs.
 
+### Add a New Domain in 5 Steps
+
+1. **Scaffold stubs**
+
+   ```bash
+   python scripts/scaffold_domain.py claims-processing
+   ```
+
+   This creates:
+
+   - `benchmarks/claims-processing.jsonl`
+   - `ace/utils/claims-processing_guardrails.py`
+   - `docs/domains/claims-processing.rst`
+
+2. **Populate ground truth** – Fill the benchmark file with real tasks (one JSON per line).
+3. **Implement guardrails** – Update the guardrail module with instructions, calculators, and `auto_correct` flags.
+4. **Run the benchmark** – `python scripts/run_benchmark.py benchmarks/claims-processing.jsonl ace_full --output results/ace_full_claims-processing.json`
+5. **Document & commit** – Summarize behavior in the docs stub, review `results/*.json`, and push the changes.
+
+Tip: repeat the harness run periodically (or in CI) so regressions surface immediately.
+
 ## Project Structure
 
 ```text
