@@ -2,6 +2,17 @@
 
 Self-improving LLM system using the Generator-Reflector-Curator pattern for online learning from execution feedback.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Key Features](#key-features)
+- [Guardrails as High-Precision Sensors](#guardrails-as-high-precision-sensors)
+- [Quick Start](#quick-start)
+- [Benchmarking & Runtime Adaptation](#benchmarking--runtime-adaptation)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Documentation](#documentation)
+
 ## Architecture
 
 **Generator-Reflector-Curator Pattern:**
@@ -63,6 +74,12 @@ python examples/single_domain_arithmetic_validation.py
 python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/ace_full_finance_subset.json
 ```
 
+**Environment checklist**
+
+- `OPENROUTER_API_KEY` (preferred), `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`
+- `DATABASE_URL` (defaults to `sqlite:///ace_playbook.db`)
+- Optional: `OPENROUTER_MODEL` if you want to experiment with different hosted LLMs
+
 ### Docker Compose (Recommended for Production)
 
 ```bash
@@ -101,6 +118,36 @@ trigger = monitor.check_guardrails("customer-acme")
 if trigger:
     print(f"Rollback triggered: {trigger.reason}")
 ```
+
+## Benchmarking & Runtime Adaptation
+
+Use the benchmark harness to compare variants and capture guardrail activity. Detailed notes live in [docs/runtime_benchmarks.rst](docs/runtime_benchmarks.rst).
+
+### Run Baseline vs ACE
+
+```bash
+# Baseline: Chain-of-Thought generator only
+python scripts/run_benchmark.py benchmarks/finance_subset.jsonl baseline --output results/baseline_finance_subset.json
+
+# Full ACE stack: ReAct generator + runtime adapter + merge coordinator + refinement scheduler
+python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/ace_full_finance_subset.json
+```
+
+Key metrics in the JSON output:
+
+- `correct` / `total` – benchmark score
+- `promotions`, `new_bullets`, `increments` – curator activity
+- `auto_corrections` – guardrail canonical replacements (e.g., finance rounding)
+- `format_corrections` – post-process clamps that strip extra words but retain the raw answer for reflection
+
+### Add a New Finance Guardrail
+
+1. Edit `ace/utils/finance_guardrails.py` and add an entry to `FINANCE_GUARDRAILS` with `instructions`, `calculator`, and `decimals`.
+2. Set `auto_correct=True` if the calculator should override the raw answer.
+3. Re-run `scripts/run_benchmark.py` for the relevant dataset.
+4. Inspect `results/*.json` to confirm the guardrail triggered and push the refreshed artifact.
+
+Pro tip: keep regenerated results in source control so regressions surface in diffs.
 
 ## Project Structure
 
