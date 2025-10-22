@@ -1,0 +1,48 @@
+name: ACE Benchmark
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  run-benchmark:
+    name: Run ACE benchmark
+    runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -e .[dev]
+          python -m pip install sentence-transformers faiss-cpu
+
+      - name: Ensure benchmark results directory exists
+        run: mkdir -p results/benchmark
+
+      - name: Baseline run
+        run: python scripts/run_benchmark.py benchmarks/finance_subset.jsonl baseline --output results/benchmark/baseline_finance.json
+
+      - name: ACE run
+        run: python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/benchmark/ace_finance.json
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ace-benchmark-results
+          path: results/benchmark/*.json
+          if-no-files-found: error
