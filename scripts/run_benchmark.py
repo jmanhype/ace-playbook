@@ -260,7 +260,7 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
                 answer=original_answer,
                 confidence=result.confidence,
                 bullets_referenced=result.bullets_referenced,
-                ground_truth=task.get("ground_truth") if use_ground_truth else None,
+                ground_truth=task.get("ground_truth") if use_ground_truth else "",
                 domain="benchmark",
             )
 
