@@ -31,6 +31,14 @@ jobs:
           python -m pip install -e .[dev]
           python -m pip install sentence-transformers faiss-cpu
 
+      - name: Initialize database schema
+        run: |
+          python - <<'PY'
+          from ace.utils.database import init_database
+
+          init_database()
+          PY
+
       - name: Ensure benchmark results directory exists
         run: mkdir -p results/benchmark
 
