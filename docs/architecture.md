@@ -164,6 +164,62 @@ sequenceDiagram
     C-->>U: Updated playbook + stats
 ```
 
+## Platform Alignment Best Practices
+
+To keep ACE Playbook interoperable with partner runtimes, the pipeline adopts a
+set of platform patterns that mirror the strongest guarantees we have observed
+in production systems.
+
+### Typed Program Signatures
+
+- Every program layer (Generator, Reflector, Curator) now defines explicit
+  `Input`/`Output` data models before prompt wiring occurs.
+- The signatures are implemented with `pydantic` models inside
+  `ace.generator.signatures`, `ace.reflector.signatures`, and
+  `ace.curator.curator_models` to enforce schema fidelity across the stack.
+- Because the schema is declared up front, prompt overrides stay optional and
+  we can detect drift during import time instead of at runtime.
+
+### Curator Delta Contract
+
+- Curator responses are normalized to an operations list with the shape
+  `{type, section, content, bullet_id?}`.
+- The structure mirrors the JSON diff emitted by Ax, letting downstream
+  consumers compare deltas one-to-one and ingest curator updates without custom
+  adapters.
+- See `ace.curator.curator_models` for the canonical Pydantic definitions and
+  serialization helpers.
+
+### Metric-as-a-Function Hooks
+
+- When compiling a run, callers pass a callable that scores success for the
+  task (tests passed, guardrail lift, etc.).
+- The optimizer treats the metric as a first-class function, so we can swap in
+  benchmarks or guardrails without touching the pipeline core.
+- Metric hooks live in `ace.runtime.metrics` and are referenced anywhere the
+  runtime evaluates lift.
+
+### Online Update Flow
+
+- `apply_online_update` is exposed on the runtime client to bundle an example,
+  model prediction, and human/automated feedback into a single call.
+- The method triggers a Reflector → Curator pass and returns the resulting
+  delta, enabling nightly refreshes or reviewer-driven corrections with the
+  same contract.
+- JSON clients and notebooks can call this API directly; see
+  `ace.runtime.client` for usage examples.
+
+### Structured Prompt Override Hooks
+
+- Reflector programs expose `get_or_create_program` helpers that accept prompt
+  overrides via keyword arguments instead of manual string patches.
+- Overrides register against the typed signatures above, so experiments and
+  A/Bs stay consistent with the schema and can be rolled back cleanly.
+
+Together these practices keep the Python implementation cleaner, make prompts
+swappable without breaking contracts, and ensure delta artifacts are compatible
+with adjacent tooling.
+
 ### Offline Training Workflow
 
 ```mermaid

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from ace.models.journal import DiffJournalEntry, MergeOperation
-from ace.curator.curator_models import DeltaUpdate
+from ace.curator.curator_models import CuratorOperationType, DeltaUpdate
 from ace.utils.logging_config import get_logger
 
 logger = get_logger(__name__, component="journal_repository")
@@ -50,16 +50,16 @@ class DiffJournalRepository:
         """
         # Map operation string to enum
         operation_map = {
-            "add": MergeOperation.ADD_NEW,
-            "increment_helpful": MergeOperation.INCREMENT_HELPFUL,
-            "increment_harmful": MergeOperation.INCREMENT_HARMFUL,
-            "increment_neutral": MergeOperation.INCREMENT_HELPFUL,  # Treat as helpful
-            "quarantine": MergeOperation.QUARANTINE,
+            CuratorOperationType.ADD: MergeOperation.ADD_NEW,
+            CuratorOperationType.INCREMENT_HELPFUL: MergeOperation.INCREMENT_HELPFUL,
+            CuratorOperationType.INCREMENT_HARMFUL: MergeOperation.INCREMENT_HARMFUL,
+            CuratorOperationType.INCREMENT_NEUTRAL: MergeOperation.INCREMENT_HELPFUL,
+            CuratorOperationType.QUARANTINE: MergeOperation.QUARANTINE,
         }
 
         operation = operation_map.get(
             delta_update.operation,
-            MergeOperation.ADD_NEW
+            MergeOperation.ADD_NEW,
         )
 
         # Build before/after state dictionaries

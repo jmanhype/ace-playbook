@@ -24,8 +24,12 @@ from ace.utils.logging_config import get_logger
 # Import extracted modules
 from ace.curator.curator_models import (
     CuratorInput,
+    CuratorInsight,
     CuratorOutput,
+    CuratorOperation,
+    CuratorOperationType,
     DeltaUpdate,
+    InsightSection,
     SIMILARITY_THRESHOLD_DEFAULT,
 )
 from ace.curator.domain_validator import (
@@ -103,8 +107,13 @@ class SemanticCurator:
         enforce_domain_isolation(curator_input)
 
         delta_updates = []
+        operations: List[CuratorOperation] = []
         updated_playbook = list(curator_input.current_playbook)  # Copy
-        updated_playbook_dict = {b.id: b for b in updated_playbook}
+        updated_playbook_dict: Dict[str, PlaybookBullet] = {}
+        for bullet in updated_playbook:
+            if not getattr(bullet, "id", None):
+                bullet.id = str(uuid.uuid4())
+            updated_playbook_dict[bullet.id] = bullet
         section_to_bullets: Dict[str, List[PlaybookBullet]] = {}
         for bullet in updated_playbook:
             section_to_bullets.setdefault(bullet.section, []).append(bullet)
@@ -120,8 +129,8 @@ class SemanticCurator:
 
             # Process each insight
             for insight in curator_input.insights:
-                insight_embedding = self.embedding_service.encode_single(insight["content"])
-                insight_section = insight["section"]
+                insight_embedding = self.embedding_service.encode_single(insight.content)
+                insight_section = insight.section.value
 
                 best_match = None
                 best_similarity = 0.0
@@ -152,16 +161,19 @@ class SemanticCurator:
                             best_match = bullet
 
                 if best_similarity >= curator_input.similarity_threshold and best_match:
+                    if not getattr(best_match, "id", None):
+                        best_match.id = str(uuid.uuid4())
+                        updated_playbook_dict[best_match.id] = best_match
                     before_hash = compute_bullet_hash(best_match)
 
-                    if insight_section == "Helpful":
+                    if insight_section == InsightSection.HELPFUL.value:
                         best_match.helpful_count += 1
-                        operation = "increment_helpful"
-                    elif insight_section == "Harmful":
+                        operation = CuratorOperationType.INCREMENT_HELPFUL
+                    elif insight_section == InsightSection.HARMFUL.value:
                         best_match.harmful_count += 1
-                        operation = "increment_harmful"
+                        operation = CuratorOperationType.INCREMENT_HARMFUL
                     else:
-                        operation = "increment_neutral"
+                        operation = CuratorOperationType.INCREMENT_NEUTRAL
 
                     after_hash = compute_bullet_hash(best_match)
 
@@ -173,6 +185,16 @@ class SemanticCurator:
                             after_hash=after_hash,
                             similar_to=best_match.id,
                             similarity_score=best_similarity,
+                            metadata={"source": "duplicate"},
+                        )
+                    )
+                    operations.append(
+                        CuratorOperation(
+                            type=operation,
+                            section=insight.section,
+                            content=insight.content,
+                            bullet_id=best_match.id,
+                            metadata={"similarity": best_similarity},
                         )
                     )
 
@@ -193,11 +215,11 @@ class SemanticCurator:
                     new_bullet = PlaybookBullet(
                         id=str(uuid.uuid4()),
                         domain_id=curator_input.domain_id,
-                        content=insight["content"],
+                        content=insight.content,
                         section=insight_section,
-                        helpful_count=1 if insight_section == "Helpful" else 0,
-                        harmful_count=1 if insight_section == "Harmful" else 0,
-                        tags=insight.get("tags", []),
+                        helpful_count=1 if insight_section == InsightSection.HELPFUL.value else 0,
+                        harmful_count=1 if insight_section == InsightSection.HARMFUL.value else 0,
+                        tags=insight.tags,
                         embedding=embedding_list,
                         created_at=datetime.utcnow(),
                         last_used_at=datetime.utcnow(),
@@ -210,10 +232,19 @@ class SemanticCurator:
 
                     delta_updates.append(
                         DeltaUpdate(
-                            operation="add",
+                            operation=CuratorOperationType.ADD,
                             bullet_id=new_bullet.id,
                             new_bullet=new_bullet,
                             after_hash=compute_bullet_hash(new_bullet),
+                        )
+                    )
+                    operations.append(
+                        CuratorOperation(
+                            type=CuratorOperationType.ADD,
+                            section=insight.section,
+                            content=insight.content,
+                            bullet_id=new_bullet.id,
+                            metadata={"tags": insight.tags},
                         )
                     )
 
@@ -240,10 +271,22 @@ class SemanticCurator:
 
                 delta_updates.append(
                     DeltaUpdate(
-                        operation="quarantine",
+                        operation=CuratorOperationType.QUARANTINE,
                         bullet_id=bullet.id,
                         before_hash=before_hash,
                         after_hash=after_hash,
+                    )
+                )
+                try:
+                    section_enum = InsightSection(bullet.section)
+                except ValueError:
+                    section_enum = InsightSection.NEUTRAL
+                operations.append(
+                    CuratorOperation(
+                        type=CuratorOperationType.QUARANTINE,
+                        section=section_enum,
+                        content=bullet.content,
+                        bullet_id=bullet.id,
                     )
                 )
 
@@ -254,15 +297,20 @@ class SemanticCurator:
             delta_updates=delta_updates,
             updated_playbook=updated_playbook,
         )
+        for op in operations:
+            output.delta.append(op)
 
         # Compute statistics
         for update in delta_updates:
-            if update.operation == "add":
+            if update.operation == CuratorOperationType.ADD:
                 output.new_bullets_added += 1
-            elif update.operation in ("increment_helpful", "increment_harmful"):
+            elif update.operation in (
+                CuratorOperationType.INCREMENT_HELPFUL,
+                CuratorOperationType.INCREMENT_HARMFUL,
+            ):
                 output.existing_bullets_incremented += 1
                 output.duplicates_detected += 1
-            elif update.operation == "quarantine":
+            elif update.operation == CuratorOperationType.QUARANTINE:
                 output.bullets_quarantined += 1
 
         logger.info(
@@ -321,10 +369,14 @@ class SemanticCurator:
             insights = task_data["insights"]
 
             for insight in insights:
+                typed_insight = CuratorInsight.model_validate(insight)
                 insight_with_meta = {
-                    **insight,
+                    "content": typed_insight.content,
+                    "section": typed_insight.section.value,
+                    "tags": typed_insight.tags,
+                    "metadata": typed_insight.metadata,
                     "task_id": task_id,
-                    "domain_id": domain_id
+                    "domain_id": domain_id,
                 }
                 task_id_map[len(all_insights)] = task_id
                 all_insights.append(insight_with_meta)
@@ -349,16 +401,25 @@ class SemanticCurator:
             if current_playbook:
                 # Add current playbook to FAISS index
                 playbook_embeddings = np.array([b.embedding for b in current_playbook], dtype=np.float32)
-                bullet_ids = [b.id for b in current_playbook]
+                bullet_ids = []
+                for bullet in current_playbook:
+                    if not getattr(bullet, "id", None):
+                        bullet.id = str(uuid.uuid4())
+                    bullet_ids.append(bullet.id)
                 self.faiss_manager.add_vectors(domain_id, playbook_embeddings, bullet_ids)
 
             # Build mapping from bullet_id to bullet for quick lookup
-            bullet_id_to_bullet = {b.id: b for b in current_playbook}
+            bullet_id_to_bullet: Dict[str, PlaybookBullet] = {}
+            for bullet in current_playbook:
+                if not getattr(bullet, "id", None):
+                    bullet.id = str(uuid.uuid4())
+                bullet_id_to_bullet[bullet.id] = bullet
 
             # Process all insights with single index
             updated_playbook = list(current_playbook)
             updated_playbook_dict = {b.id: b for b in updated_playbook}
-            delta_updates_all = []
+            delta_updates_all: List[DeltaUpdate] = []
+            operations_all: List[CuratorOperation] = []
             total_new_bullets = 0
             total_increments = 0
 
@@ -396,16 +457,19 @@ class SemanticCurator:
                 # Decide operation
                 if best_similarity >= similarity_threshold and best_match:
                     # Increment existing bullet
+                    if not getattr(best_match, "id", None):
+                        best_match.id = str(uuid.uuid4())
+                        bullet_id_to_bullet[best_match.id] = best_match
                     before_hash = compute_bullet_hash(best_match)
 
-                    if insight["section"] == "Helpful":
+                    if insight["section"] == InsightSection.HELPFUL.value:
                         best_match.helpful_count += 1
-                        operation = "increment_helpful"
-                    elif insight["section"] == "Harmful":
+                        operation = CuratorOperationType.INCREMENT_HELPFUL
+                    elif insight["section"] == InsightSection.HARMFUL.value:
                         best_match.harmful_count += 1
-                        operation = "increment_harmful"
+                        operation = CuratorOperationType.INCREMENT_HARMFUL
                     else:
-                        operation = "increment_neutral"
+                        operation = CuratorOperationType.INCREMENT_NEUTRAL
 
                     after_hash = compute_bullet_hash(best_match)
 
@@ -421,6 +485,22 @@ class SemanticCurator:
                         )
                     )
                     total_increments += 1
+                    try:
+                        section_enum = InsightSection(insight["section"])
+                    except ValueError:
+                        section_enum = InsightSection.NEUTRAL
+                    operations_all.append(
+                        CuratorOperation(
+                            type=operation,
+                            section=section_enum,
+                            content=insight["content"],
+                            bullet_id=best_match.id,
+                            metadata={
+                                "task_id": task_id,
+                                "similarity": float(best_similarity),
+                            },
+                        )
+                    )
 
                 else:
                     # Add new bullet
@@ -432,8 +512,8 @@ class SemanticCurator:
                         domain_id=domain_id,
                         content=insight["content"],
                         section=insight["section"],
-                        helpful_count=1 if insight["section"] == "Helpful" else 0,
-                        harmful_count=1 if insight["section"] == "Harmful" else 0,
+                        helpful_count=1 if insight["section"] == InsightSection.HELPFUL.value else 0,
+                        harmful_count=1 if insight["section"] == InsightSection.HARMFUL.value else 0,
                         tags=insight.get("tags", []),
                         embedding=embedding_list,
                         created_at=datetime.utcnow(),
@@ -446,7 +526,7 @@ class SemanticCurator:
 
                     delta_updates_all.append(
                         DeltaUpdate(
-                            operation="add",
+                            operation=CuratorOperationType.ADD,
                             bullet_id=new_bullet.id,
                             new_bullet=new_bullet,
                             after_hash=compute_bullet_hash(new_bullet),
@@ -454,6 +534,22 @@ class SemanticCurator:
                         )
                     )
                     total_new_bullets += 1
+                    try:
+                        section_enum = InsightSection(insight["section"])
+                    except ValueError:
+                        section_enum = InsightSection.NEUTRAL
+                    operations_all.append(
+                        CuratorOperation(
+                            type=CuratorOperationType.ADD,
+                            section=section_enum,
+                            content=insight["content"],
+                            bullet_id=new_bullet.id,
+                            metadata={
+                                "task_id": task_id,
+                                "tags": insight.get("tags", []),
+                            },
+                        )
+                    )
         finally:
             # T072: Clean up FAISS index to prevent memory leak
             self.faiss_manager.clear_index(domain_id)
@@ -472,5 +568,6 @@ class SemanticCurator:
             "updated_playbook": updated_playbook,
             "total_new_bullets": total_new_bullets,
             "total_increments": total_increments,
-            "total_processed": len(all_insights)
+            "total_processed": len(all_insights),
+            "operations": operations_all,
         }

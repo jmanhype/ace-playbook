@@ -13,13 +13,16 @@ from typing import TYPE_CHECKING
 
 import hashlib
 
-from ace.curator.semantic_curator import (
-    SemanticCurator,
+from ace.curator.semantic_curator import SemanticCurator
+from ace.curator.curator_models import (
     CuratorInput,
     CuratorOutput,
+    CuratorOperation,
+    CuratorOperationType,
+    DeltaUpdate,
+    InsightSection,
     SIMILARITY_THRESHOLD_DEFAULT,
 )
-from ace.curator.curator_models import DeltaUpdate
 from ace.models.playbook import PlaybookBullet, PlaybookStage
 from ace.repositories.playbook_repository import PlaybookRepository
 from ace.utils.database import get_session
@@ -199,6 +202,8 @@ class CuratorService:
                 delta_updates=delta_updates,
                 updated_playbook=updated_playbook,
             )
+            for op in curator_dict.get("operations", []):
+                output.delta.append(op)
             output.new_bullets_added = curator_dict.get("total_new_bullets", 0)
             output.existing_bullets_incremented = curator_dict.get("total_increments", 0)
             output.duplicates_detected = curator_dict.get("total_increments", 0)
@@ -262,7 +267,7 @@ class CuratorService:
                     after_hash = compute_bullet_hash(bullet)
                     delta_updates.append(
                         DeltaUpdate(
-                            operation="quarantine",
+                            operation=CuratorOperationType.QUARANTINE,
                             bullet_id=bullet.id,
                             before_hash=before_hash,
                             after_hash=after_hash,
@@ -279,6 +284,36 @@ class CuratorService:
                 delta_updates=delta_updates,
                 updated_playbook=updated_playbook,
             )
+            for delta_update in delta_updates:
+                try:
+                    section_enum = InsightSection(
+                        next(
+                            (
+                                b.section
+                                for b in updated_playbook
+                                if b.id == delta_update.bullet_id
+                            ),
+                            InsightSection.NEUTRAL.value,
+                        )
+                    )
+                except ValueError:
+                    section_enum = InsightSection.NEUTRAL
+                output.delta.append(
+                    CuratorOperation(
+                        type=delta_update.operation,
+                        section=section_enum,
+                        content=next(
+                            (
+                                b.content
+                                for b in updated_playbook
+                                if b.id == delta_update.bullet_id
+                            ),
+                            "",
+                        ),
+                        bullet_id=delta_update.bullet_id,
+                        metadata=delta_update.metadata,
+                    )
+                )
             output.bullets_quarantined = len(delta_updates)
 
             self._persist_curator_output(
@@ -319,7 +354,7 @@ class CuratorService:
         bullets_to_add = []
 
         for delta_update in curator_output.delta_updates:
-            if delta_update.operation == "add" and delta_update.new_bullet:
+            if delta_update.operation == CuratorOperationType.ADD and delta_update.new_bullet:
                 bullets_to_add.append(delta_update.new_bullet)
             else:
                 # Find updated bullet in updated_playbook

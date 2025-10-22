@@ -7,7 +7,10 @@ Semantic deduplication and playbook management with multi-domain isolation.
 from ace.curator.semantic_curator import SemanticCurator
 from ace.curator.curator_models import (
     CuratorInput,
+    CuratorInsight,
     CuratorOutput,
+    CuratorOperation,
+    CuratorOperationType,
     DeltaUpdate,
     SIMILARITY_THRESHOLD_DEFAULT,
 )
@@ -17,7 +20,10 @@ from ace.curator.merge_coordinator import MergeCoordinator, MergeEvent
 __all__ = [
     "SemanticCurator",
     "CuratorInput",
+    "CuratorInsight",
     "CuratorOutput",
+    "CuratorOperation",
+    "CuratorOperationType",
     "DeltaUpdate",
     "CuratorService",
     "SIMILARITY_THRESHOLD_DEFAULT",

@@ -1,11 +1,12 @@
-"""
-Data models for Curator operations.
+"""Typed data models for Curator operations and deltas."""
 
-Extracted from semantic_curator.py to reduce file size and improve modularity.
-"""
+from __future__ import annotations
 
-from typing import List, Dict, Optional
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ace.models.playbook import PlaybookBullet, PlaybookStage
 
@@ -15,81 +16,136 @@ DOMAIN_ISOLATION_PATTERN = r"^[a-z0-9-]+$"
 RESERVED_DOMAINS = {"system", "admin", "test"}
 
 
-class CuratorInput:
-    """Input for Curator delta merging operation."""
+class InsightSection(str, Enum):
+    """Permitted sections for playbook bullets."""
 
-    def __init__(
-        self,
-        task_id: str,
-        domain_id: str,
-        insights: List[Dict],
-        current_playbook: List[PlaybookBullet],
-        target_stage: PlaybookStage = PlaybookStage.SHADOW,
-        similarity_threshold: float = SIMILARITY_THRESHOLD_DEFAULT,
-        promotion_helpful_min: int = 3,
-        promotion_ratio_min: float = 3.0,
-        quarantine_threshold: float = 1.0,
-    ):
-        self.task_id = task_id
-        self.domain_id = domain_id
-        self.insights = insights
-        self.current_playbook = current_playbook
-        self.target_stage = target_stage
-        self.similarity_threshold = similarity_threshold
-        self.promotion_helpful_min = promotion_helpful_min
-        self.promotion_ratio_min = promotion_ratio_min
-        self.quarantine_threshold = quarantine_threshold
+    HELPFUL = "Helpful"
+    HARMFUL = "Harmful"
+    NEUTRAL = "Neutral"
 
 
-class DeltaUpdate:
+class CuratorInsight(BaseModel):
+    """Structured insight emitted by the Reflector."""
+
+    content: str = Field(..., min_length=1, description="Strategy or observation text")
+    section: InsightSection = Field(..., description="Playbook section destination")
+    tags: List[str] = Field(default_factory=list, description="Categorical tags for retrieval")
+    bullet_id: Optional[str] = Field(
+        default=None, description="Optional existing bullet identifier for edits"
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional context")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CuratorOperationType(str, Enum):
+    """Enumerates curator delta operations."""
+
+    ADD = "add"
+    INCREMENT_HELPFUL = "increment_helpful"
+    INCREMENT_HARMFUL = "increment_harmful"
+    INCREMENT_NEUTRAL = "increment_neutral"
+    QUARANTINE = "quarantine"
+
+
+class CuratorOperation(BaseModel):
+    """JSON-native delta contract for playbook updates."""
+
+    type: CuratorOperationType = Field(..., description="Operation identifier")
+    section: InsightSection = Field(..., description="Section affected by the operation")
+    content: str = Field(..., description="Insight text associated with the operation")
+    bullet_id: Optional[str] = Field(
+        default=None, description="Target bullet identifier when applicable"
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Operation metadata")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CuratorDelta(BaseModel):
+    """Container for curator operations."""
+
+    operations: List[CuratorOperation] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    def append(self, operation: CuratorOperation) -> None:
+        self.operations.append(operation)
+
+
+class CuratorInput(BaseModel):
+    """Input contract for Curator delta merging."""
+
+    task_id: str = Field(..., description="Identifier for the originating task")
+    domain_id: str = Field(..., description="Domain namespace for the playbook")
+    insights: List[CuratorInsight] = Field(..., description="Insights ready for curation")
+    current_playbook: List[PlaybookBullet] = Field(
+        default_factory=list, description="Existing bullets for the domain"
+    )
+    target_stage: PlaybookStage = Field(
+        default=PlaybookStage.SHADOW, description="Stage for new bullets"
+    )
+    similarity_threshold: float = Field(
+        default=SIMILARITY_THRESHOLD_DEFAULT,
+        description="Cosine similarity threshold for duplicates",
+    )
+    promotion_helpful_min: int = Field(
+        default=3, description="Helpful count required for staging promotion"
+    )
+    promotion_ratio_min: float = Field(
+        default=3.0, description="Helpful:harmful ratio required for staging"
+    )
+    quarantine_threshold: float = Field(
+        default=1.0, description="Helpful:harmful ratio below which bullets are quarantined"
+    )
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("similarity_threshold")
+    @classmethod
+    def validate_similarity_threshold(cls, value: float) -> float:
+        if not 0 < value <= 1.0:
+            raise ValueError("similarity_threshold must be within (0, 1]")
+        return value
+
+
+class DeltaUpdate(BaseModel):
     """Single atomic playbook update operation."""
 
-    def __init__(
-        self,
-        operation: str,
-        bullet_id: str,
-        before_hash: Optional[str] = None,
-        after_hash: Optional[str] = None,
-        new_bullet: Optional[PlaybookBullet] = None,
-        similar_to: Optional[str] = None,
-        similarity_score: Optional[float] = None,
-        metadata: Optional[Dict] = None,
-    ):
-        self.operation = operation
-        self.bullet_id = bullet_id
-        self.before_hash = before_hash
-        self.after_hash = after_hash
-        self.new_bullet = new_bullet
-        self.similar_to = similar_to
-        self.similarity_score = similarity_score
-        self.metadata = metadata or {}
-        self.timestamp = datetime.utcnow()
+    operation: CuratorOperationType
+    bullet_id: str
+    before_hash: Optional[str] = None
+    after_hash: Optional[str] = None
+    new_bullet: Optional[PlaybookBullet] = None
+    similar_to: Optional[str] = None
+    similarity_score: Optional[float] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-class CuratorOutput:
+class CuratorOutput(BaseModel):
     """Output from Curator delta merging operation."""
 
-    def __init__(
-        self,
-        task_id: str,
-        domain_id: str,
-        delta_updates: List[DeltaUpdate],
-        updated_playbook: List[PlaybookBullet],
-    ):
-        self.task_id = task_id
-        self.domain_id = domain_id
-        self.delta_updates = delta_updates
-        self.updated_playbook = updated_playbook
-        self.new_bullets_added = 0
-        self.existing_bullets_incremented = 0
-        self.duplicates_detected = 0
-        self.bullets_quarantined = 0
-        self.bullets_promoted = 0
+    task_id: str
+    domain_id: str
+    delta_updates: List[DeltaUpdate]
+    updated_playbook: List[PlaybookBullet]
+    new_bullets_added: int = 0
+    existing_bullets_incremented: int = 0
+    duplicates_detected: int = 0
+    bullets_quarantined: int = 0
+    bullets_promoted: int = 0
+    delta: CuratorDelta = Field(default_factory=CuratorDelta)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def to_summary(self) -> str:
         """Generate human-readable summary."""
+
         return (
-            f"Curator Update Summary:\n"
+            "Curator Update Summary:\n"
             f"  New bullets: {self.new_bullets_added}\n"
             f"  Incremented: {self.existing_bullets_incremented}\n"
             f"  Duplicates: {self.duplicates_detected}\n"
