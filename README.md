@@ -8,6 +8,7 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 - [Key Features](#key-features)
 - [Guardrails as High-Precision Sensors](#guardrails-as-high-precision-sensors)
 - [Quick Start](#quick-start)
+    - [Agent Learning Live Loop](#agent-learning-live-loop)
 - [Benchmarking & Runtime Adaptation](#benchmarking--runtime-adaptation)
 - [Project Structure](#project-structure)
 - [Development](#development)
@@ -72,6 +73,18 @@ python examples/single_domain_arithmetic_validation.py
 
 # Generate structured benchmark reports
 python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/ace_full_finance_subset.json
+```
+
+### Agent Learning Live Loop
+
+The Agent Learning (Early Experience) harness now lives in this repository under
+`ace/agent_learning`.  It reuses the ACE runtime client, curator, and metrics
+stack to run a live loop that streams experience back into the playbook.  See
+[`docs/combined_quickstart.md`](docs/combined_quickstart.md) for a walkthrough
+and run the demo script with:
+
+```bash
+python examples/live_loop_quickstart.py
 ```
 
 **Environment checklist**
