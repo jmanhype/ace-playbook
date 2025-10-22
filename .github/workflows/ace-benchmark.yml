@@ -71,6 +71,8 @@ jobs:
           python -m pip install sentence-transformers faiss-cpu
 
       - name: Initialize database schema
+        env:
+          DATABASE_URL: sqlite:///results/${{ matrix.name }}.db
         run: |
           python - <<'PY'
           import ace.models  # ensure models are registered
