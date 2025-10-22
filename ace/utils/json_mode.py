@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import Iterator, Optional
-
-import dspy
 
 from ace.utils.logging_config import get_logger
 
@@ -37,6 +36,16 @@ def _resolve_model(preferred: Optional[str] = None) -> Optional[str]:
     return value or None
 
 
+@lru_cache(maxsize=1)
+def _load_dspy():
+    try:
+        import dspy  # type: ignore
+    except Exception as exc:  # pragma: no cover - defensive import guard
+        logger.warning("json_mode_adapter_unavailable", error=str(exc))
+        return None
+    return dspy
+
+
 @contextmanager
 def json_mode_context(
     *,
@@ -55,6 +64,10 @@ def json_mode_context(
         yield False
         return
 
+    dspy = _load_dspy()
+    if dspy is None:
+        yield False
+        return
     if not hasattr(dspy, "JSONAdapter"):
         logger.warning("json_mode_adapter_unavailable")
         yield False
