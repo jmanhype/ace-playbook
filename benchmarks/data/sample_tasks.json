@@ -1,0 +1,26 @@
+[
+  {
+    "task_id": "math-1",
+    "domain_id": "demo",
+    "description": "What is 2 + 2?",
+    "ground_truth": "4"
+  },
+  {
+    "task_id": "math-2",
+    "domain_id": "demo",
+    "description": "What is 5 + 7?",
+    "ground_truth": "12"
+  },
+  {
+    "task_id": "math-3",
+    "domain_id": "demo",
+    "description": "What is 9 - 3?",
+    "ground_truth": "6"
+  },
+  {
+    "task_id": "math-4",
+    "domain_id": "demo",
+    "description": "What is 6 * 3?",
+    "ground_truth": "18"
+  }
+]

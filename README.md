@@ -10,6 +10,7 @@ Self-improving LLM system using the Generator-Reflector-Curator pattern for onli
 - [Quick Start](#quick-start)
     - [Agent Learning Live Loop](#agent-learning-live-loop)
 - [Benchmarking & Runtime Adaptation](#benchmarking--runtime-adaptation)
+- [Release Notes](#release-notes)
 - [Project Structure](#project-structure)
 - [Development](#development)
 - [Documentation](#documentation)
@@ -85,6 +86,8 @@ and run the demo script with:
 
 ```bash
 python examples/live_loop_quickstart.py
+# Or run with your configured DSPy backend
+python examples/live_loop_quickstart.py --backend dspy --episodes 10
 ```
 
 **Environment checklist**
@@ -144,6 +147,9 @@ python scripts/run_benchmark.py benchmarks/finance_subset.jsonl baseline --outpu
 
 # Full ACE stack: ReAct generator + runtime adapter + merge coordinator + refinement scheduler
 python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/ace_full_finance_subset.json
+
+# ACE vs baseline live loop comparison (ACE + EE harness)
+python benchmarks/run_live_loop_benchmark.py --backend dspy --episodes 10
 ```
 
 Key metrics in the JSON output:
@@ -182,6 +188,12 @@ Pro tip: keep regenerated results in source control so regressions surface in di
 5. **Document & commit** – Summarize behavior in the docs stub, review `results/*.json`, and push the changes.
 
 Tip: repeat the harness run periodically (or in CI) so regressions surface immediately.
+
+## Release Notes
+
+See [`docs/release_notes.md`](docs/release_notes.md) for the changelog and upgrade
+instructions for the unified ACE + Agent Learning stack. Tag `v1.0.0`
+corresponds to the integration referenced in the companion papers.
 
 ## Project Structure
 

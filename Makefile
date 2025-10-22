@@ -50,6 +50,9 @@ security:  ## Run security checks
 	safety check
 	pip-audit
 
+smoke:  ## Run quick smoke test with dummy backend
+	python examples/live_loop_quickstart.py --backend dummy --episodes 2
+
 complexity:  ## Check code complexity with radon
 	@echo "Checking cyclomatic complexity..."
 	radon cc ace/ -a -nb
