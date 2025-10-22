@@ -49,9 +49,8 @@ class RuntimeAdapter:
                 {
                     "content": insight.get("content", ""),
                     "section": insight.get("section", "Helpful"),
-                    "confidence": insight.get("confidence", 0.5),
                     "tags": insight.get("tags", []),
-                    "source_task_id": task_id,
+                    "metadata": {"source_task_id": task_id},
                 }
             ],
             target_stage=PlaybookStage.SHADOW,
@@ -77,4 +76,3 @@ class RuntimeAdapter:
                 if now - ts <= self.ttl
             ]
             return [entry for _, entry in self._entries]
-

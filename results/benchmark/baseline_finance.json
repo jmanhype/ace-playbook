@@ -1,0 +1,50 @@
+{
+  "variant": "baseline",
+  "total": 26,
+  "correct": 26,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 5,
+  "increments": 83,
+  "latency_ms": [],
+  "failures": [],
+  "format_corrections": [
+    {
+      "task_id": "fin-006",
+      "original_answer": "The ROI is 30%.",
+      "corrected_answer": "30%"
+    },
+    {
+      "task_id": "fin-007",
+      "original_answer": "The net profit margin is 15%.",
+      "corrected_answer": "15%"
+    },
+    {
+      "task_id": "fin-026",
+      "original_answer": "Retention Ratio = (1200 - 300) / 1200 = 900 / 1200 = 0.75 or 75%",
+      "corrected_answer": "75%"
+    }
+  ],
+  "auto_corrections": [
+    {
+      "task_id": "fin-014",
+      "original_answer": "30.0%",
+      "corrected_answer": "19.11%"
+    },
+    {
+      "task_id": "fin-019",
+      "original_answer": "19.66%",
+      "corrected_answer": "21.65%"
+    },
+    {
+      "task_id": "fin-024",
+      "original_answer": "5247.77",
+      "corrected_answer": "3685.69"
+    },
+    {
+      "task_id": "fin-025",
+      "original_answer": "9.60%",
+      "corrected_answer": "8.40%"
+    }
+  ]
+}

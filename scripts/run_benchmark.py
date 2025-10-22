@@ -305,19 +305,20 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
 
             for insight in reflection.insights:
                 if runtime_adapter:
-                    runtime_adapter.ingest(result.task_id, {
-                        "content": insight.content,
-                        "section": insight.section.value,
-                        "confidence": insight.confidence,
-                    })
+                    runtime_adapter.ingest(
+                        result.task_id,
+                        {
+                            "content": insight.content,
+                            "section": insight.section.value,
+                        },
+                    )
 
             insights_payload = [
                 {
                     "content": ins.content,
                     "section": ins.section.value,
-                    "confidence": ins.confidence,
                     "tags": ins.tags,
-                    "source_task_id": result.task_id,
+                    "metadata": {"source_task_id": result.task_id},
                 }
                 for ins in reflection.insights
             ]
