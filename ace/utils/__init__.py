@@ -17,6 +17,7 @@ __all__ = [
     "get_logger",
     "json_mode_context",
     "is_json_mode_enabled",
+    "JSONModeUnavailableError",
 ]
 
 _LAZY_EXPORTS = {
@@ -31,6 +32,7 @@ _LAZY_EXPORTS = {
     "get_logger": ("ace.utils.logging_config", "get_logger"),
     "json_mode_context": ("ace.utils.json_mode", "json_mode_context"),
     "is_json_mode_enabled": ("ace.utils.json_mode", "is_json_mode_enabled"),
+    "JSONModeUnavailableError": ("ace.utils.json_mode", "JSONModeUnavailableError"),
 }
 
 

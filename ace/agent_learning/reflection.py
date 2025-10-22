@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from enum import Enum
 from textwrap import dedent
 from typing import List, Optional
@@ -76,7 +77,22 @@ class ReflectionEngine:
     def _build_prompt(
         *, task_id: str, domain_id: str, prediction: dict, feedback: dict
     ) -> str:
-        reasoning = "\n".join(prediction.get("reasoning", []))
+        reasoning_entries = prediction.get("reasoning", []) or []
+        reasoning = (
+            "\n".join(reasoning_entries) if reasoning_entries else "(not provided)"
+        )
+        prediction_json = json.dumps(
+            prediction,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        feedback_json = json.dumps(
+            feedback,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
         return dedent(
             f"""
             You are the reflection module in the ACE live loop.  Using the JSON
@@ -85,9 +101,12 @@ class ReflectionEngine:
 
             Task ID: {task_id}
             Domain: {domain_id}
-            Prediction: {prediction}
-            Feedback: {feedback}
-            Reasoning Trace:\n{reasoning}
+            Prediction:
+            {prediction_json}
+            Feedback:
+            {feedback_json}
+            Reasoning Trace:
+            {reasoning}
             """
         ).strip()
 

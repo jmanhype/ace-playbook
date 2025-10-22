@@ -21,8 +21,10 @@ project while remaining backend-agnostic:
 from __future__ import annotations
 
 import json
+import os
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional, Type, TypeVar
+from collections.abc import Mapping
+from typing import Any, Callable, Dict, MutableMapping, Optional, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -105,22 +107,63 @@ class JSONSafeLLMClient(BaseLLMClient):
         """Perform the actual completion and return a JSON string."""
 
 
+_RESTRICTED_ENV_FLAGS = {"prod", "production", "staging"}
+
+
+def _current_environment() -> str:
+    """Return the lower-cased environment identifier for runtime guards."""
+
+    return os.getenv("ACE_ENV", "").strip().lower()
+
+
 class DummyLLMClient(BaseLLMClient):
-    """Deterministic mock used for tests, demos, and local development."""
+    """Deterministic mock used for tests, demos, and local development.
+
+    Instantiation is blocked when ``ACE_ENV`` advertises production/staging to
+    prevent accidental use in runtime services. Pass ``allow_insecure=True`` to
+    bypass the guard in tightly controlled integration tests.
+    """
 
     def __init__(
         self,
         responses: Optional[Mapping[str, Any]] = None,
         *,
         default_factory: Optional[Callable[[Type[TModel], Mapping[str, Any]], Mapping[str, Any]]] = None,
+        allow_insecure: bool = False,
     ) -> None:
-        self._responses: Dict[str, Any] = dict(responses or {})
+        env_value = _current_environment()
+        if env_value in _RESTRICTED_ENV_FLAGS and not allow_insecure:
+            raise RuntimeError(
+                "DummyLLMClient cannot be instantiated when ACE_ENV indicates a production/staging "
+                "environment. Instantiate a JSONSafeLLMClient instead."
+            )
+        if env_value in _RESTRICTED_ENV_FLAGS and allow_insecure:
+            logger.warning("dummy_llm_insecure_override_enabled", env=env_value)
+
+        self._responses: Dict[str, Any] = {}
         self._default_factory = default_factory
+        if responses:
+            for key, value in responses.items():
+                self._validate_response_payload(key, value)
+                self._responses[key] = value
 
     def register(self, key: str, value: Any) -> None:
         """Register or update a canned response used by the dummy client."""
 
+        self._validate_response_payload(key, value)
         self._responses[key] = value
+
+    @staticmethod
+    def _validate_response_payload(key: str, value: Any) -> None:
+        """Ensure canned responses are mapping-like or callables."""
+
+        if callable(value):
+            return
+        if not isinstance(value, Mapping):
+            raise TypeError(
+                "DummyLLMClient responses must be mapping-like objects or callables. "
+                f"Received type '{type(value).__name__}' for key '{key}'."
+            )
 
     def structured_completion(
         self,

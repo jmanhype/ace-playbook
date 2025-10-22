@@ -11,6 +11,10 @@ from ace.utils.logging_config import get_logger
 
 logger = get_logger(__name__, component="json_mode")
 
+
+class JSONModeUnavailableError(RuntimeError):
+    """Raised when JSON mode is requested but the DSPy adapter is unavailable."""
+
 _JSON_MODE_ENV = "ACE_JSON_MODE"
 _JSON_MODEL_ENV = "ACE_JSON_MODEL"
 
@@ -41,7 +45,7 @@ def _load_dspy():
     try:
         import dspy  # type: ignore
     except Exception as exc:  # pragma: no cover - defensive import guard
-        logger.warning("json_mode_adapter_unavailable", error=str(exc))
+        logger.error("json_mode_adapter_unavailable", error=str(exc))
         return None
     return dspy
 
@@ -65,13 +69,11 @@ def json_mode_context(
         return
 
     dspy = _load_dspy()
-    if dspy is None:
-        yield False
-        return
-    if not hasattr(dspy, "JSONAdapter"):
-        logger.warning("json_mode_adapter_unavailable")
-        yield False
-        return
+    if dspy is None or not hasattr(dspy, "JSONAdapter"):
+        logger.error("json_mode_required_but_unavailable")
+        raise JSONModeUnavailableError(
+            "DSPy JSON adapter is unavailable while JSON mode was requested."
+        )
 
     adapter = dspy.JSONAdapter()
     lm_model = _resolve_model(model)
@@ -85,4 +87,4 @@ def json_mode_context(
     logger.debug("json_mode_disabled")
 
 
-__all__ = ["json_mode_context", "is_json_mode_enabled"]
+__all__ = ["json_mode_context", "is_json_mode_enabled", "JSONModeUnavailableError"]
