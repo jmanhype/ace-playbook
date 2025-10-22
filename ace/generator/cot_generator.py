@@ -10,13 +10,13 @@ Based on contracts/generator.py and tasks.md T039-T041.
 import dspy
 import re
 import time
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime
+from typing import List, Optional
 
 from ace.generator.signatures import TaskInput, ChainOfThoughtSignature
 from ace.generator.context_builder import build_strings
 from ace.utils.logging_config import get_logger
 from ace.utils.llm_circuit_breaker import protected_predict
+from ace.utils.json_mode import json_mode_context
 from pydantic import BaseModel, Field
 
 logger = get_logger(__name__, component="generator")
@@ -267,16 +267,16 @@ class CoTGenerator:
 
             playbook_context = self.format_playbook_context(context_strings, bullet_ids)
 
-            # T071: Call DSPy ChainOfThought predictor with circuit breaker protection
-            prediction = protected_predict(
-                self.predictor,
-                circuit_name="generator",
-                failure_threshold=5,
-                recovery_timeout=60,
-                task_description=task_input.description,
-                playbook_context=playbook_context,
-                domain=task_input.domain
-            )
+            with json_mode_context(model=self.model) as json_active:
+                prediction = protected_predict(
+                    self.predictor,
+                    circuit_name="generator",
+                    failure_threshold=5,
+                    recovery_timeout=60,
+                    task_description=task_input.description,
+                    playbook_context=playbook_context,
+                    domain=task_input.domain
+                )
 
             # T040: Parse reasoning into structured trace
             reasoning_trace = self.parse_reasoning_trace(
@@ -309,7 +309,8 @@ class CoTGenerator:
                 num_steps=len(reasoning_trace),
                 num_bullets_referenced=len(bullets_referenced),
                 latency_ms=latency_ms,
-                confidence=output.confidence
+                confidence=output.confidence,
+                json_mode=bool(json_active)
             )
 
             return output
