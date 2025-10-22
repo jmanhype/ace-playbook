@@ -94,6 +94,7 @@ class GroundedReflector:
 
         # Initialize DSPy ChainOfThought predictor
         self.predictor = dspy.ChainOfThought(AnalysisSignature)
+        self._prompt_override: Optional[str] = None
 
         logger.info(
             "grounded_reflector_initialized",
@@ -101,6 +102,24 @@ class GroundedReflector:
             temperature=temperature,
             max_insights=max_insights
         )
+
+    def get_or_create_program(
+        self,
+        *,
+        prompt_override: Optional[str] = None,
+    ):
+        """Return the underlying DSPy program with optional prompt overrides."""
+
+        if prompt_override is not None and prompt_override != self._prompt_override:
+            logger.info("reflector_prompt_override_applied", length=len(prompt_override))
+            self.predictor = dspy.ChainOfThought(
+                AnalysisSignature,
+                prompt=prompt_override,
+            )
+            self._prompt_override = prompt_override
+        elif self.predictor is None:
+            self.predictor = dspy.ChainOfThought(AnalysisSignature)
+        return self.predictor
 
     def format_task_context(
         self,

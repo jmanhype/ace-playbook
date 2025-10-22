@@ -8,10 +8,11 @@ in isolation (without database dependencies).
 import pytest
 from datetime import datetime
 
-from ace.curator.semantic_curator import (
-    SemanticCurator,
+from ace.curator.semantic_curator import SemanticCurator
+from ace.curator.curator_models import (
     CuratorInput,
     CuratorOutput,
+    CuratorOperationType,
     DeltaUpdate,
     SIMILARITY_THRESHOLD_DEFAULT,
 )
@@ -241,11 +242,13 @@ def test_delta_updates_structure(curator):
     assert len(output.delta_updates) == 1
     delta = output.delta_updates[0]
 
-    assert delta.operation == "add"
+    assert delta.operation == CuratorOperationType.ADD
     assert delta.bullet_id is not None
     assert delta.new_bullet is not None
     assert delta.new_bullet.content == "Log all security events"
     assert delta.new_bullet.section == "Helpful"
+    assert output.delta.operations
+    assert output.delta.operations[0].type == CuratorOperationType.ADD
 
 
 def test_harmful_signal_creates_harmful_bullet(curator):
