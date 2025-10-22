@@ -15,7 +15,7 @@ from ace.agent_learning.exploration import EpisodeResult, ExperienceBuffer
 from ace.agent_learning.guardrails import PredictionGuardrails
 from ace.agent_learning.live_loop import LiveLoop
 from ace.agent_learning.policy import BasePolicy, EpsilonGreedyPolicy
-from ace.agent_learning.reflection import ReflectionEngine, RuntimeReflector
+from ace.agent_learning.reflection import InsightSection, ReflectionEngine, RuntimeReflector
 from ace.agent_learning.types import FeedbackPacket, TaskSpecification, WorldModelPrediction
 from ace.agent_learning.utils import create_in_memory_runtime, prepare_default_metrics
 from ace.agent_learning.world_model import WorldModel
@@ -26,6 +26,7 @@ __all__ = [
     "EpisodeResult",
     "ExperienceBuffer",
     "FeedbackPacket",
+    "InsightSection",
     "LiveLoop",
     "PredictionGuardrails",
     "ReflectionEngine",

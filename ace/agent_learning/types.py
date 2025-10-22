@@ -6,8 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from ace.curator.curator_models import CuratorOperation
-
 
 class TaskSpecification(BaseModel):
     """Description of a task that the agent can attempt."""
@@ -50,17 +48,25 @@ class EpisodeResult(BaseModel):
     prediction: WorldModelPrediction
     feedback: FeedbackPacket
     metrics: Dict[str, float] = Field(default_factory=dict)
-    curator_operations: List[CuratorOperation] = Field(default_factory=list)
+    curator_operations: List[Any] = Field(default_factory=list)
 
     def to_summary(self) -> Dict[str, Any]:
         """Return a JSON-serialisable summary for logging or analytics."""
 
+        operations: List[Dict[str, Any]] = []
+        for op in self.curator_operations:
+            if hasattr(op, "model_dump"):
+                operations.append(op.model_dump())
+            elif isinstance(op, dict):
+                operations.append(op)
+            else:
+                operations.append(getattr(op, "__dict__", {}))
         return {
             "task_id": self.task_id,
             "domain_id": self.domain_id,
             "answer": self.prediction.answer,
             "metrics": self.metrics,
-            "operations": [op.model_dump() for op in self.curator_operations],
+            "operations": operations,
         }
 
 

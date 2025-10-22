@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from textwrap import dedent
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from ace.curator.curator_models import InsightSection
 from ace.llm_client import BaseLLMClient
 from ace.runtime.client import ReflectorProgram
 from ace.utils.logging_config import get_logger
 
 logger = get_logger(__name__, component="agent_reflection")
+
+
+class InsightSection(str, Enum):
+    """Local copy of curator insight sections used for lightweight deps."""
+
+    HELPFUL = "Helpful"
+    HARMFUL = "Harmful"
+    NEUTRAL = "Neutral"
 
 
 class InsightPayload(BaseModel):
@@ -109,4 +117,10 @@ class RuntimeReflector(ReflectorProgram):
         ]
 
 
-__all__ = ["InsightPayload", "ReflectionEngine", "RuntimeReflector", "ReflectionResponse"]
+__all__ = [
+    "InsightSection",
+    "InsightPayload",
+    "ReflectionEngine",
+    "RuntimeReflector",
+    "ReflectionResponse",
+]

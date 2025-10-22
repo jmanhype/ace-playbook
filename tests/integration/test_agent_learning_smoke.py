@@ -70,8 +70,8 @@ def test_agent_learning_smoke_run():
             TaskSpecification(
                 task_id="math-2",
                 domain_id="demo",
-                description="What is 3 + 2?",
-                ground_truth="5",
+                description="What is 3 + 3?",
+                ground_truth="6",
             ),
         ]
     )

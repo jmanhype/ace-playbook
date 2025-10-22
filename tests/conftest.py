@@ -6,9 +6,18 @@ particularly the mock_sentence_transformers fixture that ensures consistent
 embedding behavior in tests.
 """
 
-import pytest
-import numpy as np
+from pathlib import Path
+import sys
 from unittest.mock import Mock, patch
+
+import numpy as np
+import pytest
+
+# Ensure the repository root is importable so ``import ace`` works without
+# installing the package in editable mode.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 @pytest.fixture(scope="module", autouse=True)

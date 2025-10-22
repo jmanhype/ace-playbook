@@ -43,8 +43,10 @@ class LiveLoop:
         if not self.tasks:
             raise ValueError("LiveLoop requires at least one task specification")
         self._task_cycle = itertools.cycle(self.tasks)
-        self.experience_buffer = experience_buffer or ExperienceBuffer()
-        self.guardrails = guardrails or PredictionGuardrails()
+        self.experience_buffer = (
+            experience_buffer if experience_buffer is not None else ExperienceBuffer()
+        )
+        self.guardrails = guardrails if guardrails is not None else PredictionGuardrails()
 
     def run(self, *, episodes: int) -> List[EpisodeResult]:
         """Execute ``episodes`` iterations of the live loop."""

@@ -30,7 +30,7 @@ def main() -> None:
             },
             {
                 "answer": "5",
-                "reasoning": ["Forgot to subtract one"],
+                "reasoning": ["Forgot to carry the one"],
                 "confidence": 0.2,
                 "raw_response": {"episode": 2},
             },
@@ -72,8 +72,8 @@ def main() -> None:
             TaskSpecification(
                 task_id="math-2",
                 domain_id="demo",
-                description="What is 3 + 2?",
-                ground_truth="5",
+                description="What is 3 + 3?",
+                ground_truth="6",
             ),
         ]
     )
