@@ -1,8 +1,10 @@
-"""Minimal ACE + Agent Learning demo loop using the dummy LLM client."""
+"""Minimal ACE + Agent Learning demo loop using configurable LLM clients."""
 
 from __future__ import annotations
 
+import argparse
 import itertools
+from typing import Literal
 
 from ace.agent_learning import (
     LiveLoop,
@@ -16,10 +18,15 @@ from ace.agent_learning import (
 )
 from ace.agent_learning.policy import EpsilonGreedyPolicy
 from ace.agent_learning.utils import prepare_default_metrics
-from ace.llm_client import DummyLLMClient
+from ace.llm_client import DSPyLLMClient, DummyLLMClient
 
 
-def main() -> None:
+BackendChoice = Literal["dummy", "dspy"]
+
+
+def build_dummy_client() -> DummyLLMClient:
+    """Return a dummy client producing deterministic responses."""
+
     world_predictions = itertools.cycle(
         [
             {
@@ -53,9 +60,53 @@ def main() -> None:
     client = DummyLLMClient()
     client.register("WorldModelPrediction", lambda: next(world_predictions))
     client.register("ReflectionResponse", lambda: next(insight_cycle))
+    return client
 
-    world_model = WorldModel(client)
-    reflection_engine = ReflectionEngine(client)
+
+def build_llm_client(backend: BackendChoice) -> DSPyLLMClient | DummyLLMClient:
+    if backend == "dummy":
+        return build_dummy_client()
+    if backend == "dspy":
+        return DSPyLLMClient()
+    raise ValueError(f"Unsupported backend '{backend}'")
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the ACE + Agent Learning quick-start demo.")
+    parser.add_argument(
+        "--backend",
+        choices=("dummy", "dspy"),
+        default="dummy",
+        help="LLM backend to use. 'dummy' uses canned responses; 'dspy' calls the configured dspy.LM.",
+    )
+    parser.add_argument(
+        "--episodes",
+        type=int,
+        default=2,
+        help="Number of live-loop episodes to run.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Optional model identifier passed to the world model / reflection engine.",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Sampling temperature for the world model when using a real backend.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    client = build_llm_client(args.backend)
+
+    world_model = WorldModel(client, model=args.model, temperature=args.temperature)
+    reflection_engine = ReflectionEngine(client, model=args.model)
     reflector = RuntimeReflector(reflection_engine)
     runtime_client = create_in_memory_runtime(reflector=reflector)
     policy = EpsilonGreedyPolicy(epsilon=0.0, threshold=0.6)
@@ -88,7 +139,7 @@ def main() -> None:
         reflector=reflector,
     )
 
-    results = loop.run(episodes=2)
+    results = loop.run(episodes=args.episodes)
     for episode in results:
         accuracy = episode.metrics.get("accuracy", 0.0)
         print(

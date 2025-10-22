@@ -34,12 +34,16 @@ covers both the original ACE modules and the new Agent Learning components.
 
 ## Running the quick-start example
 
-A short example script lives in `examples/live_loop_quickstart.py`. It wires a
-dummy JSON-safe client into the live loop, runs two episodes, and prints the
-resulting playbook deltas and metrics.
+A short example script lives in `examples/live_loop_quickstart.py`. It can run
+with the dummy backend (deterministic canned responses) or your configured
+`dspy.LM` by switching the `--backend` flag.
 
 ```bash
+# Dummy backend (no network calls)
 python examples/live_loop_quickstart.py
+
+# Real backend once dspy.configure(...) has run
+python examples/live_loop_quickstart.py --backend dspy --episodes 10
 ```
 
 Expected output:
@@ -78,6 +82,9 @@ routes feedback back into the curator.  Replace the dummy client with a real
 3. Run the quick-start again (or your own driver script). Any schema violations
    will surface immediately as `ace.llm_client.LLMError`, making it safe to
    promote the run to larger task batches.
+
+4. When the real backend is active you can pass `--episodes N --temperature T`
+   or a custom dataset to capture adoption metrics against your baseline runs.
 
 ## Integrating in your own project
 

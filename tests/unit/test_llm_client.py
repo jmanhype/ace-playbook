@@ -95,3 +95,12 @@ def test_dspy_llm_client_requires_configured_lm(monkeypatch):
     client = DSPyLLMClient()
     with pytest.raises(RuntimeError):
         client.structured_completion(prompt="{}", response_model=ExampleResponse)
+
+
+def test_dspy_llm_client_normalizes_code_fences():
+    """The DSPy client should extract JSON from fenced responses."""
+
+    payload = [
+        "```json\n{\n  \"value\": 3\n}\n```",
+    ]
+    assert DSPyLLMClient._normalize_output(payload) == '{\n  "value": 3\n}'

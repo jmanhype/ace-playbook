@@ -257,6 +257,38 @@ class DSPyLLMClient(JSONSafeLLMClient):
             # Some LMs expect `prompt=` keyword.
             raw_output = candidate_lm(prompt=prompt, **call_kwargs)
 
-        if hasattr(raw_output, "text"):
-            return str(raw_output.text)
-        return str(raw_output)
+        cleaned = self._normalize_output(raw_output)
+        return cleaned
+
+    @staticmethod
+    def _normalize_output(raw_output: Any) -> str:
+        """Convert DSPy LM responses into a JSON string."""
+
+        text: str
+        if isinstance(raw_output, list):
+            text = str(raw_output[0]) if raw_output else ""
+        elif hasattr(raw_output, "text"):
+            text = str(raw_output.text)
+        else:
+            text = str(raw_output)
+
+        text = text.strip()
+        if not text:
+            return text
+
+        if text.startswith("```"):
+            # Drop leading ```lang\n prefix if present.
+            text = text[3:]
+            if "\n" in text:
+                _, remainder = text.split("\n", 1)
+                text = remainder
+            text = text.rstrip("`").strip()
+
+        if text and text[0] != "{":
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                candidate = text[start : end + 1]
+                return candidate
+
+        return text
