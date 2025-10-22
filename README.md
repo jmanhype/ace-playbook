@@ -153,6 +153,9 @@ python benchmarks/run_live_loop_benchmark.py --backend dspy --episodes 10
 
 # Trigger the CI workflow (optional)
 gh workflow run ace-benchmark.yml
+
+# Audit agent heuristics locally (sample 20 tasks)
+python scripts/audit_agent_scoring.py benchmarks/agent_small.jsonl --sample 20
 ```
 
 Key metrics in the JSON output:

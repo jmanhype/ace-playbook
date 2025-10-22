@@ -161,3 +161,15 @@ python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full \
 
 The resulting JSON files provide the raw evidence (accuracy, promotions,
 increments, auto-format corrections) that mirrors the tables in the ACE paper.
+
+### Configuring agent heuristics
+
+- Heuristic routing lives in `ace/utils/agent_feedback.py`. The manager loads
+  `benchmarks/data/agent_feedback_config.json` to map dataset names to checker
+  classes and regex patterns.
+- Each checker is conservative: `status` is `unknown` unless the response
+  clearly satisfies the heuristic. Fail-closed behavior keeps ACE from learning
+  noisy insights.
+- The workflow uploads `<dataset>.feedback.jsonl`; review these logs (or run
+  `python scripts/audit_agent_scoring.py --dataset … --sample 20`) to tune
+  thresholds before trusting the signal.

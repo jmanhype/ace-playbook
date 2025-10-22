@@ -25,7 +25,7 @@ from ace.utils.agent_feedback import (
     AgentFeedbackManager,
     FeedbackResult,
     SatisfactionClassifier,
-    create_default_manager,
+    create_manager_for_dataset,
 )
 from ace.utils.database import get_session
 from ace.utils.finance_guardrails import get_guardrail
@@ -456,7 +456,7 @@ def run_variant(
             metrics["promotions"] += stats.promotions
             metrics["quarantines"] += stats.quarantines
 
-    if feedback_manager and output_path is not None:
+    if feedback_manager and feedback_log and output_path is not None:
         log_path = output_path.with_suffix(".feedback.jsonl")
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w", encoding="utf-8") as handle:
@@ -486,7 +486,9 @@ def main():
     scorer_mode = os.getenv("ACE_AGENT_SCORER", "auto").strip().lower()
     enable_scorer = scorer_mode != "off" and "agent" in dataset_lower
     if enable_scorer:
-        feedback_manager = create_default_manager()
+        feedback_manager = create_manager_for_dataset(dataset_name)
+        if feedback_manager is None:
+            logger.warning("agent_feedback_config_missing", dataset=dataset_name)
 
         classifier_mode = os.getenv("ACE_AGENT_CLASSIFIER", "off").strip().lower()
         if classifier_mode in {"1", "true", "on"}:

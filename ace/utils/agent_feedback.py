@@ -22,6 +22,8 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ace.utils.logging_config import get_logger
@@ -80,48 +82,61 @@ class BaseChecker:
 class StepCountChecker(BaseChecker):
     name = "step_count"
 
-    def __init__(self, required_steps: int) -> None:
+    def __init__(self, required_steps: int, *, allow_paragraphs: bool = False) -> None:
         self.required_steps = required_steps
+        self.allow_paragraphs = allow_paragraphs
 
     def evaluate(self, *, answer: str, task: Dict[str, Any]) -> FeedbackResult:
         text = self._normalise_answer(answer)
         bullet_count = self._count_bullets(text)
-        matches_num = bool(re.search(rf"\b{self.required_steps}\b", text))
+        contains_numbers = len(re.findall(r"\b\d+[.)]", text))
 
         if bullet_count >= self.required_steps:
             return FeedbackResult(
                 status="success",
-                confidence=0.8 if matches_num else 0.7,
+                confidence=0.8 if bullet_count > self.required_steps else 0.75,
                 evidence=f"Detected {bullet_count} bullet items",
-                features={"bullet_count": bullet_count, "mentions_required": matches_num},
+                features={"bullet_count": bullet_count, "paragraph_allowed": self.allow_paragraphs},
             )
 
-        if bullet_count == 0:
+        if self.allow_paragraphs and contains_numbers >= self.required_steps:
+            return FeedbackResult(
+                status="success",
+                confidence=0.65,
+                evidence="Enumerated steps found in paragraph form",
+                features={"numeric_markers": contains_numbers},
+            )
+
+        if bullet_count == 0 and contains_numbers == 0:
             return FeedbackResult(
                 status="unknown",
                 confidence=0.4,
-                evidence="No bullet structure detected",
-                features={"bullet_count": bullet_count},
+                evidence="No structural markers detected",
+                features={"bullet_count": bullet_count, "numeric_markers": contains_numbers},
             )
 
         return FeedbackResult(
             status="fail",
             confidence=0.6,
-            evidence=f"Expected >= {self.required_steps} steps, found {bullet_count}",
-            features={"bullet_count": bullet_count},
+            evidence=f"Expected >= {self.required_steps} structured steps",
+            features={"bullet_count": bullet_count, "numeric_markers": contains_numbers},
         )
 
 
 class ChecklistChecker(BaseChecker):
     name = "checklist"
 
+    def __init__(self, *, min_bullets: int = 5, min_keywords: int = 2, keywords: Optional[List[str]] = None) -> None:
+        self.min_bullets = min_bullets
+        self.min_keywords = min_keywords
+        self.keywords = [kw.lower() for kw in (keywords or ["check", "ensure", "verify", "prepare"])]
+
     def evaluate(self, *, answer: str, task: Dict[str, Any]) -> FeedbackResult:
         text = self._normalise_answer(answer)
         bullet_count = self._count_bullets(text)
-        keywords = ["check", "ensure", "verify", "prepare"]
-        matches = sum(1 for kw in keywords if kw in text.lower())
+        matches = sum(1 for kw in self.keywords if kw in text.lower())
 
-        if bullet_count >= 5 and matches >= 2:
+        if bullet_count >= self.min_bullets and matches >= self.min_keywords:
             return FeedbackResult(
                 status="success",
                 confidence=0.75,
@@ -129,7 +144,7 @@ class ChecklistChecker(BaseChecker):
                 features={"bullet_count": bullet_count, "keyword_matches": matches},
             )
 
-        if bullet_count >= 3:
+        if bullet_count >= max(3, self.min_bullets // 2):
             return FeedbackResult(
                 status="unknown",
                 confidence=0.5,
@@ -179,13 +194,64 @@ class ScheduleChecker(BaseChecker):
         )
 
 
+class KeywordsChecker(BaseChecker):
+    name = "keywords"
+
+    def __init__(
+        self,
+        *,
+        required: Optional[List[str]] = None,
+        any_of: Optional[List[str]] = None,
+        min_matches: int = 1,
+        min_bullets: int = 0,
+    ) -> None:
+        self.required = [kw.lower() for kw in (required or [])]
+        self.any_of = [kw.lower() for kw in (any_of or [])]
+        self.min_matches = min_matches
+        self.min_bullets = min_bullets
+
+    def evaluate(self, *, answer: str, task: Dict[str, Any]) -> FeedbackResult:
+        text = self._normalise_answer(answer)
+        lower = text.lower()
+        bullet_count = self._count_bullets(text)
+
+        missing_required = [kw for kw in self.required if kw not in lower]
+        optional_matches = sum(1 for kw in self.any_of if kw in lower)
+
+        if missing_required:
+            return FeedbackResult(
+                status="fail",
+                confidence=0.7,
+                evidence=f"Missing required keywords: {missing_required}",
+                features={"missing_required": missing_required, "optional_matches": optional_matches},
+            )
+
+        if optional_matches >= self.min_matches and bullet_count >= self.min_bullets:
+            return FeedbackResult(
+                status="success",
+                confidence=0.7,
+                evidence="Required keywords present with adequate detail",
+                features={"optional_matches": optional_matches, "bullet_count": bullet_count},
+            )
+
+        return FeedbackResult(
+            status="unknown",
+            confidence=0.5,
+            evidence="Insufficient optional keyword coverage",
+            features={"optional_matches": optional_matches, "bullet_count": bullet_count},
+        )
+
+
 class GenericChecker(BaseChecker):
     name = "generic"
+
+    def __init__(self, *, min_bullets: int = 3) -> None:
+        self.min_bullets = min_bullets
 
     def evaluate(self, *, answer: str, task: Dict[str, Any]) -> FeedbackResult:
         text = self._normalise_answer(answer)
         bullet_count = self._count_bullets(text)
-        if bullet_count >= 3:
+        if bullet_count >= self.min_bullets:
             return FeedbackResult(
                 status="unknown",
                 confidence=0.5,
@@ -227,21 +293,138 @@ class AgentFeedbackManager:
         return self._default_checker.evaluate(answer=answer, task=task)
 
 
-def create_default_manager() -> AgentFeedbackManager:
+CONFIG_FILENAME = Path(__file__).resolve().parents[2] / "benchmarks" / "data" / "agent_feedback_config.json"
+
+CHECKER_REGISTRY = {
+    "StepCountChecker": StepCountChecker,
+    "ChecklistChecker": ChecklistChecker,
+    "ScheduleChecker": ScheduleChecker,
+    "GenericChecker": GenericChecker,
+    "KeywordsChecker": KeywordsChecker,
+}
+
+DEFAULT_CONFIG = [
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-00[1-3]"],
+        "checker": "StepCountChecker",
+        "params": {"required_steps": 3},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-004"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-00[5-7]"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-009"],
+        "checker": "StepCountChecker",
+        "params": {"required_steps": 6},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-01[0-3]"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-01[4-6]"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-017"],
+        "checker": "StepCountChecker",
+        "params": {"required_steps": 4},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-018"],
+        "checker": "ScheduleChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-019"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "agent_small",
+        "patterns": ["agent-020"],
+        "checker": "ChecklistChecker",
+        "params": {},
+    },
+    {
+        "dataset": "appworld_text",
+        "patterns": ["app-.*"],
+        "checker": "KeywordsChecker",
+        "params": {
+            "required": ["success"],
+            "any_of": ["completed", "delivered", "resolved", "satisfied"],
+            "min_matches": 1,
+            "min_bullets": 3,
+        },
+    },
+    {
+        "dataset": "planning_constraints",
+        "patterns": ["plan-.*"],
+        "checker": "KeywordsChecker",
+        "params": {
+            "required": ["step", "owner"],
+            "any_of": ["deadline", "timeline", "date"],
+            "min_matches": 1,
+            "min_bullets": 4,
+        },
+    },
+]
+
+
+@lru_cache(maxsize=1)
+def _load_config() -> List[Dict[str, Any]]:
+    if CONFIG_FILENAME.exists():
+        try:
+            return json.loads(CONFIG_FILENAME.read_text())
+        except Exception as exc:
+            logger.warning("agent_feedback_config_invalid", error=str(exc))
+    return DEFAULT_CONFIG
+
+
+def create_manager_for_dataset(dataset: str) -> Optional[AgentFeedbackManager]:
+    config = [entry for entry in _load_config() if entry.get("dataset") == dataset]
+    if not config:
+        return None
+
     manager = AgentFeedbackManager()
+    for entry in config:
+        checker_name = entry.get("checker")
+        checker_cls = CHECKER_REGISTRY.get(checker_name)
+        if not checker_cls:
+            logger.warning("agent_feedback_unknown_checker", dataset=dataset, checker=checker_name)
+            continue
+        params = entry.get("params") or {}
+        try:
+            checker = checker_cls(**params)
+        except Exception as exc:
+            logger.error("agent_feedback_checker_init_failed", dataset=dataset, checker=checker_name, error=str(exc))
+            continue
+        for pattern in entry.get("patterns", []):
+            manager.register_checker(pattern, checker)
 
-    manager.register_checker(r"agent-00[1-3]", StepCountChecker(required_steps=3))
-    manager.register_checker(r"agent-004", ChecklistChecker())
-    manager.register_checker(r"agent-00[5-7]", ChecklistChecker())
-    manager.register_checker(r"agent-009", StepCountChecker(required_steps=6))
-    manager.register_checker(r"agent-01[0-3]", ChecklistChecker())
-    manager.register_checker(r"agent-01[4-6]", ChecklistChecker())
-    manager.register_checker(r"agent-017", StepCountChecker(required_steps=4))
-    manager.register_checker(r"agent-018", ScheduleChecker())
-    manager.register_checker(r"agent-019", ChecklistChecker())
-    manager.register_checker(r"agent-020", ChecklistChecker())
+    return manager if manager._checkers else None
 
-    return manager
+
+def create_default_manager() -> Optional[AgentFeedbackManager]:
+    return create_manager_for_dataset("agent_small")
 
 
 # ---------------------------------------------------------------------------

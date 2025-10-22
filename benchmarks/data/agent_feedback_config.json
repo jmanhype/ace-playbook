@@ -1,0 +1,84 @@
+[
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-00[1-3]"],
+    "checker": "StepCountChecker",
+    "params": {"required_steps": 3}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-004"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-00[5-7]"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-009"],
+    "checker": "StepCountChecker",
+    "params": {"required_steps": 6}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-01[0-3]"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-01[4-6]"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-017"],
+    "checker": "StepCountChecker",
+    "params": {"required_steps": 4}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-018"],
+    "checker": "ScheduleChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-019"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_small",
+    "patterns": ["agent-020"],
+    "checker": "ChecklistChecker",
+    "params": {}
+  },
+  {
+    "dataset": "appworld_text",
+    "patterns": ["app-.*"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["success"],
+      "any_of": ["completed", "delivered", "resolved", "satisfied"],
+      "min_matches": 1,
+      "min_bullets": 3
+    }
+  },
+  {
+    "dataset": "planning_constraints",
+    "patterns": ["plan-.*"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["step", "owner"],
+      "any_of": ["deadline", "timeline", "date"],
+      "min_matches": 1,
+      "min_bullets": 4
+    }
+  }
+]
