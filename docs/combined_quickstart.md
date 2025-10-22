@@ -53,6 +53,32 @@ The dummy client purposely makes a mistake on the second episode so the policy
 routes feedback back into the curator.  Replace the dummy client with a real
 `JSONSafeLLMClient` subclass to connect OpenAI/Anthropic backends.
 
+### Using a real LLM with DSPy
+
+1. Configure DSPy once per process (for example, in your entrypoint) using the
+   provided `.env` secrets:
+
+   ```python
+   import dspy
+   import os
+
+   dspy.configure(
+       lm=dspy.LM(
+           "openrouter/openai/gpt-4.1-mini",
+           api_key=os.environ["OPENROUTER_API_KEY"],
+           api_base="https://openrouter.ai/api/v1",
+       )
+   )
+   ```
+
+2. Instantiate `ace.llm_client.DSPyLLMClient()` instead of the dummy stub. This
+   client delegates to the configured `dspy.LM`, and when you set
+   `ACE_JSON_MODE=on` it automatically wraps calls with the Kayba JSON adapter.
+
+3. Run the quick-start again (or your own driver script). Any schema violations
+   will surface immediately as `ace.llm_client.LLMError`, making it safe to
+   promote the run to larger task batches.
+
 ## Integrating in your own project
 
 1. **Create the runtime bridge.** Use `ace.agent_learning.create_in_memory_runtime`

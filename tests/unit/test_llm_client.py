@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from typing import Any
+
 from pydantic import BaseModel
 
-from ace.llm_client import DummyLLMClient, LLMError
+from ace.llm_client import DSPyLLMClient, DummyLLMClient, LLMError
 
 
 class ExampleResponse(BaseModel):
@@ -60,3 +62,36 @@ def test_dummy_llm_client_requires_registered_payload():
             prompt="ignored",
             response_model=ExampleResponse,
         )
+
+
+class _StubLM:
+    def __init__(self, payload: str) -> None:
+        self.payload = payload
+
+    def __call__(self, prompt: str, **_: Any) -> str:
+        return self.payload
+
+
+def test_dspy_llm_client_with_explicit_lm():
+    """DSPyLLMClient should parse responses from an explicit LM callable."""
+
+    payload = ExampleResponse(value=7).model_dump_json()
+    client = DSPyLLMClient(lm=_StubLM(payload))
+    response = client.structured_completion(
+        prompt="ignored",
+        response_model=ExampleResponse,
+    )
+    assert response.value == 7
+
+
+def test_dspy_llm_client_requires_configured_lm(monkeypatch):
+    """An informative error is raised when no DSPy LM is configured."""
+
+    import types
+    import sys
+
+    dummy_module = types.SimpleNamespace(settings=types.SimpleNamespace(lm=None))
+    monkeypatch.setitem(sys.modules, "dspy", dummy_module)
+    client = DSPyLLMClient()
+    with pytest.raises(RuntimeError):
+        client.structured_completion(prompt="{}", response_model=ExampleResponse)

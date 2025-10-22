@@ -35,6 +35,7 @@ __all__ = [
     "BaseLLMClient",
     "JSONSafeLLMClient",
     "DummyLLMClient",
+    "DSPyLLMClient",
 ]
 
 logger = get_logger(__name__, component="llm_client")
@@ -188,3 +189,74 @@ class DummyLLMClient(BaseLLMClient):
             return response_model.model_validate(data)
         except ValidationError as exc:  # pragma: no cover - defensive
             raise LLMError(f"Dummy response for key '{key}' failed validation") from exc
+
+
+class DSPyLLMClient(JSONSafeLLMClient):
+    """JSON-safe client that delegates to a configured ``dspy.LM`` instance."""
+
+    def __init__(
+        self,
+        *,
+        lm: Optional[Any] = None,
+        max_tokens: Optional[int] = None,
+    ) -> None:
+        self._explicit_lm = lm
+        self._max_tokens = max_tokens
+
+    def _resolve_lm(self) -> Any:
+        if self._explicit_lm is not None:
+            return self._explicit_lm
+        try:
+            import dspy  # type: ignore
+        except ImportError as exc:  # pragma: no cover - defensive
+            raise RuntimeError(
+                "DSPy must be installed to use DSPyLLMClient. Install the extra via "
+                "`pip install .[ace]` or configure a concrete LM client."
+            ) from exc
+        if getattr(dspy.settings, "lm", None) is None:
+            raise RuntimeError(
+                "No DSPy LM configured. Call `dspy.configure(lm=dspy.LM(...))` or "
+                "pass an LM instance via DSPyLLMClient(lm=...)."
+            )
+        return dspy.settings.lm
+
+    def _complete(
+        self,
+        *,
+        prompt: str,
+        model: Optional[str],
+        temperature: float,
+        metadata: MutableMapping[str, Any],
+    ) -> str:
+        lm = self._resolve_lm()
+
+        # Some DSPy LM implementations expose with_options/with_settings to override
+        # request-level parameters (model, temperature, max_tokens, etc.).
+        call_kwargs: Dict[str, Any] = {}
+        if self._max_tokens is not None:
+            call_kwargs["max_tokens"] = self._max_tokens
+        if temperature is not None:
+            call_kwargs["temperature"] = temperature
+
+        candidate_lm = lm
+        for attr_name in ("with_options", "with_settings"):
+            if model and hasattr(candidate_lm, attr_name):
+                try:
+                    candidate_lm = getattr(candidate_lm, attr_name)(model=model)
+                except TypeError:
+                    # Fall back to passing model as part of call kwargs.
+                    call_kwargs.setdefault("model", model)
+                break
+        else:
+            if model:
+                call_kwargs.setdefault("model", model)
+
+        try:
+            raw_output = candidate_lm(prompt, **call_kwargs)
+        except TypeError:
+            # Some LMs expect `prompt=` keyword.
+            raw_output = candidate_lm(prompt=prompt, **call_kwargs)
+
+        if hasattr(raw_output, "text"):
+            return str(raw_output.text)
+        return str(raw_output)
