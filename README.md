@@ -150,6 +150,9 @@ python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --outpu
 
 # ACE vs baseline live loop comparison (ACE + EE harness)
 python benchmarks/run_live_loop_benchmark.py --backend dspy --episodes 10
+
+# Trigger the CI workflow (optional)
+gh workflow run ace-benchmark.yml
 ```
 
 Key metrics in the JSON output:

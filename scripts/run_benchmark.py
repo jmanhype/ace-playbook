@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
-import math
 
 import dspy
 from dotenv import load_dotenv
@@ -177,14 +177,32 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
 
     model_name = configure_lm()
 
+    default_temperature = 0.2 if variant.enable_react else 0.7
+    temperature_override = os.getenv("ACE_BENCHMARK_TEMPERATURE")
+    if temperature_override:
+        try:
+            default_temperature = float(temperature_override)
+        except ValueError:
+            logger.warning("invalid_temperature_override", value=temperature_override)
+
     generator = (
-        create_react_generator(model=model_name) if variant.enable_react else create_cot_generator(model=model_name)
+        create_react_generator(model=model_name, temperature=default_temperature)
+        if variant.enable_react
+        else create_cot_generator(model=model_name, temperature=default_temperature)
     )
     reflector = GroundedReflector(model=model_name)
     curator = CuratorService()
     merge_coordinator = MergeCoordinator(curator) if variant.enable_merge_coordinator else None
     refinement_scheduler = None
     runtime_adapter = None
+
+    use_ground_truth_env = os.getenv("ACE_BENCHMARK_USE_GROUND_TRUTH")
+    use_ground_truth = True
+    if use_ground_truth_env is not None:
+        use_ground_truth = use_ground_truth_env.strip().lower() not in {"0", "false", "off", "no"}
+
+    metrics["generator_temperature"] = default_temperature
+    metrics["reflector_use_ground_truth"] = use_ground_truth
 
     with get_session() as session:
         stage_manager = StageManager(session)
@@ -242,7 +260,7 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
                 answer=original_answer,
                 confidence=result.confidence,
                 bullets_referenced=result.bullets_referenced,
-                ground_truth=task.get("ground_truth"),
+                ground_truth=task.get("ground_truth") if use_ground_truth else None,
                 domain="benchmark",
             )
 

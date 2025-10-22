@@ -8,8 +8,42 @@ on:
 
 jobs:
   run-benchmark:
-    name: Run ACE benchmark
+    name: Run ACE benchmark (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: finance-baseline
+            dataset: benchmarks/finance_subset.jsonl
+            variant: baseline
+            output: results/benchmark/baseline_finance.json
+            use_gt: "true"
+            temperature: "0.5"
+          - name: finance-ace-gt
+            dataset: benchmarks/finance_subset.jsonl
+            variant: ace_full
+            output: results/benchmark/ace_finance_gt.json
+            use_gt: "true"
+            temperature: "0.5"
+          - name: finance-ace-no-gt
+            dataset: benchmarks/finance_subset.jsonl
+            variant: ace_full
+            output: results/benchmark/ace_finance_no_gt.json
+            use_gt: "false"
+            temperature: "0.5"
+          - name: agent-baseline
+            dataset: benchmarks/agent_small.jsonl
+            variant: baseline
+            output: results/benchmark/baseline_agent.json
+            use_gt: "true"
+            temperature: "0.8"
+          - name: agent-ace
+            dataset: benchmarks/agent_small.jsonl
+            variant: ace_full
+            output: results/benchmark/ace_agent.json
+            use_gt: "true"
+            temperature: "0.8"
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -43,15 +77,16 @@ jobs:
       - name: Ensure benchmark results directory exists
         run: mkdir -p results/benchmark
 
-      - name: Baseline run
-        run: python scripts/run_benchmark.py benchmarks/finance_subset.jsonl baseline --output results/benchmark/baseline_finance.json
+      - name: Run benchmark (${{ matrix.variant }} | ${{ matrix.dataset }})
+        env:
+          ACE_BENCHMARK_USE_GROUND_TRUTH: ${{ matrix.use_gt }}
+          ACE_BENCHMARK_TEMPERATURE: ${{ matrix.temperature }}
+        run: |
+          python scripts/run_benchmark.py ${{ matrix.dataset }} ${{ matrix.variant }} --output ${{ matrix.output }}
 
-      - name: ACE run
-        run: python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full --output results/benchmark/ace_finance.json
-
-      - name: Upload benchmark artifacts
+      - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ace-benchmark-results
-          path: results/benchmark/*.json
+          name: ace-benchmark-${{ matrix.name }}
+          path: ${{ matrix.output }}
           if-no-files-found: error

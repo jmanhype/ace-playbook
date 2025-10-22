@@ -112,3 +112,52 @@ routes feedback back into the curator.  Replace the dummy client with a real
   latency or cost.
 * Feed the `ExperienceBuffer` into training dashboards or analytics systems to
   monitor adoption of new playbook bullets.
+
+## CI Benchmarks
+
+The repository includes a GitHub Actions workflow
+(`.github/workflows/ace-benchmark.yml`) that runs the finance and agent
+benchmarks under several configurations:
+
+- Finance baseline vs ACE (with ground-truth feedback),
+- Finance ACE with ground-truth disabled (reflector relies solely on execution
+  cues),
+- Agent baseline vs ACE on `benchmarks/agent_small.jsonl` at a higher generator
+  temperature.
+
+Each matrix entry runs in an isolated job, initialises a fresh SQLite schema,
+and uploads its metrics JSON as an artifact (for example,
+`ace-benchmark-finance-ace-no-gt`).
+
+### Triggering the workflow
+
+1. Store `OPENROUTER_API_KEY` (or another provider key) as a repository secret.
+2. From the **Actions** tab, choose **ACE Benchmark → Run workflow** (manual) or
+   rely on the automatic trigger for pushes to `main`.
+3. After the run completes, download the artifacts. You’ll find:
+   - `baseline_finance.json`, `ace_finance_gt.json`,
+     `ace_finance_no_gt.json`,
+   - `baseline_agent.json`, `ace_agent.json`.
+
+### Environment knobs
+
+`scripts/run_benchmark.py` respects the following environment variables (also
+used by the workflow matrix):
+
+- `ACE_BENCHMARK_TEMPERATURE` – overrides the generator temperature for both CoT
+  and ReAct variants.
+- `ACE_BENCHMARK_USE_GROUND_TRUTH` – set to `false`/`0`/`off` to withhold
+  ground-truth answers from the reflector (accuracy is still evaluated against
+  ground truth).
+
+Example local invocation:
+
+```bash
+ACE_BENCHMARK_TEMPERATURE=0.5 \
+ACE_BENCHMARK_USE_GROUND_TRUTH=false \
+python scripts/run_benchmark.py benchmarks/finance_subset.jsonl ace_full \
+  --output results/benchmark/ace_finance_no_gt.json
+```
+
+The resulting JSON files provide the raw evidence (accuracy, promotions,
+increments, auto-format corrections) that mirrors the tables in the ACE paper.
