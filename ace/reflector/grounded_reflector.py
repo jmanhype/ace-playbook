@@ -26,6 +26,7 @@ from ace.reflector.signatures import (
 from ace.utils.finance_guardrails import get_guardrail
 from ace.utils.logging_config import get_logger
 from ace.utils.llm_circuit_breaker import protected_predict
+from ace.utils.json_mode import json_mode_context
 
 logger = get_logger(__name__, component="reflector")
 
@@ -528,15 +529,16 @@ Bullets Referenced: {bullets_text}
 
             # T071: Call DSPy predictor for analysis with circuit breaker protection
             try:
-                prediction = protected_predict(
-                    self.predictor,
-                    circuit_name="reflector",
-                    failure_threshold=5,
-                    recovery_timeout=60,
-                    task_context=task_context,
-                    feedback_context=feedback_context,
-                    domain=reflector_input.domain
-                )
+                with json_mode_context(model=self.model) as json_active:
+                    prediction = protected_predict(
+                        self.predictor,
+                        circuit_name="reflector",
+                        failure_threshold=5,
+                        recovery_timeout=60,
+                        task_context=task_context,
+                        feedback_context=feedback_context,
+                        domain=reflector_input.domain
+                    )
             except AdapterParseError as parse_error:
                 return self._handle_adapter_parse_failure(
                     reflector_input=reflector_input,
@@ -596,7 +598,8 @@ Bullets Referenced: {bullets_text}
                 num_insights=len(insights),
                 confidence=output.confidence_score,
                 requires_review=requires_review,
-                latency_ms=latency_ms
+                latency_ms=latency_ms,
+                json_mode=bool(json_active)
             )
 
             return output
