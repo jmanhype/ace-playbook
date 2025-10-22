@@ -27,9 +27,7 @@ jobs:
         run: python -m pip install --upgrade pip
 
       - name: Install dependencies
-        run: |
-          python -m pip install -e .[dev]
-          python -m pip install sentence-transformers faiss-cpu
+        run: python -m pip install -e .[dev] sentence-transformers faiss-cpu
 
       - name: Ensure benchmark results directory exists
         run: mkdir -p results/benchmark
