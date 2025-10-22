@@ -18,30 +18,35 @@ jobs:
             dataset: benchmarks/finance_subset.jsonl
             variant: baseline
             output: results/benchmark/baseline_finance.json
+            feedback: results/benchmark/baseline_finance.json
             use_gt: "true"
             temperature: "0.5"
           - name: finance-ace-gt
             dataset: benchmarks/finance_subset.jsonl
             variant: ace_full
             output: results/benchmark/ace_finance_gt.json
+            feedback: results/benchmark/ace_finance_gt.json
             use_gt: "true"
             temperature: "0.5"
           - name: finance-ace-no-gt
             dataset: benchmarks/finance_subset.jsonl
             variant: ace_full
             output: results/benchmark/ace_finance_no_gt.json
+            feedback: results/benchmark/ace_finance_no_gt.json
             use_gt: "false"
             temperature: "0.5"
           - name: agent-baseline
             dataset: benchmarks/agent_small.jsonl
             variant: baseline
             output: results/benchmark/baseline_agent.json
+            feedback: results/benchmark/baseline_agent.feedback.jsonl
             use_gt: "true"
             temperature: "0.8"
           - name: agent-ace
             dataset: benchmarks/agent_small.jsonl
             variant: ace_full
             output: results/benchmark/ace_agent.json
+            feedback: results/benchmark/ace_agent.feedback.jsonl
             use_gt: "true"
             temperature: "0.8"
     env:
@@ -81,6 +86,7 @@ jobs:
         env:
           ACE_BENCHMARK_USE_GROUND_TRUTH: ${{ matrix.use_gt }}
           ACE_BENCHMARK_TEMPERATURE: ${{ matrix.temperature }}
+          DATABASE_URL: sqlite:///results/${{ matrix.name }}.db
         run: |
           python scripts/run_benchmark.py ${{ matrix.dataset }} ${{ matrix.variant }} --output ${{ matrix.output }}
 
@@ -88,5 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ace-benchmark-${{ matrix.name }}
-          path: ${{ matrix.output }}
+          path: |
+            ${{ matrix.output }}
+            ${{ matrix.feedback }}
           if-no-files-found: error

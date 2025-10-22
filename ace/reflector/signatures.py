@@ -56,8 +56,8 @@ class ReflectorInput(dspy.Signature):
     )
 
     # Optional: Execution feedback signals
-    ground_truth: str = dspy.InputField(
-        default="",
+    ground_truth: Optional[str] = dspy.InputField(
+        default=None,
         desc="Known correct answer for correctness evaluation"
     )
     test_results: str = dspy.InputField(

@@ -9,7 +9,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 import dspy
 from dotenv import load_dotenv
@@ -21,6 +21,12 @@ from ace.curator.merge_coordinator import MergeCoordinator, MergeEvent
 from ace.ops.stage_manager import StageManager
 from ace.ops.refinement_scheduler import RefinementScheduler
 from ace.runtime import RuntimeAdapter
+from ace.utils.agent_feedback import (
+    AgentFeedbackManager,
+    FeedbackResult,
+    SatisfactionClassifier,
+    create_default_manager,
+)
 from ace.utils.database import get_session
 from ace.utils.finance_guardrails import get_guardrail
 from ace.utils.logging_config import get_logger
@@ -162,7 +168,15 @@ def configure_lm() -> str:
     )
 
 
-def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
+def run_variant(
+    tasks: List[Dict],
+    variant: VariantConfig,
+    *,
+    dataset_name: str = "",
+    output_path: Optional[Path] = None,
+    feedback_manager: Optional[AgentFeedbackManager] = None,
+    classifier: Optional[SatisfactionClassifier] = None,
+) -> Dict:
     metrics = {
         "variant": variant.name,
         "total": 0,
@@ -203,6 +217,9 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
 
     metrics["generator_temperature"] = default_temperature
     metrics["reflector_use_ground_truth"] = use_ground_truth
+    if feedback_manager:
+        metrics["agent_feedback_summary"] = {"success": 0, "fail": 0, "unknown": 0}
+    feedback_log: List[Dict[str, Any]] = []
 
     with get_session() as session:
         stage_manager = StageManager(session)
@@ -254,15 +271,57 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
                         )
                     evaluation_answer = canonical
 
+            feedback_decision: Optional[FeedbackResult] = None
+            feedback_source = None
+            if feedback_manager:
+                heuristic_result = feedback_manager.evaluate(task, result.answer)
+                feedback_decision = heuristic_result
+                feedback_source = "heuristic"
+
+                if classifier and heuristic_result.status == "unknown":
+                    classified = classifier.evaluate(task, result.answer, heuristic_result)
+                    classified.features.setdefault("heuristic", heuristic_result.to_dict())
+                    feedback_decision = classified
+                    feedback_source = "classifier"
+                else:
+                    heuristic_result.features.setdefault("derived_from", "heuristic")
+
+                metrics["agent_feedback_summary"][feedback_decision.status] += 1
+                feedback_log.append(
+                    {
+                        "task_id": task["task_id"],
+                        "dataset": dataset_name,
+                        "source": feedback_source,
+                        "decision": feedback_decision.to_dict(),
+                    }
+                )
+
+            ground_truth_value: Optional[str] = task.get("ground_truth") if use_ground_truth else None
+            if feedback_decision:
+                if feedback_decision.status == "success":
+                    ground_truth_value = "success"
+                elif feedback_decision.status == "fail":
+                    ground_truth_value = ""
+
             reflector_input = ReflectorInput(
                 task_id=result.task_id,
                 reasoning_trace=result.reasoning_trace,
                 answer=original_answer,
                 confidence=result.confidence,
                 bullets_referenced=result.bullets_referenced,
-                ground_truth=task.get("ground_truth") if use_ground_truth else "",
+                ground_truth=ground_truth_value,
                 domain="benchmark",
             )
+
+            if feedback_decision:
+                payload = {
+                    "agent_success": feedback_decision.status == "success",
+                    "source": feedback_source,
+                    "confidence": feedback_decision.confidence,
+                    "evidence": feedback_decision.evidence,
+                    "features": feedback_decision.features,
+                }
+                reflector_input.test_results = json.dumps(payload)
 
             reflection = reflector(reflector_input)
 
@@ -358,16 +417,33 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
                 metrics["new_bullets"] += curator_output.new_bullets_added
                 metrics["increments"] += curator_output.existing_bullets_incremented
 
-            if evaluate_answer(task, result.answer):
-                metrics["correct"] += 1
-            else:
-                metrics["failures"].append(
-                    {
-                        "task_id": task["task_id"],
-                        "answer": result.answer,
-                        "ground_truth": task.get("ground_truth"),
-                    }
-                )
+            counted = False
+            if feedback_decision:
+                if feedback_decision.status == "success":
+                    metrics["correct"] += 1
+                    counted = True
+                elif feedback_decision.status == "fail":
+                    metrics["failures"].append(
+                        {
+                            "task_id": task["task_id"],
+                            "answer": result.answer,
+                            "ground_truth": "agent_feedback_fail",
+                            "feedback": feedback_decision.to_dict(),
+                        }
+                    )
+                    counted = True
+
+            if not counted:
+                if evaluate_answer(task, result.answer):
+                    metrics["correct"] += 1
+                else:
+                    metrics["failures"].append(
+                        {
+                            "task_id": task["task_id"],
+                            "answer": result.answer,
+                            "ground_truth": task.get("ground_truth"),
+                        }
+                    )
 
         if merge_coordinator:
             flush_results = merge_coordinator.flush_all()
@@ -379,6 +455,14 @@ def run_variant(tasks: List[Dict], variant: VariantConfig) -> Dict:
             stats = refinement_scheduler.run("benchmark")
             metrics["promotions"] += stats.promotions
             metrics["quarantines"] += stats.quarantines
+
+    if feedback_manager and output_path is not None:
+        log_path = output_path.with_suffix(".feedback.jsonl")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("w", encoding="utf-8") as handle:
+            for entry in feedback_log:
+                handle.write(json.dumps(entry) + "\n")
+        metrics["agent_feedback_log"] = str(log_path)
 
     return metrics
 
@@ -393,8 +477,31 @@ def main():
 
     tasks = load_tasks(args.suite)
     config = VARIANTS[args.variant]
-    metrics = run_variant(tasks, config)
 
+    dataset_name = args.suite.stem
+    dataset_lower = dataset_name.lower()
+    feedback_manager: Optional[AgentFeedbackManager] = None
+    classifier: Optional[SatisfactionClassifier] = None
+
+    scorer_mode = os.getenv("ACE_AGENT_SCORER", "auto").strip().lower()
+    enable_scorer = scorer_mode != "off" and "agent" in dataset_lower
+    if enable_scorer:
+        feedback_manager = create_default_manager()
+
+        classifier_mode = os.getenv("ACE_AGENT_CLASSIFIER", "off").strip().lower()
+        if classifier_mode in {"1", "true", "on"}:
+            logger.warning("agent_classifier_not_implemented", note="Classifier hook present but no backend configured")
+
+    metrics = run_variant(
+        tasks,
+        config,
+        dataset_name=dataset_name,
+        output_path=args.output,
+        feedback_manager=feedback_manager,
+        classifier=classifier,
+    )
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(metrics, indent=2))
     print(json.dumps(metrics, indent=2))
 
