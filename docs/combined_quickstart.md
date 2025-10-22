@@ -73,7 +73,7 @@ routes feedback back into the curator.  Replace the dummy client with a real
 
 2. Instantiate `ace.llm_client.DSPyLLMClient()` instead of the dummy stub. This
    client delegates to the configured `dspy.LM`, and when you set
-   `ACE_JSON_MODE=on` it automatically wraps calls with the Kayba JSON adapter.
+   `ACE_JSON_MODE=on` it automatically wraps calls with DSPy’s JSON adapter.
 
 3. Run the quick-start again (or your own driver script). Any schema violations
    will surface immediately as `ace.llm_client.LLMError`, making it safe to
