@@ -34,6 +34,7 @@ jobs:
       - name: Initialize database schema
         run: |
           python - <<'PY'
+          import ace.models  # ensure models are registered
           from ace.utils.database import init_database
 
           init_database()
