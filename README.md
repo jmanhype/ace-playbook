@@ -156,6 +156,29 @@ gh workflow run ace-benchmark.yml
 
 # Audit agent heuristics locally (sample 20 tasks)
 python scripts/audit_agent_scoring.py benchmarks/agent_small.jsonl --sample 20
+
+# Hard finance split (Table 2 replication)
+ACE_BENCHMARK_TEMPERATURE=0.9 \
+  python scripts/run_benchmark.py benchmarks/finance_hard.jsonl baseline \
+  --output results/benchmark/baseline_finance_hard.json
+
+python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
+  --output results/benchmark/ace_finance_hard_gt.json
+
+ACE_BENCHMARK_USE_GROUND_TRUTH=false \
+  python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
+  --output results/benchmark/ace_finance_hard_no_gt.json
+
+# Agent/AppWorld hard split with conservative heuristics
+ACE_BENCHMARK_TEMPERATURE=0.9 \
+  python scripts/run_benchmark.py benchmarks/agent_hard.jsonl baseline \
+  --output results/benchmark/baseline_agent_hard.json
+
+python scripts/run_benchmark.py benchmarks/agent_hard.jsonl ace_full \
+  --output results/benchmark/ace_agent_hard.json
+
+# Quickly sanity-check heuristic thresholds on harder agent tasks
+python scripts/audit_agent_scoring.py benchmarks/agent_hard.jsonl --sample 20
 ```
 
 Key metrics in the JSON output:
@@ -164,6 +187,9 @@ Key metrics in the JSON output:
 - `promotions`, `new_bullets`, `increments` – curator activity
 - `auto_corrections` – guardrail canonical replacements (e.g., finance rounding)
 - `format_corrections` – post-process clamps that strip extra words but retain the raw answer for reflection
+- `agent_feedback_log` – path to the per-task ledger (`*.feedback.jsonl`) emitted for every run
+
+Populate `benchmarks/RESULTS.md` with the numbers emitted by these commands. The guardrails and heuristics default to a fail-closed posture: when they cannot certify an answer they mark it `unknown`, mirroring the safety constraint highlighted in the paper.
 
 ### Add a New Finance Guardrail
 

@@ -1,0 +1,26 @@
+{"task_id": "fin-hard-001", "description": "Compute net income from revenue 48763.58 and expenses 52114.93 (report the signed result to two decimals)", "ground_truth": "-3351.35"}
+{"task_id": "fin-hard-002", "description": "Calculate CAGR for value 18500.40 growing to 29877.92 over 3.25 years. Round to two decimals with a % sign.", "ground_truth": "15.89%"}
+{"task_id": "fin-hard-003", "description": "Calculate simple interest on principal 18450.75 at 4.625% annual rate over 7.5 years and round to two decimals.", "ground_truth": "6400.10"}
+{"task_id": "fin-hard-004", "description": "Determine break-even units for fixed costs 83750, unit price 189.95, unit cost 124.60. Round up to the next whole unit.", "ground_truth": "1282"}
+{"task_id": "fin-hard-005", "description": "Compute straight-line depreciation for asset cost 182450.90, salvage 17895.25, life 9 years. Provide the annual depreciation to two decimals.", "ground_truth": "18283.96"}
+{"task_id": "fin-hard-006", "description": "Calculate ROI for investment cost 12480.60 and return 17935.88. Report as a percentage with two decimals.", "ground_truth": "43.71%"}
+{"task_id": "fin-hard-007", "description": "Compute net profit margin for revenue 256780.45 and net income 38942.67. Express as a percentage with two decimals.", "ground_truth": "15.17%"}
+{"task_id": "fin-hard-008", "description": "Determine payback period for project costing 72500 with annual cash inflow 18250.75. Give the period in years rounded to two decimals.", "ground_truth": "3.97"}
+{"task_id": "fin-hard-009", "description": "Calculate compound interest for principal 12750.40 at 7.2% annual rate compounded monthly for 6 years. Return the interest earned rounded to two decimals.", "ground_truth": "6864.15"}
+{"task_id": "fin-hard-010", "description": "Compute EBITDA given revenue 1275000.80, COGS 562890.45, operating expenses 318445.22. Round to two decimals.", "ground_truth": "393665.13"}
+{"task_id": "fin-hard-011", "description": "Calculate working capital with current assets 1248775.60 and current liabilities 894332.45. Round to two decimals.", "ground_truth": "354443.15"}
+{"task_id": "fin-hard-012", "description": "Determine gross margin percentage with revenue 348920.75 and COGS 244577.18. Provide the percentage with two decimals and a % sign.", "ground_truth": "29.90%"}
+{"task_id": "fin-hard-013", "description": "Compute inventory turnover given COGS 542780.20 and average inventory 68445.55. Round to two decimals.", "ground_truth": "7.93"}
+{"task_id": "fin-hard-014", "description": "Calculate annualized return for investment that grows from 48250 to 61345.80 in 22 months. Provide the result with two decimals and a % sign.", "ground_truth": "13.99%"}
+{"task_id": "fin-hard-015", "description": "Compute debt-to-equity ratio for total liabilities 1298445.75 and equity 842115.20. Round to two decimals.", "ground_truth": "1.54"}
+{"task_id": "fin-hard-016", "description": "Determine price-to-earnings ratio for share price 118.45 and EPS 4.37. Round to two decimals.", "ground_truth": "27.11"}
+{"task_id": "fin-hard-017", "description": "Calculate dividend yield for dividend per share 3.25 and share price 56.40. Express as a percentage with two decimals and a % sign.", "ground_truth": "5.76%"}
+{"task_id": "fin-hard-018", "description": "Compute net present value for cash flows [ -8350, 2420.75, 3180.40, 4590.90, 5285.35 ] at discount rate 9.5%. Round to two decimals.", "ground_truth": "3686.25"}
+{"task_id": "fin-hard-019", "description": "Determine internal rate of return for cash flows [ -4600, 1525.50, 1840.75, 2175.10, 2490.60 ]. Report the IRR with two decimals and a % sign.", "ground_truth": "24.24%"}
+{"task_id": "fin-hard-020", "description": "Calculate the monthly amortization payment for loan principal 485000, annual rate 4.35%, 18-year term. Provide the payment rounded to two decimals.", "ground_truth": "3241.86"}
+{"task_id": "fin-hard-021", "description": "Compute contribution margin ratio given sales price 142.80 and variable cost 58.45. Report as a percentage with two decimals and a % sign.", "ground_truth": "59.07%"}
+{"task_id": "fin-hard-022", "description": "Determine operating leverage with contribution margin 89455.80 and operating income 24770.35. Round to two decimals.", "ground_truth": "3.61"}
+{"task_id": "fin-hard-023", "description": "Calculate effective annual rate for nominal 11.4% compounded monthly. Provide the percentage with two decimals and a % sign.", "ground_truth": "12.01%"}
+{"task_id": "fin-hard-024", "description": "Compute future value of an annuity paying 785.60 annually for 12 years at 5.5%. Round to two decimals.", "ground_truth": "12872.52"}
+{"task_id": "fin-hard-025", "description": "Calculate weighted average cost of capital given equity 55%, debt 45%, cost of equity 11.6%, cost of debt 5.8%, tax rate 27%. Report as a percentage with two decimals and a % sign.", "ground_truth": "8.99%"}
+{"task_id": "fin-hard-026", "description": "Determine retention ratio with earnings 18750.40 and dividends 3894.75. Provide the result as a percentage with two decimals and a % sign.", "ground_truth": "79.23%"}
