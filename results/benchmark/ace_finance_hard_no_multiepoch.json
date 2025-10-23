@@ -1,0 +1,92 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 18,
+  "promotions": 4,
+  "quarantines": 0,
+  "new_bullets": 10,
+  "increments": 1,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-003",
+      "answer": "The simple interest is 7093.47.",
+      "ground_truth": "6400.10"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "The ROI is 43.72%.",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-007",
+      "answer": "(38942.67 / 256780.45) * 100 = 15.15%",
+      "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "4.00",
+      "ground_truth": "3.97"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "10237.77",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "-5275.73",
+      "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-022",
+      "answer": "3.60",
+      "ground_truth": "3.61"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "Retention Ratio = (18750.40 - 3894.75) / 18750.40 = 0.7999792584269662",
+      "ground_truth": "79.23%"
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_use_ground_truth": true,
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-002",
+      "original_answer": "10.99%",
+      "corrected_answer": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "original_answer": "10.54%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "original_answer": "24.29%",
+      "corrected_answer": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "3237.38",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "original_answer": "52.40%",
+      "corrected_answer": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "original_answer": "12.02%",
+      "corrected_answer": "12.01%"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "original_answer": "12879.97",
+      "corrected_answer": "12872.52"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_no_multiepoch.feedback.jsonl"
+}

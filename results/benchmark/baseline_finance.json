@@ -4,29 +4,41 @@
   "correct": 24,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 65,
-  "increments": 21,
+  "new_bullets": 58,
+  "increments": 25,
   "latency_ms": [],
   "failures": [
+    {
+      "task_id": "fin-009",
+      "answer": "75.58",
+      "ground_truth": "78.25"
+    },
     {
       "task_id": "fin-018",
       "answer": "-5000 + 1818.18 + 2066.12 + 2253.94 = -761.76",
       "ground_truth": "1138.24"
-    },
-    {
-      "task_id": "fin-026",
-      "answer": "The retention ratio is 0.75.",
-      "ground_truth": "75%"
     }
   ],
   "generator_temperature": 0.5,
   "reflector_use_ground_truth": true,
-  "auto_corrections": [
+  "format_corrections": [
     {
-      "task_id": "fin-002",
-      "original_answer": "39%",
+      "task_id": "fin-006",
+      "original_answer": "The ROI is 30%.",
       "corrected_answer": "30%"
     },
+    {
+      "task_id": "fin-007",
+      "original_answer": "The net profit margin is 15%.",
+      "corrected_answer": "15%"
+    },
+    {
+      "task_id": "fin-026",
+      "original_answer": "The retention ratio is 0.75 or 75%.",
+      "corrected_answer": "75%"
+    }
+  ],
+  "auto_corrections": [
     {
       "task_id": "fin-014",
       "original_answer": "29.73%",
@@ -34,30 +46,18 @@
     },
     {
       "task_id": "fin-019",
-      "original_answer": "21.63%",
+      "original_answer": "21.66%",
       "corrected_answer": "21.65%"
+    },
+    {
+      "task_id": "fin-021",
+      "original_answer": "54%",
+      "corrected_answer": "60%"
     },
     {
       "task_id": "fin-023",
       "original_answer": "8.67%",
       "corrected_answer": "9.38%"
-    },
-    {
-      "task_id": "fin-024",
-      "original_answer": "5247.17",
-      "corrected_answer": "3685.69"
-    }
-  ],
-  "format_corrections": [
-    {
-      "task_id": "fin-006",
-      "original_answer": "The ROI is calculated as follows: (240 / 800) * 100 = 30%.",
-      "corrected_answer": "30%"
-    },
-    {
-      "task_id": "fin-007",
-      "original_answer": "The net profit margin is 15%.",
-      "corrected_answer": "15%"
     }
   ],
   "agent_feedback_log": "results/benchmark/baseline_finance.feedback.jsonl"

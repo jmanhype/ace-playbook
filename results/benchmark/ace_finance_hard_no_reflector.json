@@ -1,22 +1,27 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 20,
-  "promotions": 3,
+  "correct": 19,
+  "promotions": 4,
   "quarantines": 0,
-  "new_bullets": 22,
-  "increments": 11,
+  "new_bullets": 6,
+  "increments": 12,
   "latency_ms": [],
   "failures": [
     {
       "task_id": "fin-hard-006",
-      "answer": "The ROI is 43.72%.",
+      "answer": "43.72%",
       "ground_truth": "43.71%"
     },
     {
       "task_id": "fin-hard-007",
       "answer": "(38942.67 / 256780.45) * 100 = 15.14",
       "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "The payback period is 4.00 years.",
+      "ground_truth": "3.97"
     },
     {
       "task_id": "fin-hard-009",
@@ -30,12 +35,12 @@
     },
     {
       "task_id": "fin-hard-018",
-      "answer": "-5275.73",
+      "answer": "3685.94",
       "ground_truth": "3686.25"
     },
     {
       "task_id": "fin-hard-026",
-      "answer": "(18750.40 - 3894.75) / 18750.40 * 100 = 79.99%",
+      "answer": "The retention ratio is 79.22%.",
       "ground_truth": "79.23%"
     }
   ],
@@ -44,34 +49,29 @@
   "auto_corrections": [
     {
       "task_id": "fin-hard-002",
-      "original_answer": "15.88%",
+      "original_answer": "15.90%",
       "corrected_answer": "15.89%"
     },
     {
-      "task_id": "fin-hard-005",
-      "original_answer": "20000.0",
-      "corrected_answer": "18283.96"
+      "task_id": "fin-hard-012",
+      "original_answer": "30.00%",
+      "corrected_answer": "29.90%"
     },
     {
       "task_id": "fin-hard-014",
-      "original_answer": "13.90%",
+      "original_answer": "15.00%",
       "corrected_answer": "13.99%"
     },
     {
-      "task_id": "fin-hard-019",
-      "original_answer": "24.28%",
-      "corrected_answer": "24.24%"
-    },
-    {
       "task_id": "fin-hard-020",
-      "original_answer": "3246.50",
+      "original_answer": "3247.65",
       "corrected_answer": "3241.86"
     },
     {
       "task_id": "fin-hard-024",
-      "original_answer": "13857.68",
+      "original_answer": "12812.82",
       "corrected_answer": "12872.52"
     }
   ],
-  "agent_feedback_log": "results/benchmark/ace_finance_hard_gt.feedback.jsonl"
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_no_reflector.feedback.jsonl"
 }

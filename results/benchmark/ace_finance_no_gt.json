@@ -2,41 +2,66 @@
   "variant": "ace_full",
   "total": 26,
   "correct": 26,
-  "promotions": 5,
+  "promotions": 4,
   "quarantines": 0,
-  "new_bullets": 12,
-  "increments": 8,
+  "new_bullets": 24,
+  "increments": 9,
   "latency_ms": [],
   "failures": [],
   "generator_temperature": 0.5,
   "reflector_use_ground_truth": false,
-  "format_corrections": [
+  "auto_corrections": [
     {
-      "task_id": "fin-006",
-      "original_answer": "The ROI for an investment cost of $800 with a return of $1,040 is 30%. This is calculated as ((1040 - 800) / 800) \u00d7 100 = 30%.",
+      "task_id": "fin-002",
+      "original_answer": "29%",
       "corrected_answer": "30%"
     },
     {
-      "task_id": "fin-007",
-      "original_answer": "The net profit margin is 15%.",
-      "corrected_answer": "15%"
+      "task_id": "fin-005",
+      "original_answer": "200",
+      "corrected_answer": "250"
     },
     {
-      "task_id": "fin-026",
-      "original_answer": "The retention ratio is 0.75 or 75%.",
-      "corrected_answer": "75%"
-    }
-  ],
-  "auto_corrections": [
-    {
       "task_id": "fin-014",
-      "original_answer": "19.10%",
+      "original_answer": "19.15%",
       "corrected_answer": "19.11%"
+    },
+    {
+      "task_id": "fin-019",
+      "original_answer": "22.15%",
+      "corrected_answer": "21.65%"
     },
     {
       "task_id": "fin-020",
       "original_answer": "188.77",
       "corrected_answer": "188.71"
+    },
+    {
+      "task_id": "fin-024",
+      "original_answer": "3727.86",
+      "corrected_answer": "3685.69"
+    },
+    {
+      "task_id": "fin-025",
+      "original_answer": "6.00%",
+      "corrected_answer": "8.40%"
+    }
+  ],
+  "format_corrections": [
+    {
+      "task_id": "fin-006",
+      "original_answer": "ROI = ((1040 - 800) / 800) * 100 = (240 / 800) * 100 = 0.3 * 100 = 30%",
+      "corrected_answer": "30%"
+    },
+    {
+      "task_id": "fin-007",
+      "original_answer": "The net profit margin is 15.0%.",
+      "corrected_answer": "15%"
+    },
+    {
+      "task_id": "fin-026",
+      "original_answer": "The retention ratio is 0.75 (or 75%), calculated as 1 - (300/1200).",
+      "corrected_answer": "75%"
     }
   ],
   "agent_feedback_log": "results/benchmark/ace_finance_no_gt.feedback.jsonl"

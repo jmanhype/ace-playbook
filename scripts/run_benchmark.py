@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from types import SimpleNamespace
 
 import dspy
 from dotenv import load_dotenv
@@ -60,6 +61,15 @@ VARIANTS = {
         enable_runtime_adapter=True,
     ),
 }
+
+
+def read_env_bool(name: str, default: bool) -> bool:
+    """Parse an environment flag, defaulting to the provided value."""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "off", "no"}
 
 
 def load_tasks(path: Path) -> List[Dict]:
@@ -199,14 +209,21 @@ def run_variant(
         except ValueError:
             logger.warning("invalid_temperature_override", value=temperature_override)
 
+    reflector_enabled = read_env_bool("ACE_ENABLE_REFLECTOR", True)
+    multi_epoch_flag = read_env_bool("ACE_MULTI_EPOCH", True)
+    offline_warmup_flag = read_env_bool("ACE_OFFLINE_WARMUP", True)
+
     generator = (
         create_react_generator(model=model_name, temperature=default_temperature)
         if variant.enable_react
         else create_cot_generator(model=model_name, temperature=default_temperature)
     )
-    reflector = GroundedReflector(model=model_name)
+    reflector = GroundedReflector(model=model_name) if reflector_enabled else None
     curator = CuratorService()
-    merge_coordinator = MergeCoordinator(curator) if variant.enable_merge_coordinator else None
+    merge_coordinator_enabled = variant.enable_merge_coordinator
+    refinement_enabled = variant.enable_refinement and multi_epoch_flag
+    runtime_adapter_enabled = variant.enable_runtime_adapter and offline_warmup_flag
+    merge_coordinator = MergeCoordinator(curator) if merge_coordinator_enabled else None
     refinement_scheduler = None
     runtime_adapter = None
 
@@ -216,7 +233,10 @@ def run_variant(
         use_ground_truth = use_ground_truth_env.strip().lower() not in {"0", "false", "off", "no"}
 
     metrics["generator_temperature"] = default_temperature
-    metrics["reflector_use_ground_truth"] = use_ground_truth
+    metrics["reflector_enabled"] = reflector_enabled
+    metrics["multi_epoch_enabled"] = refinement_enabled
+    metrics["runtime_adapter_enabled"] = runtime_adapter_enabled
+    metrics["reflector_use_ground_truth"] = use_ground_truth if reflector_enabled else False
     if feedback_manager:
         metrics["agent_feedback_summary"] = {"success": 0, "fail": 0, "unknown": 0}
     feedback_log: List[Dict[str, Any]] = []
@@ -225,15 +245,15 @@ def run_variant(
         stage_manager = StageManager(session)
         curator_service = curator
 
-        if variant.enable_merge_coordinator:
+        if merge_coordinator_enabled:
             merge_coordinator = MergeCoordinator(curator_service)
-        if variant.enable_refinement and merge_coordinator:
+        if refinement_enabled and merge_coordinator:
             refinement_scheduler = RefinementScheduler(
                 merge_coordinator,
                 stage_manager,
                 curator_service,
             )
-        if variant.enable_runtime_adapter and merge_coordinator:
+        if runtime_adapter_enabled and merge_coordinator:
             runtime_adapter = RuntimeAdapter("benchmark", merge_coordinator)
 
         for task in tasks:
@@ -323,7 +343,18 @@ def run_variant(
                 }
                 reflector_input.test_results = json.dumps(payload)
 
-            reflection = reflector(reflector_input)
+            if reflector:
+                reflection = reflector(reflector_input)
+            else:
+                reflection = SimpleNamespace(
+                    insights=[],
+                    analysis_summary="",
+                    confidence_score=0.0,
+                    referenced_steps=[],
+                    feedback_types_used=[],
+                    requires_human_review=False,
+                    contradicts_existing=[],
+                )
 
             format_corrected = False
             if not evaluate_answer(task, evaluation_answer):

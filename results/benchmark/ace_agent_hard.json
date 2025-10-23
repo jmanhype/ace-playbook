@@ -1,59 +1,65 @@
 {
   "variant": "ace_full",
   "total": 12,
-  "correct": 8,
+  "correct": 5,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 4,
+  "new_bullets": 0,
   "increments": 1,
   "latency_ms": [],
   "failures": [
     {
+      "task_id": "agent-hard-003",
+      "answer": "Crisis Communication Schedule (First 12 Hours):\n07:30 AM - Internal Incident Response Meeting (Slack/Teams) | Lead: CISO\n09:00 AM - Stakeholder Notification (Secure Email) | Lead: Director of Communications\n11:30 AM - Public Statement Release (Press Release) | Lead: PR Director\n03:00 PM - Customer Impact Update (Dedicated Portal) | Lead: Customer Support Manager",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-004",
+      "answer": "- **Discovery**: Identify all data sources, target systems, and dependencies. Document current system configurations, data volumes, and any third-party integrations. Perform a gap analysis to identify potential issues and risks.\n- **Dry Run**: Conduct a simulated migration to test the process without affecting live systems. Verify data integrity, performance, and user experience. Address any issues identified during the dry run before proceeding.\n- **Final Switch**: Execute the actual migration according to the planned timeline. Monitor the process closely for any anomalies or errors. Ensure all stakeholders are informed and ready to handle any unexpected issues.\n- **Rollback**: Prepare a rollback plan in case the migration fails. Have a clear set of instructions and a team ready to revert to the previous state if necessary. Test the rollback plan thoroughly before the migration.\n- **Verification**: Validate the migrated data against the original source to ensure accuracy and completeness. Perform post-migration testing to confirm that all systems and applications are functioning correctly.\n- **Executive Sign-Off**: Obtain approval from senior management and relevant stakeholders to proceed with the final switch. Ensure all legal and compliance requirements are met and that all necessary documentation is in place.",
+      "ground_truth": "success"
+    },
+    {
       "task_id": "agent-hard-005",
-      "answer": "Post-Incident Review Template\n\n1. **Summary**  \n   - Brief overview of the incident (what, when, initial impact).\n\n2. **Customer Impact**  \n   - Affected customers/regions, duration of impact, and severity (e.g., downtime, data loss).\n\n3. **Detailed Timeline**  \n   - Chronological events with timestamps and responsible leads (e.g., \"10:00 AM \u2013 Incident detected by [Name/Team]\").  \n\n4. **Contributing Factors**  \n   - Root causes and systemic issues (e.g., \"Configuration error in [System X] due to incomplete validation\").  \n\n5. **Corrective Actions**  \n   - Steps to resolve the incident and prevent recurrence (e.g., \"Implement automated validation checks for [Process Y]\").  \n\n6. **Named Owners**  \n   - Accountability assignments (e.g., \"Owner: [Name], Deadline: [Date/Time]\").",
+      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**\n   - Brief overview of the incident, including key dates and times.\n   - Description of the incident and its resolution.\n\n2. **Customer Impact**\n   - Description of how the incident affected customers.\n   - Metrics or KPIs that were impacted.\n\n3. **Detailed Timeline**\n   - Chronological sequence of events leading up to, during, and after the incident.\n   - Key milestones and decision points.\n\n4. **Contributing Factors**\n   - Analysis of what caused the incident.\n   - Root cause(s) identified through investigation.\n\n5. **Corrective Actions**\n   - Steps taken to address the incident.\n   - Long-term measures to prevent similar incidents from occurring.\n\n6. **Named Owners**\n   - Individuals or teams responsible for each section of the review.\n   - Roles and responsibilities clearly defined.\n\nThis template ensures a comprehensive and actionable post-incident review process.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-006",
-      "answer": "A structured weekly reliability review agenda should include the following sections:\n\n1. **Metrics Health**\n   - Review key performance indicators (KPIs) related to system performance, such as uptime, response times, and error rates.\n   - Discuss trends observed over the past week and compare them with historical data.\n   - Identify any anomalies or deviations from expected behavior and discuss potential causes.\n\n2. **Recent Incidents**\n   - Summarize any incidents that occurred during the previous week, including their impact, root cause, and resolution process.\n   - Analyze the effectiveness of incident response procedures and identify areas for improvement.\n   - Document lessons learned and update relevant documentation.\n\n3. **Technical Debt Backlog**\n   - Review the current state of the technical debt backlog, including tasks that have been deferred or prioritized.\n   - Discuss the impact of technical debt on system stability and performance.\n   - Plan and prioritize upcoming tasks to address the most critical issues first.\n\n4. **Active Risks**\n   - Identify and assess any active risks that could potentially impact system reliability, such as software vulnerabilities, hardware failures, or external dependencies.\n   - Develop mitigation strategies and contingency plans for high-risk scenarios.\n   - Monitor risk levels and adjust plans as needed based on new information or changing conditions.\n\n5. **Follow-Up Actions**\n   - List any outstanding actions from previous reviews, including those that were deferred or require further attention.\n   - Assign responsibilities and deadlines for completing these actions.\n   - Ensure that all team members are aware of their roles and responsibilities in addressing these issues.\n\nThis agenda provides a comprehensive framework for conducting a weekly reliability review, ensuring that all critical aspects of system health and performance are addressed.",
+      "answer": "Weekly Reliability Review Agenda:  \n1. **Metrics Health**: Review KPIs (uptime, error rates, latency, data integrity checks, ETL efficiency) and anomalies.  \n2. **Recent Incidents**: Log critical issues, post-mortems, and mitigation strategies.  \n3. **Technical Debt Backlog**: Prioritize tasks (e.g., code refactors, infrastructure upgrades) with owners and timelines.  \n4. **Active Risks**: Address vulnerabilities, redundancy gaps, and failover mechanisms with escalation paths.  \n5. **Follow-up Actions**: Assign specific tasks (e.g., \"Implement ETL monitoring by [date]\") with accountability.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-008",
-      "answer": "Launch Readiness Standup Outline:\n\n1. **Engineering Status**  \n   - Status: GREEN  \n   - Lead: Engineering Manager  \n   - Summary: All critical systems tested and validated.\n\n2. **Product Status**  \n   - Status: YELLOW  \n   - Lead: Product Lead  \n   - Summary: Final feature reviews pending; minor UI adjustments needed.\n\n3. **Marketing Status**  \n   - Status: GREEN  \n   - Lead: Marketing Director  \n   - Summary: Launch campaigns deployed; social media ready.\n\n4. **Support Status**  \n   - Status: GREEN  \n   - Lead: Support Lead  \n   - Summary: Post-launch escalation protocols confirmed.\n\n5. **Risk Status**  \n   - Status: YELLOW  \n   - Lead: Risk Manager  \n   - Summary: Minor dependencies unresolved; mitigation plans in progress.",
+      "answer": "Launch Readiness Standup Outline:\n1. Engineering [YELLOW] - Lead: Engineering Manager | Status: Dependency mapping incomplete (Strategy 1), ETL processes pending validation (Strategy 8)\n2. Product [GREEN] - Lead: Product Owner | Status: All features validated, AC-22 compliance confirmed (Strategy 5)\n3. Marketing [YELLOW] - Lead: Marketing Director | Status: Regional redundancy plans missing (Strategy 3), placeholder dates in campaign timelines (Strategy 4)\n4. Support [RED] - Lead: Customer Success Lead | Status: No defined escalation paths (Strategy 2), risk assessment incomplete (Strategy 6)\n5. Risk [YELLOW] - Lead: Risk Manager | Status: 3 high-priority risks unresolved, mitigation plans pending (Strategy 12)",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-011",
+      "answer": "A change-freeze communication plan with a time-boxed schedule is as follows:\n\n1. **Initial Announcement**:\n   - **Date/Time**: [Due Date - 7 days]\n   - **Content**: Notify all stakeholders about the upcoming change-freeze period. Include the reasons for the freeze and the expected duration.\n   - **Communication Channels**: Email, internal messaging platform.\n   - **Action Required**: Confirm receipt from all relevant teams.\n\n2. **Reminder**:\n   - **Date/Time**: [Due Date - 3 days]\n   - **Content**: Send a reminder to all stakeholders about the impending change-freeze. Highlight the importance of adhering to the schedule.\n   - **Communication Channels**: Email, internal messaging platform.\n   - **Action Required**: Ensure all teams are aware and prepared.\n\n3. **Freeze Start**:\n   - **Date/Time**: [Due Date]\n   - **Content**: Announce the official start of the change-freeze period. Provide a list of critical systems that will be affected.\n   - **Communication Channels**: Email, internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Monitor system performance and address any issues promptly.\n\n4. **Monitoring Checkpoints**:\n   - **Date/Time**: [Due Date + 1 day], [Due Date + 3 days], [Due Date + 5 days]\n   - **Content**: Conduct regular check-ins to monitor system performance and address any issues that arise.\n   - **Communication Channels**: Internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Document any issues and their resolutions.\n\n5. **Release Communication**:\n   - **Date/Time**: [Due Date + 7 days]\n   - **Content**: Announce the end of the change-freeze period. Provide a summary of any issues encountered and how they were addressed.\n   - **Communication Channels**: Email, internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Confirm that all systems are back to normal operation.\n\nThis plan ensures that all stakeholders are informed and prepared for the change-freeze period, and it includes specific times for each step to maintain a structured approach.",
       "ground_truth": "agent_feedback_fail",
       "feedback": {
         "status": "fail",
-        "confidence": 0.7,
-        "evidence": "Missing required keywords: ['red']",
+        "confidence": 0.6,
+        "evidence": "No recognisable time slots",
         "features": {
-          "missing_required": [
-            "red"
-          ],
-          "optional_matches": 0,
+          "time_mentions": 0,
+          "bullet_count": 25,
           "derived_from": "heuristic"
         }
       }
     },
     {
       "task_id": "agent-hard-012",
-      "answer": "A customer status update template should include the following labeled sections:\n\n**Achievements:**\n- Briefly describe recent accomplishments related to the project or initiative.\n\n**Blockers:**\n- List any obstacles or issues that are preventing progress and require attention.\n\n**Next Steps:**\n- Outline the tasks or actions that need to be taken next, along with responsible leads and deadlines.\n\n**Outstanding Risks:**\n- Identify potential risks that could impact the project and provide mitigation strategies.\n\n**Executive Asks:**\n- Highlight any requests or questions from executives that need to be addressed.\n\nExample:\n```\nCustomer Status Update\n\nAchievements:\n- Successfully completed data migration for 50% of users.\n- Implemented new security protocols to enhance user privacy.\n\nBlockers:\n- Waiting for approval from the legal department on contract terms.\n- Technical issues with the integration of third-party software.\n\nNext Steps:\n- Schedule a meeting with the legal team to finalize contract terms.\n- Assign lead developer to resolve technical integration issues.\n\nOutstanding Risks:\n- Potential data breaches due to recent system vulnerabilities.\n- Delays in project timeline if third-party software integration is not resolved.\n\nExecutive Asks:\n- Request for a detailed report on the current state of the project.\n- Inquiry about the progress of the legal review process.\n```",
+      "answer": "A customer status update template should include the following labeled sections:\n\n**Achievements:**\n- List of recent accomplishments related to the project or service.\n- Specific milestones achieved.\n- Key performance indicators (KPIs) met.\n\n**Blockers:**\n- Any obstacles or issues preventing progress.\n- Steps taken to address these issues.\n- Expected resolution timeline.\n\n**Next Steps:**\n- Immediate tasks to be completed.\n- Dependencies and prerequisites for upcoming activities.\n- Timeline for completion.\n\n**Outstanding Risks:**\n- Potential challenges or threats to the project.\n- Mitigation strategies in place.\n- Likelihood and impact assessment.\n\n**Executive Asks:**\n- Requests from executives or stakeholders.\n- Action items for senior management review.\n- Follow-up meetings or reports needed.\n\nThis template ensures transparency and provides a clear overview of the current status, while also highlighting areas requiring attention and future actions.",
       "ground_truth": "success"
     }
   ],
   "generator_temperature": 0.5,
   "reflector_use_ground_truth": true,
   "agent_feedback_summary": {
-    "success": 6,
+    "success": 5,
     "fail": 1,
-    "unknown": 5
+    "unknown": 6
   },
-  "format_corrections": [
-    {
-      "task_id": "agent-hard-004",
-      "original_answer": "A data migration cutover plan should be outlined as follows:\n\n- **Discovery**: Identify the current state of the data, understand the requirements, and define the scope of the migration. This includes gathering all necessary data from stakeholders, defining the target environment, and assessing the feasibility of the migration.\n- **Dry Run**: Simulate the migration process without affecting actual data to ensure that the plan works as intended. This phase should include testing the migration process, verifying data integrity, and addressing any issues found during the simulation.\n- **Final Switch**: Execute the migration according to the plan. Ensure that all systems are prepared and that the migration is performed at the scheduled time. Monitor the process closely to ensure a smooth transition.\n- **Rollback**: Prepare for a failover scenario in case the migration fails. Have a rollback plan in place, including procedures for reverting to the previous system if necessary. Test the rollback plan to ensure it can be executed successfully.\n- **Verification**: Verify that the migration was successful and that the new system is functioning as expected. This includes checking data integrity, performance metrics, and user feedback. Address any issues found during verification.\n- **Executive Sign-Off**: Obtain approval from executives and key stakeholders to proceed with the migration. This includes providing them with a detailed report of the migration process, results, and any risks or issues encountered. Ensure that all concerns are addressed before finalizing the migration.",
-      "corrected_answer": "success"
-    }
-  ],
   "agent_feedback_log": "results/benchmark/ace_agent_hard.feedback.jsonl"
 }
