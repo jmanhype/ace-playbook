@@ -165,12 +165,16 @@ class ScheduleChecker(BaseChecker):
 
     _time_pattern = re.compile(r"\b(\d{1,2})(:\d{2})? (am|pm)\b", re.I)
 
+    def __init__(self, *, min_slots: int = 3, min_bullets: int = 3) -> None:
+        self.min_slots = max(1, min_slots)
+        self.min_bullets = max(1, min_bullets)
+
     def evaluate(self, *, answer: str, task: Dict[str, Any]) -> FeedbackResult:
         text = self._normalise_answer(answer)
         times = len(self._time_pattern.findall(text))
         bullet_count = self._count_bullets(text)
 
-        if times >= 3 and bullet_count >= 3:
+        if times >= self.min_slots and bullet_count >= self.min_bullets:
             return FeedbackResult(
                 status="success",
                 confidence=0.8,
@@ -178,7 +182,7 @@ class ScheduleChecker(BaseChecker):
                 features={"time_mentions": times, "bullet_count": bullet_count},
             )
 
-        if times >= 1:
+        if times >= max(1, self.min_slots // 2):
             return FeedbackResult(
                 status="unknown",
                 confidence=0.5,
