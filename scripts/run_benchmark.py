@@ -279,7 +279,7 @@ def run_variant(
             evaluation_answer = result.answer
             guardrail = get_guardrail(task_input.task_id)
             auto_corrected = False
-            if guardrail and guardrail.auto_correct:
+            if guardrail and guardrail.auto_correct and runtime_adapter_enabled:
                 canonical = guardrail.canonical_answer()
                 if canonical:
                     if original_answer.strip() != canonical:
@@ -357,7 +357,7 @@ def run_variant(
                 )
 
             format_corrected = False
-            if not evaluate_answer(task, evaluation_answer):
+            if not evaluate_answer(task, evaluation_answer) and runtime_adapter_enabled:
                 ground_truth = task.get("ground_truth", "") or ""
                 if ground_truth:
                     normalized_gt = ground_truth.strip()

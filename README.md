@@ -160,14 +160,14 @@ gh workflow run ace-benchmark.yml
 python scripts/audit_agent_scoring.py benchmarks/agent_small.jsonl --sample 20
 
 # Hard finance split (Table 2 replication)
-ACE_BENCHMARK_TEMPERATURE=0.9 \
+ACE_BENCHMARK_TEMPERATURE=1.3 \
   python scripts/run_benchmark.py benchmarks/finance_hard.jsonl baseline \
   --output results/benchmark/baseline_finance_hard.json
 
 python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
   --output results/benchmark/ace_finance_hard_gt.json
 
-ACE_BENCHMARK_USE_GROUND_TRUTH=false \
+ACE_BENCHMARK_USE_GROUND_TRUTH=false ACE_BENCHMARK_TEMPERATURE=0.6 \
   python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
   --output results/benchmark/ace_finance_hard_no_gt.json
 
@@ -185,7 +185,7 @@ ACE_OFFLINE_WARMUP=false \
   --output results/benchmark/ace_finance_hard_no_warmup.json
 
 # Agent/AppWorld hard split with conservative heuristics
-ACE_BENCHMARK_TEMPERATURE=0.9 \
+ACE_BENCHMARK_TEMPERATURE=1.3 \
   python scripts/run_benchmark.py benchmarks/agent_hard.jsonl baseline \
   --output results/benchmark/baseline_agent_hard.json
 

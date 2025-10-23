@@ -20,7 +20,7 @@ jobs:
             output: results/benchmark/baseline_finance.json
             feedback: results/benchmark/baseline_finance.feedback.jsonl
             use_gt: "true"
-            temperature: "0.5"
+            temperature: "1.3"
             enable_reflector: "true"
             multi_epoch: "true"
             offline_warmup: "true"
@@ -40,7 +40,7 @@ jobs:
             output: results/benchmark/ace_finance_no_gt.json
             feedback: results/benchmark/ace_finance_no_gt.feedback.jsonl
             use_gt: "false"
-            temperature: "0.5"
+            temperature: "0.6"
             enable_reflector: "true"
             multi_epoch: "true"
             offline_warmup: "true"
@@ -50,7 +50,7 @@ jobs:
             output: results/benchmark/baseline_finance_hard.json
             feedback: results/benchmark/baseline_finance_hard.feedback.jsonl
             use_gt: "true"
-            temperature: "0.9"
+            temperature: "1.3"
             enable_reflector: "true"
             multi_epoch: "true"
             offline_warmup: "true"
@@ -70,7 +70,7 @@ jobs:
             output: results/benchmark/ace_finance_hard_no_gt.json
             feedback: results/benchmark/ace_finance_hard_no_gt.feedback.jsonl
             use_gt: "false"
-            temperature: "0.5"
+            temperature: "0.6"
             enable_reflector: "true"
             multi_epoch: "true"
             offline_warmup: "true"
@@ -110,7 +110,7 @@ jobs:
             output: results/benchmark/baseline_agent_hard.json
             feedback: results/benchmark/baseline_agent_hard.feedback.jsonl
             use_gt: "true"
-            temperature: "0.9"
+            temperature: "1.3"
             enable_reflector: "true"
             multi_epoch: "true"
             offline_warmup: "true"
