@@ -8,12 +8,12 @@ This ledger captures the benchmark configurations referenced in the ACE/EE paper
 
 | Variant | Dataset | Temperature | Accuracy (`correct/total`) | Promotions | New Bullets | Increments | Auto Corrections | Format Corrections | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | `benchmarks/finance_subset.jsonl` | 1.3 | 17/26 | 0 | 68 | 15 | 0 | 0 | Baseline intentionally unstable – artifact: `results/actions/18737669221/ace-benchmark-finance-baseline/` |
-| ACE (GT) | `benchmarks/finance_subset.jsonl` | 0.5 | 26/26 | 7 | 0 | 7 | 0 | 0 | Reflector sees labels – artifact: `results/actions/18737669221/ace-benchmark-finance-ace-gt/` |
-| ACE (No GT) | `benchmarks/finance_subset.jsonl` | 0.6 | 26/26 | 5 | 18 | 13 | 0 | 0 | Guardrail-only evaluation – artifact: `results/actions/18737669221/ace-benchmark-finance-ace-no-gt/` |
-| Baseline | `benchmarks/finance_hard.jsonl` | 1.3 | 13/26 | 0 | 48 | 21 | 0 | 0 | Baseline deliberately noisy – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-baseline/` |
-| ACE (GT) | `benchmarks/finance_hard.jsonl` | 0.5 | 24/26 | 5 | 2 | 5 | 0 | 0 | Target paper lift – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-ace-gt/` |
-| ACE (No GT) | `benchmarks/finance_hard.jsonl` | 0.6 | 19/26 | 6 | 0 | 2 | 0 | 0 | Guardrail-only evaluator – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-ace-no-gt/` |
+| Baseline | `benchmarks/finance_subset.jsonl` | 1.3 | 16/26 | 0 | 57 | 20 | 0 | 0 | Baseline intentionally unstable – artifact: `results/actions/18738440973/ace-benchmark-finance-baseline/` |
+| ACE (GT) | `benchmarks/finance_subset.jsonl` | 0.5 | 26/26 | 3 | 10 | 10 | 0 | 0 | Reflector sees labels – artifact: `results/actions/18738440973/ace-benchmark-finance-ace-gt/` |
+| ACE (No GT) | `benchmarks/finance_subset.jsonl` | 0.6 | 26/26 | 4 | 26 | 18 | 0 | 0 | Guardrail-only evaluation – artifact: `results/actions/18738440973/ace-benchmark-finance-ace-no-gt/` |
+| Baseline | `benchmarks/finance_hard.jsonl` | 1.3 | 7/26 | 0 | 53 | 13 | 0 | 0 | Baseline deliberately noisy – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-baseline/` |
+| ACE (GT) | `benchmarks/finance_hard.jsonl` | 0.5 | 21/26 | 3 | 6 | 1 | 0 | 0 | Target paper lift – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-ace-gt/` |
+| ACE (No GT) | `benchmarks/finance_hard.jsonl` | 0.6 | 17/26 | 6 | 10 | 8 | 0 | 0 | Guardrail-only evaluator – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-ace-no-gt/` |
 
 The per-task guardrail verdicts are stored alongside each run as `<output>.feedback.jsonl`. These logs make it easy to confirm how auto-corrections or format clamps were applied.
 
@@ -21,8 +21,8 @@ The per-task guardrail verdicts are stored alongside each run as `<output>.feedb
 
 | Variant | Dataset | Temperature | Success | Fail | Unknown | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | `benchmarks/agent_hard.jsonl` | 1.3 | 8 | 1 | 3 | Heuristics fail closed – artifact: `results/actions/18737669221/ace-benchmark-agent-hard-baseline/` |
-| ACE | `benchmarks/agent_hard.jsonl` | 0.5 | 7 | 1 | 4 | Playbook preserves structure; heuristics need tuning – artifact: `results/actions/18737669221/ace-benchmark-agent-hard-ace/` |
+| Baseline | `benchmarks/agent_hard.jsonl` | 1.3 | 4 | 3 | 5 | Heuristics fail closed – artifact: `results/actions/18738440973/ace-benchmark-agent-hard-baseline/` |
+| ACE | `benchmarks/agent_hard.jsonl` | 0.5 | 7 | 3 | 3 | Playbook recovers missing structure – artifact: `results/actions/18738440973/ace-benchmark-agent-hard-ace/` |
 
 Each agent run writes a feedback ledger (e.g., `results/benchmark/baseline_agent_hard.feedback.jsonl`) that records heuristic decisions per task. Retain these artifacts for reviewer inspection, mirroring the AppWorld appendix in the paper.
 
@@ -32,9 +32,9 @@ Run the finance and agent hard splits with each component disabled and track the
 
 | Configuration | Accuracy Delta | Promotions Delta | Notes |
 | --- | --- | --- | --- |
-| `ACE_ENABLE_REFLECTOR=off` | 18/26 (−6 vs ACE GT) | 0 (−5) | Reflector disabled – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-ace-no-reflector/` |
-| `ACE_MULTI_EPOCH=off` | 21/26 (−3 vs ACE GT) | 0 (−5) | No multi-epoch refinement – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-ace-no-multiepoch/` |
-| `ACE_OFFLINE_WARMUP=off` | 11/26 (−13 vs ACE GT) | 1 (−4) | Warmup disabled – artifact: `results/actions/18737669221/ace-benchmark-finance-hard-ace-no-warmup/` |
+| `ACE_ENABLE_REFLECTOR=off` | 16/26 (−5 vs ACE GT) | 0 (−3) | Reflector disabled – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-ace-no-reflector/` |
+| `ACE_MULTI_EPOCH=off` | 22/26 (+1 vs ACE GT) | 0 (−3) | No multi-epoch refinement – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-ace-no-multiepoch/` |
+| `ACE_OFFLINE_WARMUP=off` | 10/26 (−11 vs ACE GT) | 1 (−2) | Warmup disabled – artifact: `results/actions/18738440973/ace-benchmark-finance-hard-ace-no-warmup/` |
 
 Record the exact commands and timestamps next to the table once results are available.
 

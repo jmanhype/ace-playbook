@@ -1,16 +1,16 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 19,
+  "correct": 17,
   "promotions": 6,
   "quarantines": 0,
-  "new_bullets": 0,
-  "increments": 2,
+  "new_bullets": 10,
+  "increments": 8,
   "latency_ms": [],
   "failures": [
     {
       "task_id": "fin-hard-004",
-      "answer": "The break-even units are 1283.",
+      "answer": "The break-even units are **1283**.",
       "ground_truth": "1282"
     },
     {
@@ -24,23 +24,33 @@
       "ground_truth": "15.17%"
     },
     {
+      "task_id": "fin-hard-008",
+      "answer": "72500 / 18250.75 = 3.96",
+      "ground_truth": "3.97"
+    },
+    {
       "task_id": "fin-hard-009",
       "answer": "6834.21",
       "ground_truth": "6864.15"
     },
     {
-      "task_id": "fin-hard-010",
-      "answer": "993665.13",
-      "ground_truth": "393665.13"
+      "task_id": "fin-hard-013",
+      "answer": "8.32",
+      "ground_truth": "7.93"
     },
     {
       "task_id": "fin-hard-018",
-      "answer": "-5275.77",
+      "answer": "3685.66",
       "ground_truth": "3686.25"
     },
     {
+      "task_id": "fin-hard-022",
+      "answer": "3.62",
+      "ground_truth": "3.61"
+    },
+    {
       "task_id": "fin-hard-026",
-      "answer": "50.61%",
+      "answer": "(18750.40 - 3894.75) / 18750.40 * 100 = 79.99%",
       "ground_truth": "79.23%"
     }
   ],
@@ -52,32 +62,42 @@
   "auto_corrections": [
     {
       "task_id": "fin-hard-002",
-      "original_answer": "15.85%",
+      "original_answer": "15.90%",
       "corrected_answer": "15.89%"
     },
     {
-      "task_id": "fin-hard-012",
-      "original_answer": "35.00%",
-      "corrected_answer": "29.90%"
-    },
-    {
       "task_id": "fin-hard-014",
-      "original_answer": "12.34%",
+      "original_answer": "12.98%",
       "corrected_answer": "13.99%"
     },
     {
+      "task_id": "fin-hard-019",
+      "original_answer": "24.23%",
+      "corrected_answer": "24.24%"
+    },
+    {
       "task_id": "fin-hard-020",
-      "original_answer": "3127.43",
+      "original_answer": "3245.85",
       "corrected_answer": "3241.86"
     },
     {
+      "task_id": "fin-hard-021",
+      "original_answer": "45.61%",
+      "corrected_answer": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "original_answer": "12.02%",
+      "corrected_answer": "12.01%"
+    },
+    {
       "task_id": "fin-hard-024",
-      "original_answer": "12853.83",
+      "original_answer": "13857.68",
       "corrected_answer": "12872.52"
     },
     {
       "task_id": "fin-hard-025",
-      "original_answer": "10.02%",
+      "original_answer": "57.78%",
       "corrected_answer": "8.99%"
     }
   ],

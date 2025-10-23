@@ -1,13 +1,18 @@
 {
   "variant": "baseline",
   "total": 26,
-  "correct": 17,
+  "correct": 16,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 68,
-  "increments": 15,
+  "new_bullets": 57,
+  "increments": 20,
   "latency_ms": [],
   "failures": [
+    {
+      "task_id": "fin-002",
+      "answer": "29%",
+      "ground_truth": "30%"
+    },
     {
       "task_id": "fin-006",
       "answer": "The ROI is 30%.",
@@ -19,38 +24,38 @@
       "ground_truth": "15%"
     },
     {
+      "task_id": "fin-009",
+      "answer": "75.58",
+      "ground_truth": "78.25"
+    },
+    {
       "task_id": "fin-014",
       "answer": "19.15%",
       "ground_truth": "19.11%"
     },
     {
-      "task_id": "fin-018",
-      "answer": "1538.32",
-      "ground_truth": "1138.24"
-    },
-    {
       "task_id": "fin-019",
-      "answer": "21.66%",
+      "answer": "7.94%",
       "ground_truth": "21.65%"
     },
     {
+      "task_id": "fin-021",
+      "answer": "40%",
+      "ground_truth": "60%"
+    },
+    {
       "task_id": "fin-023",
-      "answer": "8.33%",
+      "answer": "8.99%",
       "ground_truth": "9.38%"
     },
     {
       "task_id": "fin-024",
-      "answer": "5567.90",
+      "answer": "5247.77",
       "ground_truth": "3685.69"
     },
     {
-      "task_id": "fin-025",
-      "answer": "10.00%",
-      "ground_truth": "8.40%"
-    },
-    {
       "task_id": "fin-026",
-      "answer": "Retention Ratio = (1200 - 300) / 1200 = 900 / 1200 = 0.75 or 75%",
+      "answer": "The retention ratio is calculated as follows:\n\n\\[ \\text{Retention Ratio} = \\frac{1200 - 300}{1200} = \\frac{900}{1200} = 0.75 \\]\n\nTherefore, the retention ratio is 0.75.",
       "ground_truth": "75%"
     }
   ],

@@ -1,7 +1,7 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 18,
+  "correct": 16,
   "promotions": 0,
   "quarantines": 0,
   "new_bullets": 0,
@@ -10,12 +10,12 @@
   "failures": [
     {
       "task_id": "fin-hard-003",
-      "answer": "The simple interest is 7093.47.",
+      "answer": "Simple Interest = 18450.75 * 0.04625 * 7.5 = 659.6453125. Rounded to two decimal places, the simple interest is 659.65.",
       "ground_truth": "6400.10"
     },
     {
       "task_id": "fin-hard-004",
-      "answer": "The break-even units are calculated as follows: \n\nFixed Costs = 83750\nUnit Price = 189.95\nUnit Cost = 124.60\n\nBreak-even units = 83750 / (189.95 - 124.60) = 83750 / 65.35 \u2248 1284.17\n\nRounding up to the next whole unit, the break-even units are 1285.",
+      "answer": "Break-even units = 83750 / (189.95 - 124.60) = 83750 / 65.35 \u2248 1284.24\n\nSince we need to round up to the next whole unit, the break-even units are 1285.",
       "ground_truth": "1282"
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "task_id": "fin-hard-007",
-      "answer": "(38942.67 / 256780.45) * 100",
+      "answer": "The net profit margin is 15.16%.",
       "ground_truth": "15.17%"
     },
     {
@@ -35,18 +35,28 @@
     },
     {
       "task_id": "fin-hard-009",
-      "answer": "6818.24",
+      "answer": "6834.21",
       "ground_truth": "6864.15"
     },
     {
+      "task_id": "fin-hard-013",
+      "answer": "8.31",
+      "ground_truth": "7.93"
+    },
+    {
       "task_id": "fin-hard-016",
-      "answer": "The price-to-earnings ratio is calculated as 118.45 / 4.37 = 27.06.",
+      "answer": "The price-to-earnings ratio is calculated as 118.45 / 4.37 = 27.16.",
       "ground_truth": "27.11"
     },
     {
       "task_id": "fin-hard-018",
-      "answer": "-1234.56",
+      "answer": "-2375.57",
       "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "Retention Ratio = (18750.40 - 3894.75) / 18750.40 = 0.7964",
+      "ground_truth": "79.23%"
     }
   ],
   "generator_temperature": 0.5,
@@ -57,27 +67,32 @@
   "auto_corrections": [
     {
       "task_id": "fin-hard-002",
-      "original_answer": "16.23%",
+      "original_answer": "15.90%",
       "corrected_answer": "15.89%"
     },
     {
       "task_id": "fin-hard-005",
-      "original_answer": "20500.00",
+      "original_answer": "20026.67",
       "corrected_answer": "18283.96"
     },
     {
       "task_id": "fin-hard-012",
-      "original_answer": "29.46%",
+      "original_answer": "17.99%",
       "corrected_answer": "29.90%"
     },
     {
       "task_id": "fin-hard-014",
-      "original_answer": "12.97%",
+      "original_answer": "13.93%",
       "corrected_answer": "13.99%"
     },
     {
+      "task_id": "fin-hard-019",
+      "original_answer": "12.34%",
+      "corrected_answer": "24.24%"
+    },
+    {
       "task_id": "fin-hard-020",
-      "original_answer": "3125.45",
+      "original_answer": "3237.80",
       "corrected_answer": "3241.86"
     },
     {
@@ -87,20 +102,18 @@
     },
     {
       "task_id": "fin-hard-023",
-      "original_answer": "12.07%",
+      "original_answer": "12.06%",
       "corrected_answer": "12.01%"
     },
     {
       "task_id": "fin-hard-024",
-      "original_answer": "13297.97",
+      "original_answer": "13807.97",
       "corrected_answer": "12872.52"
-    }
-  ],
-  "format_corrections": [
+    },
     {
-      "task_id": "fin-hard-026",
-      "original_answer": "The retention ratio is 79.23%.",
-      "corrected_answer": "79.23%"
+      "task_id": "fin-hard-025",
+      "original_answer": "6.37%",
+      "corrected_answer": "8.99%"
     }
   ],
   "agent_feedback_log": "results/benchmark/ace_finance_hard_no_reflector.feedback.jsonl"

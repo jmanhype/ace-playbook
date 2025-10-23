@@ -1,16 +1,36 @@
 {
   "variant": "baseline",
   "total": 12,
-  "correct": 8,
+  "correct": 4,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 28,
-  "increments": 3,
+  "new_bullets": 36,
+  "increments": 0,
   "latency_ms": [],
   "failures": [
     {
+      "task_id": "agent-hard-001",
+      "answer": "A contingency playbook for a cloud region outage includes the following steps:\n\n1. Identify the outage: Owner - Cloud Operations Team; Trigger Metric - Service Health Dashboard; Response Window - Within 5 minutes.\n2. Isolate affected services: Owner - DevOps Engineers; Trigger Metric - Service Health Dashboard; Response Window - Within 15 minutes.\n3. Notify stakeholders: Owner - IT Communication Team; Trigger Metric - Outage Identification; Response Window - Within 10 minutes.\n4. Implement failover procedures: Owner - Infrastructure Team; Trigger Metric - Service Health Dashboard; Response Window - Within 30 minutes.\n5. Monitor system recovery: Owner - Cloud Operations Team; Trigger Metric - Service Health Dashboard; Response Window - Continuously until full recovery.\n6. Conduct post-outage review: Owner - IT Management; Trigger Metric - Outage Resolution; Response Window - Within 7 days.",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.6,
+        "evidence": "Expected >= 7 structured steps",
+        "features": {
+          "bullet_count": 6,
+          "numeric_markers": 6,
+          "derived_from": "heuristic"
+        }
+      }
+    },
+    {
+      "task_id": "agent-hard-002",
+      "answer": "- Remediate identified vulnerabilities related to AC-22 by [Due Date: Month/Day/Year]. Accountable Owner: [Name].\n- Implement additional security measures to meet AC-22 standards by [Due Date: Month/Day/Year]. Accountable Owner: [Name].\n- Conduct a risk assessment to evaluate the impact of AC-22 non-compliance by [Due Date: Month/Day/Year]. Accountable Owner: [Name].\n- Update policies and procedures to align with AC-22 requirements by [Due Date: Month/Day/Year]. Accountable Owner: [Name].\n- Perform regular audits to validate compliance with AC-22 by [Due Date: Month/Day/Year]. Accountable Owner: [Name].\n- Maintain documentation of all remediation activities and validation results for AC-22 by [Due Date: Month/Day/Year]. Accountable Owner: [Name].",
+      "ground_truth": "success"
+    },
+    {
       "task_id": "agent-hard-004",
-      "answer": "- **Discovery Phase**: Inventory source/destination systems, identify data dependencies, and document migration requirements.  \n- **Dry Run Phase**: Execute a full simulation of the migration process with test data to validate workflows and timing.  \n- **Final Switch Phase**: Migrate live data during a scheduled window, monitoring for errors in real-time.  \n- **Rollback Phase**: Activate pre-defined rollback procedures (e.g., restoring backups) if post-migration validation fails.  \n- **Verification Phase**: Cross-check data accuracy, test application functionality, and ensure compliance with SLAs.  \n- **Executive Sign-Off Phase**: Present migration results to leadership for approval, including risk mitigation and success metrics.",
+      "answer": "A data migration cutover plan consists of the following phases:\n\n1. Discovery: Identify the current state of the data and the target state.\n2. Dry Run: Perform a simulation of the migration to identify any potential issues.\n3. Final Switch: Execute the migration as planned.\n4. Rollback: Have a plan in place to revert to the previous state if the migration fails.\n5. Verification: Confirm that the data migration was successful and meets the required standards.\n6. Executive Sign-off: Obtain approval from the executive team to proceed with the migration.",
       "ground_truth": "success"
     },
     {
@@ -19,8 +39,13 @@
       "ground_truth": "success"
     },
     {
+      "task_id": "agent-hard-006",
+      "answer": "Weekly Reliability Review Agenda:\n\n1. Metrics Health: Review current performance metrics to identify any anomalies or trends that may indicate potential issues.\n2. Recent Incidents: Discuss any recent incidents that have occurred, their root causes, and steps taken to mitigate them.\n3. Technical Debt Backlog: Assess the technical debt backlog to prioritize tasks that could improve system stability and reliability.\n4. Active Risks: Identify and discuss any active risks that could affect system reliability, along with mitigation strategies.\n5. Follow-Up Actions: Ensure that any outstanding actions from previous meetings are addressed and that new actions are planned for addressing identified issues.",
+      "ground_truth": "success"
+    },
+    {
       "task_id": "agent-hard-008",
-      "answer": "1. **Engineering**: GREEN - [Engineering Manager]\n2. **Product**: GREEN - [Product Manager]\n3. **Marketing**: GREEN - [Marketing Manager]\n4. **Support**: GREEN - [Support Manager]\n5. **Risk**: GREEN - [Risk Manager]",
+      "answer": "- **Engineering**: GREEN / Lead: Engineering Manager\n- **Product**: GREEN / Lead: Product Manager\n- **Marketing**: GREEN / Lead: Marketing Lead\n- **Support**: GREEN / Lead: Support Lead\n- **Risk**: GREEN / Lead: Risk Manager",
       "ground_truth": "agent_feedback_fail",
       "feedback": {
         "status": "fail",
@@ -37,8 +62,23 @@
       }
     },
     {
+      "task_id": "agent-hard-009",
+      "answer": "1. Intake\n2. Classification\n3. Questionnaire Distribution\n4. Scoring\n5. Mitigation Planning\n6. Approval\n7. Archival",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.6,
+        "evidence": "Expected >= 8 structured steps",
+        "features": {
+          "bullet_count": 7,
+          "numeric_markers": 7,
+          "derived_from": "heuristic"
+        }
+      }
+    },
+    {
       "task_id": "agent-hard-012",
-      "answer": "A customer status update template could be structured as follows:\n\n1. **Achievements**\n   - Briefly describe recent successes or milestones achieved by the customer.\n   \n2. **Blockers**\n   - List any issues or challenges currently hindering progress.\n   \n3. **Next Steps**\n   - Outline the planned actions or tasks to address the blockers and move forward.\n   \n4. **Outstanding Risks**\n   - Identify potential risks that may impact the project or customer success.\n   \n5. **Executive Asks**\n   - Provide any requests or information needed from executives or higher-level stakeholders.",
+      "answer": "A customer status update template could be structured as follows:\n\n1. **Achievements**\n   - Briefly summarize the key accomplishments made since the last update.\n   \n2. **Blockers**\n   - List any obstacles or issues that are preventing progress.\n   \n3. **Next Steps**\n   - Outline the planned actions and tasks for the upcoming period.\n   \n4. **Outstanding Risks**\n   - Identify potential risks that could impact the project timeline or success.\n   \n5. **Executive Asks**\n   - Provide any requests or questions for the executive team to consider or address.\n\nThis template ensures that all critical aspects of the project are covered in a clear and organized manner.",
       "ground_truth": "success"
     }
   ],
@@ -48,9 +88,9 @@
   "runtime_adapter_enabled": false,
   "reflector_use_ground_truth": true,
   "agent_feedback_summary": {
-    "success": 7,
-    "fail": 1,
-    "unknown": 4
+    "success": 3,
+    "fail": 3,
+    "unknown": 6
   },
   "agent_feedback_log": "results/benchmark/baseline_agent_hard.feedback.jsonl"
 }

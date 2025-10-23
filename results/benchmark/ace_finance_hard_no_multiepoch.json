@@ -1,17 +1,17 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 21,
+  "correct": 22,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 8,
-  "increments": 10,
+  "new_bullets": 10,
+  "increments": 1,
   "latency_ms": [],
   "failures": [
     {
-      "task_id": "fin-hard-008",
-      "answer": "4.00",
-      "ground_truth": "3.97"
+      "task_id": "fin-hard-006",
+      "answer": "(17935.88 - 12480.60) / 12480.60 * 100",
+      "ground_truth": "43.71%"
     },
     {
       "task_id": "fin-hard-009",
@@ -19,19 +19,14 @@
       "ground_truth": "6864.15"
     },
     {
-      "task_id": "fin-hard-013",
-      "answer": "7.95",
-      "ground_truth": "7.93"
-    },
-    {
-      "task_id": "fin-hard-016",
-      "answer": "27.00",
-      "ground_truth": "27.11"
-    },
-    {
       "task_id": "fin-hard-018",
-      "answer": "-5275.77",
+      "answer": "3686.81",
       "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "(18750.40 - 3894.75) / 18750.40 * 100 = 79.99%",
+      "ground_truth": "79.23%"
     }
   ],
   "generator_temperature": 0.5,
@@ -39,63 +34,43 @@
   "multi_epoch_enabled": false,
   "runtime_adapter_enabled": true,
   "reflector_use_ground_truth": true,
-  "auto_corrections": [
-    {
-      "task_id": "fin-hard-002",
-      "original_answer": "10.99%",
-      "corrected_answer": "15.89%"
-    },
-    {
-      "task_id": "fin-hard-012",
-      "original_answer": "29.91%",
-      "corrected_answer": "29.90%"
-    },
-    {
-      "task_id": "fin-hard-014",
-      "original_answer": "10.00%",
-      "corrected_answer": "13.99%"
-    },
-    {
-      "task_id": "fin-hard-019",
-      "original_answer": "12.34%",
-      "corrected_answer": "24.24%"
-    },
-    {
-      "task_id": "fin-hard-020",
-      "original_answer": "3237.86",
-      "corrected_answer": "3241.86"
-    },
-    {
-      "task_id": "fin-hard-023",
-      "original_answer": "12.18%",
-      "corrected_answer": "12.01%"
-    },
-    {
-      "task_id": "fin-hard-024",
-      "original_answer": "12872.41",
-      "corrected_answer": "12872.52"
-    },
-    {
-      "task_id": "fin-hard-025",
-      "original_answer": "55.18%",
-      "corrected_answer": "8.99%"
-    }
-  ],
   "format_corrections": [
-    {
-      "task_id": "fin-hard-006",
-      "original_answer": "The ROI is 43.71%.",
-      "corrected_answer": "43.71%"
-    },
     {
       "task_id": "fin-hard-007",
       "original_answer": "The net profit margin is 15.17%.",
       "corrected_answer": "15.17%"
+    }
+  ],
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-012",
+      "original_answer": "14.81%",
+      "corrected_answer": "29.90%"
     },
     {
-      "task_id": "fin-hard-026",
-      "original_answer": "The retention ratio is 79.23%.",
-      "corrected_answer": "79.23%"
+      "task_id": "fin-hard-014",
+      "original_answer": "15.00%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "original_answer": "24.23%",
+      "corrected_answer": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "3239.80",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "original_answer": "45.61%",
+      "corrected_answer": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "original_answer": "12.00%",
+      "corrected_answer": "12.01%"
     }
   ],
   "agent_feedback_log": "results/benchmark/ace_finance_hard_no_multiepoch.feedback.jsonl"
