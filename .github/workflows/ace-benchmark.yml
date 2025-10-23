@@ -18,37 +18,58 @@ jobs:
             dataset: benchmarks/finance_subset.jsonl
             variant: baseline
             output: results/benchmark/baseline_finance.json
-            feedback: results/benchmark/baseline_finance.json
+            feedback: results/benchmark/baseline_finance.feedback.jsonl
             use_gt: "true"
             temperature: "0.5"
           - name: finance-ace-gt
             dataset: benchmarks/finance_subset.jsonl
             variant: ace_full
             output: results/benchmark/ace_finance_gt.json
-            feedback: results/benchmark/ace_finance_gt.json
+            feedback: results/benchmark/ace_finance_gt.feedback.jsonl
             use_gt: "true"
             temperature: "0.5"
           - name: finance-ace-no-gt
             dataset: benchmarks/finance_subset.jsonl
             variant: ace_full
             output: results/benchmark/ace_finance_no_gt.json
-            feedback: results/benchmark/ace_finance_no_gt.json
+            feedback: results/benchmark/ace_finance_no_gt.feedback.jsonl
             use_gt: "false"
             temperature: "0.5"
-          - name: agent-baseline
-            dataset: benchmarks/agent_small.jsonl
+          - name: finance-hard-baseline
+            dataset: benchmarks/finance_hard.jsonl
             variant: baseline
-            output: results/benchmark/baseline_agent.json
-            feedback: results/benchmark/baseline_agent.feedback.jsonl
+            output: results/benchmark/baseline_finance_hard.json
+            feedback: results/benchmark/baseline_finance_hard.feedback.jsonl
             use_gt: "true"
-            temperature: "0.8"
-          - name: agent-ace
-            dataset: benchmarks/agent_small.jsonl
+            temperature: "0.9"
+          - name: finance-hard-ace-gt
+            dataset: benchmarks/finance_hard.jsonl
             variant: ace_full
-            output: results/benchmark/ace_agent.json
-            feedback: results/benchmark/ace_agent.feedback.jsonl
+            output: results/benchmark/ace_finance_hard_gt.json
+            feedback: results/benchmark/ace_finance_hard_gt.feedback.jsonl
             use_gt: "true"
-            temperature: "0.8"
+            temperature: "0.5"
+          - name: finance-hard-ace-no-gt
+            dataset: benchmarks/finance_hard.jsonl
+            variant: ace_full
+            output: results/benchmark/ace_finance_hard_no_gt.json
+            feedback: results/benchmark/ace_finance_hard_no_gt.feedback.jsonl
+            use_gt: "false"
+            temperature: "0.5"
+          - name: agent-hard-baseline
+            dataset: benchmarks/agent_hard.jsonl
+            variant: baseline
+            output: results/benchmark/baseline_agent_hard.json
+            feedback: results/benchmark/baseline_agent_hard.feedback.jsonl
+            use_gt: "true"
+            temperature: "0.9"
+          - name: agent-hard-ace
+            dataset: benchmarks/agent_hard.jsonl
+            variant: ace_full
+            output: results/benchmark/ace_agent_hard.json
+            feedback: results/benchmark/ace_agent_hard.feedback.jsonl
+            use_gt: "true"
+            temperature: "0.5"
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

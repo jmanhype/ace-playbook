@@ -255,6 +255,7 @@ def run_variant(
             result = generator(task_input)
 
             original_answer = result.answer
+            original_answer_text = original_answer.strip() if isinstance(original_answer, str) else original_answer
             evaluation_answer = result.answer
             guardrail = get_guardrail(task_input.task_id)
             auto_corrected = False
@@ -273,6 +274,11 @@ def run_variant(
 
             feedback_decision: Optional[FeedbackResult] = None
             feedback_source = None
+            log_record: Dict[str, Any] = {
+                "task_id": task["task_id"],
+                "dataset": dataset_name,
+                "variant": variant.name,
+            }
             if feedback_manager:
                 heuristic_result = feedback_manager.evaluate(task, result.answer)
                 feedback_decision = heuristic_result
@@ -287,14 +293,8 @@ def run_variant(
                     heuristic_result.features.setdefault("derived_from", "heuristic")
 
                 metrics["agent_feedback_summary"][feedback_decision.status] += 1
-                feedback_log.append(
-                    {
-                        "task_id": task["task_id"],
-                        "dataset": dataset_name,
-                        "source": feedback_source,
-                        "decision": feedback_decision.to_dict(),
-                    }
-                )
+                log_record["feedback_source"] = feedback_source
+                log_record["feedback_decision"] = feedback_decision.to_dict()
 
             ground_truth_value: Optional[str] = task.get("ground_truth") if use_ground_truth else None
             if feedback_decision:
@@ -433,8 +433,9 @@ def run_variant(
                     )
                     counted = True
 
+            evaluation_outcome = evaluate_answer(task, result.answer)
             if not counted:
-                if evaluate_answer(task, result.answer):
+                if evaluation_outcome:
                     metrics["correct"] += 1
                 else:
                     metrics["failures"].append(
@@ -444,6 +445,26 @@ def run_variant(
                             "ground_truth": task.get("ground_truth"),
                         }
                     )
+
+            log_record.update(
+                {
+                    "answer": original_answer_text,
+                    "evaluated_answer": result.answer.strip() if isinstance(result.answer, str) else result.answer,
+                    "ground_truth": task.get("ground_truth"),
+                    "correct": evaluation_outcome or (feedback_decision is not None and feedback_decision.status == "success"),
+                    "auto_corrected": auto_corrected,
+                    "format_corrected": format_corrected,
+                }
+            )
+            if feedback_decision and feedback_source:
+                log_record.setdefault("annotations", {})
+                log_record["annotations"].update(
+                    {
+                        "feedback_confidence": feedback_decision.confidence,
+                        "feedback_evidence": feedback_decision.evidence,
+                    }
+                )
+            feedback_log.append(log_record)
 
         if merge_coordinator:
             flush_results = merge_coordinator.flush_all()
@@ -456,7 +477,7 @@ def run_variant(
             metrics["promotions"] += stats.promotions
             metrics["quarantines"] += stats.quarantines
 
-    if feedback_manager and feedback_log and output_path is not None:
+    if feedback_log and output_path is not None:
         log_path = output_path.with_suffix(".feedback.jsonl")
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("w", encoding="utf-8") as handle:
