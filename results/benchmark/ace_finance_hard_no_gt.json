@@ -1,0 +1,74 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 21,
+  "promotions": 4,
+  "quarantines": 0,
+  "new_bullets": 16,
+  "increments": 8,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-004",
+      "answer": "The break-even units are 1,283.",
+      "ground_truth": "1282"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "The ROI is 43.72%.",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "10237.47",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-016",
+      "answer": "The price-to-earnings ratio is **27.10**.",
+      "ground_truth": "27.11"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "3685.75",
+      "ground_truth": "3686.25"
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_use_ground_truth": false,
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-002",
+      "original_answer": "15.87%",
+      "corrected_answer": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "original_answer": "13.93%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "original_answer": "24.28%",
+      "corrected_answer": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "3246.50",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "original_answer": "11472.43",
+      "corrected_answer": "12872.52"
+    }
+  ],
+  "format_corrections": [
+    {
+      "task_id": "fin-hard-007",
+      "original_answer": "The net profit margin is 15.17%.",
+      "corrected_answer": "15.17%"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_no_gt.feedback.jsonl"
+}

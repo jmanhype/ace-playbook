@@ -1,0 +1,69 @@
+{
+  "variant": "baseline",
+  "total": 12,
+  "correct": 7,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 43,
+  "increments": 0,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "agent-hard-004",
+      "answer": "A data migration cutover plan should include the following phases:\n\n1. Discovery: Identify the source and target systems, understand the data structures, and assess the compatibility between them.\n2. Dry Run: Perform a test migration to ensure that the data is correctly transferred without affecting the live system.\n3. Final Switch: Execute the actual migration during a planned maintenance window.\n4. Rollback: Have a rollback plan ready in case of any issues during the final switch.\n5. Verification: Validate the integrity and accuracy of the migrated data post-switch.\n6. Executive Sign-Off: Obtain approval from executives before proceeding with the final switch.",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-005",
+      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**\n   - Briefly describe the incident, including when it occurred, what systems were affected, and the initial response.\n   \n2. **Customer Impact**\n   - Detail the impact on customers, including any service disruptions, data loss, or other effects.\n   \n3. **Detailed Timeline**\n   - Provide a chronological account of events leading up to, during, and after the incident.\n   \n4. **Contributing Factors**\n   - Identify the root causes and contributing factors that led to the incident.\n   \n5. **Corrective Actions**\n   - Outline the steps taken to address the incident and prevent similar issues in the future.\n   \n6. **Named Owners**\n   - Assign responsibility for each action item to specific individuals or teams.",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-006",
+      "answer": "A structured weekly reliability review agenda would include:\n\n1. Metrics Health: Review current performance metrics to identify any anomalies or trends that may indicate potential issues.\n2. Recent Incidents: Discuss any recent incidents that have occurred, their root causes, and steps taken to mitigate them.\n3. Technical Debt Backlog: Assess the technical debt backlog to prioritize tasks that could improve system stability and reliability.\n4. Active Risks: Identify and evaluate any active risks that could affect system reliability, and discuss mitigation strategies.\n5. Follow-Up Actions: Ensure that any actions identified in previous meetings are being addressed and track progress on these items.",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-008",
+      "answer": "**Launch Readiness Standup Outline**\n\n1. **Engineering** [GREEN] - Lead: Engineering Manager  \n   - Status: All critical systems tested and deployed\n\n2. **Product** [YELLOW] - Lead: Product Manager  \n   - Status: Minor feature delays in QA\n\n3. **Marketing** [GREEN] - Lead: Director of Marketing  \n   - Status: Launch campaigns fully deployed\n\n4. **Support** [YELLOW] - Lead: Support Manager  \n   - Status: Partial onboarding materials pending\n\n5. **Risk** [YELLOW] - Lead: Risk Officer  \n   - Status: Moderate external dependency risks",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.7,
+        "evidence": "Missing required keywords: ['red']",
+        "features": {
+          "missing_required": [
+            "red"
+          ],
+          "optional_matches": 0,
+          "derived_from": "heuristic"
+        }
+      }
+    },
+    {
+      "task_id": "agent-hard-012",
+      "answer": "**Customer Status Update Template**\n\n**1. Achievements**  \n- Key accomplishments since last update  \n- Milestones reached or goals completed  \n- Positive outcomes or wins  \n\n**2. Blockers**  \n- Current obstacles impeding progress  \n- Resource constraints or dependencies  \n- Issues requiring escalation  \n\n**3. Next Steps**  \n- Immediate actions to advance the initiative  \n- Timeline for upcoming deliverables  \n- Responsibilities assigned to team members  \n\n**4. Outstanding Risks**  \n- Identified risks with potential impact  \n- Mitigation plans or contingency measures  \n- Probability/impact assessment  \n\n**5. Executive Asks**  \n- Requests for strategic decisions or approvals  \n- Resource needs (budget, personnel, etc.)  \n- High-level support required for critical path items  \n\n[Customize sections with specific details for the customer/project]",
+      "ground_truth": "success"
+    }
+  ],
+  "generator_temperature": 0.9,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_summary": {
+    "success": 7,
+    "fail": 1,
+    "unknown": 4
+  },
+  "format_corrections": [
+    {
+      "task_id": "agent-hard-001",
+      "original_answer": "The contingency playbook for a cloud region outage includes the following steps:\n1. Identify the Outage: Triggered by a significant increase in error rates or service degradation metrics. Owner: On-call engineer. Response window: 15 minutes.\n2. Notify Stakeholders: Triggered by the confirmation of the outage. Owner: On-call engineer. Response window: 10 minutes.\n3. Isolate the Affected Services: Triggered by the confirmation of the outage. Owner: Infrastructure team. Response window: 30 minutes.\n4. Implement Fallback Strategies: Triggered by the isolation of the affected services. Owner: Disaster recovery team. Response window: 45 minutes.\n5. Monitor and Test the Recovery: Triggered by the implementation of fallback strategies. Owner: Monitoring and testing team. Response window: 1 hour.\n6. Communicate the Status to Stakeholders: Triggered by the successful completion of the recovery process. Owner: Incident response team. Response window: 15 minutes.",
+      "corrected_answer": "success"
+    },
+    {
+      "task_id": "agent-hard-011",
+      "original_answer": "**Change-Freeze Communication Plan**\n\n1. **Initial Announcement** - 10:00 AM, October 10th  \n   *Communicate the upcoming change freeze, timeline, and expectations to all stakeholders.*\n\n2. **Reminder** - 3:00 PM, October 17th  \n   *Reinforce freeze dates, consequences of late changes, and support channels.*\n\n3. **Freeze Start** - 12:00 PM, October 24th  \n   *All changes must be submitted by 11:59 AM on this date. No exceptions without approval.*\n\n4. **Monitoring Checkpoint** - 10:00 AM, October 26th  \n   *Review progress, address issues, and confirm readiness for release.*\n\n5. **Release Communication** - 2:00 PM, November 1st  \n   *Announce successful deployment, provide release notes, and schedule post-freeze review.*",
+      "corrected_answer": "success"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/baseline_agent_hard.feedback.jsonl"
+}

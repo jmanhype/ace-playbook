@@ -8,12 +8,12 @@ This ledger captures the benchmark configurations referenced in the ACE/EE paper
 
 | Variant | Dataset | Temperature | Accuracy (`correct/total`) | Promotions | New Bullets | Increments | Auto Corrections | Format Corrections | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | `benchmarks/finance_subset.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Guardrail normalization active |
-| ACE (GT) | `benchmarks/finance_subset.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Reflector sees labels |
-| ACE (No GT) | `benchmarks/finance_subset.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Guardrail-only evaluation |
-| Baseline | `benchmarks/finance_hard.jsonl` | 0.9 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Expect sharp accuracy drop |
-| ACE (GT) | `benchmarks/finance_hard.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Target paper lift |
-| ACE (No GT) | `benchmarks/finance_hard.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | _pending run_ | Guardrail-only evaluator |
+| Baseline | `benchmarks/finance_subset.jsonl` | 0.5 | 26/26 | 0 | 77 | 16 | 4 | 3 | Guardrail normalization active - artifacts: `results/actions/18733436075/ace-benchmark-finance-baseline/` |
+| ACE (GT) | `benchmarks/finance_subset.jsonl` | 0.5 | 26/26 | 7 | 14 | 17 | 5 | 3 | Reflector sees labels - artifacts: `results/actions/18733436075/ace-benchmark-finance-ace-gt/` |
+| ACE (No GT) | `benchmarks/finance_subset.jsonl` | 0.5 | 26/26 | 4 | 4 | 3 | 4 | 3 | Guardrail-only evaluation - artifacts: `results/actions/18733436075/ace-benchmark-finance-ace-no-gt/` |
+| Baseline | `benchmarks/finance_hard.jsonl` | 0.9 | 18/26 | 0 | 66 | 16 | 7 | 0 | Expect sharp accuracy drop - artifacts: `results/actions/18733436075/ace-benchmark-finance-hard-baseline/` |
+| ACE (GT) | `benchmarks/finance_hard.jsonl` | 0.5 | 20/26 | 5 | 4 | 1 | 5 | 0 | Target paper lift - artifacts: `results/actions/18733436075/ace-benchmark-finance-hard-ace-gt/` |
+| ACE (No GT) | `benchmarks/finance_hard.jsonl` | 0.5 | 18/26 | 6 | 12 | 6 | 7 | 0 | Guardrail-only evaluator - artifacts: `results/actions/18733436075/ace-benchmark-finance-hard-ace-no-gt/` |
 
 The per-task guardrail verdicts are stored alongside each run as `<output>.feedback.jsonl`. These logs make it easy to confirm how auto-corrections or format clamps were applied.
 
@@ -21,8 +21,8 @@ The per-task guardrail verdicts are stored alongside each run as `<output>.feedb
 
 | Variant | Dataset | Temperature | Success | Fail | Unknown | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Baseline | `benchmarks/agent_hard.jsonl` | 0.9 | _pending run_ | _pending run_ | _pending run_ | Heuristics expected to fail closed |
-| ACE | `benchmarks/agent_hard.jsonl` | 0.5 | _pending run_ | _pending run_ | _pending run_ | Should promote more structured bullets |
+| Baseline | `benchmarks/agent_hard.jsonl` | 0.9 | 7 | 2 | 3 | Heuristics fail closed - artifacts: `results/actions/18733436075/ace-benchmark-agent-hard-baseline/` |
+| ACE | `benchmarks/agent_hard.jsonl` | 0.5 | 6 | 0 | 6 | Playbook reduces failures, keeps conservative unknowns - artifacts: `results/actions/18733436075/ace-benchmark-agent-hard-ace/` |
 
 Each agent run writes a feedback ledger (e.g., `results/benchmark/baseline_agent_hard.feedback.jsonl`) that records heuristic decisions per task. Retain these artifacts for reviewer inspection, mirroring the AppWorld appendix in the paper.
 
@@ -32,9 +32,9 @@ Run the finance and agent hard splits with each component disabled and track the
 
 | Configuration | Accuracy Delta | Promotions Delta | Notes |
 | --- | --- | --- | --- |
-| `ACE_ENABLE_REFLECTOR=off` | _pending run_ | _pending run_ | Reflector disabled |
-| `ACE_MULTI_EPOCH=off` | _pending run_ | _pending run_ | No multi-epoch refinement |
-| `ACE_OFFLINE_WARMUP=off` | _pending run_ | _pending run_ | Warmup disabled |
+| `ACE_ENABLE_REFLECTOR=off` | _pending run_ | _pending run_ | Reflector disabled (`results/benchmark/ace_finance_hard_no_reflector.json`) |
+| `ACE_MULTI_EPOCH=off` | _pending run_ | _pending run_ | No multi-epoch refinement (`results/benchmark/ace_finance_hard_no_multiepoch.json`) |
+| `ACE_OFFLINE_WARMUP=off` | _pending run_ | _pending run_ | Warmup disabled (`results/benchmark/ace_finance_hard_no_warmup.json`) |
 
 Record the exact commands and timestamps next to the table once results are available.
 

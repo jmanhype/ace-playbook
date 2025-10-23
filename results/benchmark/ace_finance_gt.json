@@ -1,0 +1,63 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 26,
+  "promotions": 4,
+  "quarantines": 0,
+  "new_bullets": 0,
+  "increments": 5,
+  "latency_ms": [],
+  "failures": [],
+  "generator_temperature": 0.5,
+  "reflector_use_ground_truth": true,
+  "auto_corrections": [
+    {
+      "task_id": "fin-005",
+      "original_answer": "200",
+      "corrected_answer": "250"
+    },
+    {
+      "task_id": "fin-012",
+      "original_answer": "28%",
+      "corrected_answer": "30%"
+    },
+    {
+      "task_id": "fin-019",
+      "original_answer": "24.88%",
+      "corrected_answer": "21.65%"
+    },
+    {
+      "task_id": "fin-020",
+      "original_answer": "188.77",
+      "corrected_answer": "188.71"
+    },
+    {
+      "task_id": "fin-021",
+      "original_answer": "40%",
+      "corrected_answer": "60%"
+    },
+    {
+      "task_id": "fin-025",
+      "original_answer": "10.40%",
+      "corrected_answer": "8.40%"
+    }
+  ],
+  "format_corrections": [
+    {
+      "task_id": "fin-006",
+      "original_answer": "The ROI is 30.0",
+      "corrected_answer": "30%"
+    },
+    {
+      "task_id": "fin-007",
+      "original_answer": "The net profit margin is 15%.",
+      "corrected_answer": "15%"
+    },
+    {
+      "task_id": "fin-026",
+      "original_answer": "The retention ratio is 0.75 (or 75%), calculated as 1 - (300/1200).",
+      "corrected_answer": "75%"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_finance_gt.feedback.jsonl"
+}

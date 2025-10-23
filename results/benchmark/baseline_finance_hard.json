@@ -1,0 +1,99 @@
+{
+  "variant": "baseline",
+  "total": 26,
+  "correct": 20,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 45,
+  "increments": 20,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-004",
+      "answer": "To calculate the break-even units:\n\n1. Calculate the contribution margin per unit:\n\\[ 189.95 - 124.60 = 65.35 \\]\n\n2. Calculate the break-even units:\n\\[ \\frac{83750}{65.35} \\approx 1283.00 \\]\n\n3. Round up to the next whole unit:\n\\[ \\lceil 1283.00 \\rceil = 1284 \\]\n\nThe break-even units are 1284.",
+      "ground_truth": "1282"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "43.72%",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "10897.57",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-015",
+      "answer": "15.47",
+      "ground_truth": "1.54"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "2175.77",
+      "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "Retention Ratio = ((18750.40 - 3894.75) / 18750.40) * 100 = (14855.65 / 18750.40) * 100 \u2248 79.34%",
+      "ground_truth": "79.23%"
+    }
+  ],
+  "generator_temperature": 0.9,
+  "reflector_use_ground_truth": true,
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-002",
+      "original_answer": "15.88%",
+      "corrected_answer": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-005",
+      "original_answer": "19495.00",
+      "corrected_answer": "18283.96"
+    },
+    {
+      "task_id": "fin-hard-012",
+      "original_answer": "30.00%",
+      "corrected_answer": "29.90%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "original_answer": "13.93%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "original_answer": "24.23%",
+      "corrected_answer": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "2687.47",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "original_answer": "45.67%",
+      "corrected_answer": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "original_answer": "12.03%",
+      "corrected_answer": "12.01%"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "original_answer": "13877.79",
+      "corrected_answer": "12872.52"
+    }
+  ],
+  "format_corrections": [
+    {
+      "task_id": "fin-hard-007",
+      "original_answer": "The net profit margin is calculated as (38942.67 / 256780.45) * 100 = 15.17%.",
+      "corrected_answer": "15.17%"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/baseline_finance_hard.feedback.jsonl"
+}

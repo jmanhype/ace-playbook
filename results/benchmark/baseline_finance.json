@@ -4,63 +4,61 @@
   "correct": 24,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 62,
-  "increments": 16,
+  "new_bullets": 65,
+  "increments": 21,
   "latency_ms": [],
   "failures": [
     {
-      "task_id": "fin-009",
-      "answer": "75.54",
-      "ground_truth": "78.25"
+      "task_id": "fin-018",
+      "answer": "-5000 + 1818.18 + 2066.12 + 2253.94 = -761.76",
+      "ground_truth": "1138.24"
     },
     {
       "task_id": "fin-026",
-      "answer": "0.75",
+      "answer": "The retention ratio is 0.75.",
       "ground_truth": "75%"
     }
   ],
+  "generator_temperature": 0.5,
+  "reflector_use_ground_truth": true,
   "auto_corrections": [
     {
       "task_id": "fin-002",
-      "original_answer": "29%",
+      "original_answer": "39%",
       "corrected_answer": "30%"
     },
     {
       "task_id": "fin-014",
-      "original_answer": "19.13%",
+      "original_answer": "29.73%",
       "corrected_answer": "19.11%"
     },
     {
       "task_id": "fin-019",
-      "original_answer": "21.64%",
+      "original_answer": "21.63%",
       "corrected_answer": "21.65%"
     },
     {
       "task_id": "fin-023",
-      "original_answer": "8.33%",
+      "original_answer": "8.67%",
       "corrected_answer": "9.38%"
     },
     {
       "task_id": "fin-024",
-      "original_answer": "3579.14",
+      "original_answer": "5247.17",
       "corrected_answer": "3685.69"
-    },
-    {
-      "task_id": "fin-025",
-      "original_answer": "10.00%",
-      "corrected_answer": "8.40%"
     }
   ],
   "format_corrections": [
     {
       "task_id": "fin-006",
-      "original_answer": "The ROI is 30%.",
+      "original_answer": "The ROI is calculated as follows: (240 / 800) * 100 = 30%.",
       "corrected_answer": "30%"
     },
     {
       "task_id": "fin-007",
-      "original_answer": "The net profit margin is 15.0%.",
+      "original_answer": "The net profit margin is 15%.",
       "corrected_answer": "15%"
     }
-  ]
+  ],
+  "agent_feedback_log": "results/benchmark/baseline_finance.feedback.jsonl"
 }

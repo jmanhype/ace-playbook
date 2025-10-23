@@ -137,7 +137,7 @@ if trigger:
 
 ## Benchmarking & Runtime Adaptation
 
-Use the benchmark harness to compare variants and capture guardrail activity. Detailed notes live in [docs/runtime_benchmarks.rst](docs/runtime_benchmarks.rst).
+Use the benchmark harness to compare variants and capture guardrail activity. Detailed notes live in [docs/runtime_benchmarks.rst](docs/runtime_benchmarks.rst); aggregated numbers are tracked in [`benchmarks/RESULTS.md`](benchmarks/RESULTS.md) alongside links to the GitHub Action artifacts.
 
 ### Run Baseline vs ACE
 
@@ -153,6 +153,8 @@ python benchmarks/run_live_loop_benchmark.py --backend dspy --episodes 10
 
 # Trigger the CI workflow (optional)
 gh workflow run ace-benchmark.yml
+# The matrix covers finance (easy + hard, GT/no-GT), agent-hard, and finance ablations.
+# Each job uploads `ace-benchmark-<matrix.name>` under `results/actions/<run-id>/`.
 
 # Audit agent heuristics locally (sample 20 tasks)
 python scripts/audit_agent_scoring.py benchmarks/agent_small.jsonl --sample 20
@@ -168,6 +170,19 @@ python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
 ACE_BENCHMARK_USE_GROUND_TRUTH=false \
   python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
   --output results/benchmark/ace_finance_hard_no_gt.json
+
+# Finance ablations (Table 2 component analysis)
+ACE_ENABLE_REFLECTOR=false \
+  python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
+  --output results/benchmark/ace_finance_hard_no_reflector.json
+
+ACE_MULTI_EPOCH=false \
+  python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
+  --output results/benchmark/ace_finance_hard_no_multiepoch.json
+
+ACE_OFFLINE_WARMUP=false \
+  python scripts/run_benchmark.py benchmarks/finance_hard.jsonl ace_full \
+  --output results/benchmark/ace_finance_hard_no_warmup.json
 
 # Agent/AppWorld hard split with conservative heuristics
 ACE_BENCHMARK_TEMPERATURE=0.9 \
@@ -189,7 +204,7 @@ Key metrics in the JSON output:
 - `format_corrections` – post-process clamps that strip extra words but retain the raw answer for reflection
 - `agent_feedback_log` – path to the per-task ledger (`*.feedback.jsonl`) emitted for every run
 
-Populate `benchmarks/RESULTS.md` with the numbers emitted by these commands. The guardrails and heuristics default to a fail-closed posture: when they cannot certify an answer they mark it `unknown`, mirroring the safety constraint highlighted in the paper.
+Populate or refresh `benchmarks/RESULTS.md` with the numbers emitted by these commands (or the CI artifacts). The guardrails and heuristics default to a fail-closed posture: when they cannot certify an answer they mark it `unknown`, mirroring the safety constraint highlighted in the paper.
 
 ### Add a New Finance Guardrail
 

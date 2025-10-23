@@ -1,0 +1,87 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 17,
+  "promotions": 5,
+  "quarantines": 0,
+  "new_bullets": 6,
+  "increments": 3,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-003",
+      "answer": "The simple interest is 7034.06.",
+      "ground_truth": "6400.10"
+    },
+    {
+      "task_id": "fin-hard-004",
+      "answer": "The break-even units are calculated as follows: (83750 / (189.95 - 124.60)) = 1499.23. Rounding up to the next whole unit, the break-even units are 1500.",
+      "ground_truth": "1282"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "The ROI is 43.72%.",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-007",
+      "answer": "15.21",
+      "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "6834.21",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-010",
+      "answer": "The computed EBITDA is 393664.13.",
+      "ground_truth": "393665.13"
+    },
+    {
+      "task_id": "fin-hard-016",
+      "answer": "The price-to-earnings ratio is **27.10**.",
+      "ground_truth": "27.11"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "-1234.56",
+      "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "The retention ratio is 79.22%.",
+      "ground_truth": "79.23%"
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_use_ground_truth": true,
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-002",
+      "original_answer": "17.54%",
+      "corrected_answer": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "original_answer": "12.54%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "3245.98",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "original_answer": "12870.96",
+      "corrected_answer": "12872.52"
+    },
+    {
+      "task_id": "fin-hard-025",
+      "original_answer": "55.18%",
+      "corrected_answer": "8.99%"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_gt.feedback.jsonl"
+}
