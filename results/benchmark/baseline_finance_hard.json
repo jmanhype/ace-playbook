@@ -1,0 +1,113 @@
+{
+  "variant": "baseline",
+  "total": 26,
+  "correct": 7,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 53,
+  "increments": 13,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-002",
+      "answer": "15.88%",
+      "ground_truth": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-003",
+      "answer": "5934.09",
+      "ground_truth": "6400.10"
+    },
+    {
+      "task_id": "fin-hard-004",
+      "answer": "To calculate the break-even units:\n\n1. Calculate the contribution margin per unit:\n\\[ 189.95 - 124.60 = 65.35 \\]\n\n2. Calculate the break-even units:\n\\[ \\frac{83750}{65.35} \\approx 1283.00 \\]\n\n3. Round up to the next whole unit:\n\\[ \\lceil 1283.00 \\rceil = 1284 \\]\n\nThe break-even units are 1284.",
+      "ground_truth": "1282"
+    },
+    {
+      "task_id": "fin-hard-005",
+      "answer": "20230.67",
+      "ground_truth": "18283.96"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "43.72%",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "The payback period is calculated as follows:\n\n\\[ \\text{Payback Period} = \\frac{72500}{18250.75} \\approx 3.96 \\text{ years} \\]",
+      "ground_truth": "3.97"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "6834.21",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-012",
+      "answer": "30.00%",
+      "ground_truth": "29.90%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "answer": "10.54%",
+      "ground_truth": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-015",
+      "answer": "15.47",
+      "ground_truth": "1.54"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "2175.77",
+      "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "answer": "12.34%",
+      "ground_truth": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "answer": "3179.23",
+      "ground_truth": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "answer": "45.95%",
+      "ground_truth": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-022",
+      "answer": "3.60",
+      "ground_truth": "3.61"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "answer": "11.64%",
+      "ground_truth": "12.01%"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "answer": "14292.47",
+      "ground_truth": "12872.52"
+    },
+    {
+      "task_id": "fin-hard-025",
+      "answer": "10.02%",
+      "ground_truth": "8.99%"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "answer": "(18750.40 - 3894.75) / 18750.40 = 0.7964\n0.7964 * 100 = 79.64%",
+      "ground_truth": "79.23%"
+    }
+  ],
+  "generator_temperature": 1.3,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": false,
+  "runtime_adapter_enabled": false,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_log": "results/benchmark/baseline_finance_hard.feedback.jsonl"
+}

@@ -1,0 +1,98 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 10,
+  "promotions": 1,
+  "quarantines": 0,
+  "new_bullets": 58,
+  "increments": 11,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-003",
+      "answer": "The simple interest is 7093.47.",
+      "ground_truth": "6400.10"
+    },
+    {
+      "task_id": "fin-hard-006",
+      "answer": "The ROI is 43.72%.",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-007",
+      "answer": "The net profit margin is 15.16%.",
+      "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "The payback period is calculated as 72500 / 18250.75, which is approximately 3.95 years.",
+      "ground_truth": "3.97"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "10879.23",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-012",
+      "answer": "17.99%",
+      "ground_truth": "29.90%"
+    },
+    {
+      "task_id": "fin-hard-013",
+      "answer": "8.31",
+      "ground_truth": "7.93"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "answer": "15.00%",
+      "ground_truth": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "-1234.56",
+      "ground_truth": "3686.25"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "answer": "10.00%",
+      "ground_truth": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "answer": "3127.47",
+      "ground_truth": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "answer": "24.00%",
+      "ground_truth": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-022",
+      "answer": "Operating Leverage = 89455.80 / 24770.35 = 3.62",
+      "ground_truth": "3.61"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "answer": "12.06%",
+      "ground_truth": "12.01%"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "answer": "12766.61",
+      "ground_truth": "12872.52"
+    },
+    {
+      "task_id": "fin-hard-025",
+      "answer": "55.97%",
+      "ground_truth": "8.99%"
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": false,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_no_warmup.feedback.jsonl"
+}

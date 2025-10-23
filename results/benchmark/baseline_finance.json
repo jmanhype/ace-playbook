@@ -1,66 +1,68 @@
 {
   "variant": "baseline",
   "total": 26,
-  "correct": 24,
+  "correct": 16,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 62,
-  "increments": 16,
+  "new_bullets": 57,
+  "increments": 20,
   "latency_ms": [],
   "failures": [
     {
-      "task_id": "fin-009",
-      "answer": "75.54",
-      "ground_truth": "78.25"
-    },
-    {
-      "task_id": "fin-026",
-      "answer": "0.75",
-      "ground_truth": "75%"
-    }
-  ],
-  "auto_corrections": [
-    {
       "task_id": "fin-002",
-      "original_answer": "29%",
-      "corrected_answer": "30%"
+      "answer": "29%",
+      "ground_truth": "30%"
     },
-    {
-      "task_id": "fin-014",
-      "original_answer": "19.13%",
-      "corrected_answer": "19.11%"
-    },
-    {
-      "task_id": "fin-019",
-      "original_answer": "21.64%",
-      "corrected_answer": "21.65%"
-    },
-    {
-      "task_id": "fin-023",
-      "original_answer": "8.33%",
-      "corrected_answer": "9.38%"
-    },
-    {
-      "task_id": "fin-024",
-      "original_answer": "3579.14",
-      "corrected_answer": "3685.69"
-    },
-    {
-      "task_id": "fin-025",
-      "original_answer": "10.00%",
-      "corrected_answer": "8.40%"
-    }
-  ],
-  "format_corrections": [
     {
       "task_id": "fin-006",
-      "original_answer": "The ROI is 30%.",
-      "corrected_answer": "30%"
+      "answer": "The ROI is 30%.",
+      "ground_truth": "30%"
     },
     {
       "task_id": "fin-007",
-      "original_answer": "The net profit margin is 15.0%.",
-      "corrected_answer": "15%"
+      "answer": "The net profit margin is 15%.",
+      "ground_truth": "15%"
+    },
+    {
+      "task_id": "fin-009",
+      "answer": "75.58",
+      "ground_truth": "78.25"
+    },
+    {
+      "task_id": "fin-014",
+      "answer": "19.15%",
+      "ground_truth": "19.11%"
+    },
+    {
+      "task_id": "fin-019",
+      "answer": "7.94%",
+      "ground_truth": "21.65%"
+    },
+    {
+      "task_id": "fin-021",
+      "answer": "40%",
+      "ground_truth": "60%"
+    },
+    {
+      "task_id": "fin-023",
+      "answer": "8.99%",
+      "ground_truth": "9.38%"
+    },
+    {
+      "task_id": "fin-024",
+      "answer": "5247.77",
+      "ground_truth": "3685.69"
+    },
+    {
+      "task_id": "fin-026",
+      "answer": "The retention ratio is calculated as follows:\n\n\\[ \\text{Retention Ratio} = \\frac{1200 - 300}{1200} = \\frac{900}{1200} = 0.75 \\]\n\nTherefore, the retention ratio is 0.75.",
+      "ground_truth": "75%"
     }
-  ]
+  ],
+  "generator_temperature": 1.3,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": false,
+  "runtime_adapter_enabled": false,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_log": "results/benchmark/baseline_finance.feedback.jsonl"
 }

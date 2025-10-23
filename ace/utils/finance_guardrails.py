@@ -19,7 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
 from decimal import InvalidOperation
-import math
 import logging
 from typing import Callable, Dict, Optional
 
@@ -84,9 +83,9 @@ def _wacc(weights_equity: Decimal, cost_equity: Decimal, weights_debt: Decimal, 
 
 
 def _cagr(initial: Decimal, final: Decimal, years: Decimal) -> Decimal:
-    ratio = float(final / initial)
-    exponent = float(Decimal(1) / years)
-    growth = Decimal(math.pow(ratio, exponent) - 1)
+    ratio = final / initial
+    exponent = Decimal(1) / years
+    growth = ratio ** exponent - Decimal(1)
     return (growth * Decimal(100)).quantize(Decimal("0.01"))
 
 

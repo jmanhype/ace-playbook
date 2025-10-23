@@ -1,0 +1,82 @@
+{
+  "variant": "ace_full",
+  "total": 26,
+  "correct": 21,
+  "promotions": 3,
+  "quarantines": 0,
+  "new_bullets": 6,
+  "increments": 1,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "fin-hard-006",
+      "answer": "43.72%",
+      "ground_truth": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-007",
+      "answer": "(38942.67 / 256780.45) * 100 = 15.15%",
+      "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "72500 / 18250.75 = 3.96",
+      "ground_truth": "3.97"
+    },
+    {
+      "task_id": "fin-hard-009",
+      "answer": "4887.97",
+      "ground_truth": "6864.15"
+    },
+    {
+      "task_id": "fin-hard-018",
+      "answer": "3685.73",
+      "ground_truth": "3686.25"
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
+  "reflector_use_ground_truth": true,
+  "auto_corrections": [
+    {
+      "task_id": "fin-hard-002",
+      "original_answer": "17.93%",
+      "corrected_answer": "15.89%"
+    },
+    {
+      "task_id": "fin-hard-005",
+      "original_answer": "20055.0",
+      "corrected_answer": "18283.96"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "original_answer": "25.00%",
+      "corrected_answer": "13.99%"
+    },
+    {
+      "task_id": "fin-hard-019",
+      "original_answer": "12.34%",
+      "corrected_answer": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "original_answer": "3237.34",
+      "corrected_answer": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "original_answer": "13857.68",
+      "corrected_answer": "12872.52"
+    }
+  ],
+  "format_corrections": [
+    {
+      "task_id": "fin-hard-026",
+      "original_answer": "The retention ratio is 79.23%.",
+      "corrected_answer": "79.23%"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_finance_hard_gt.feedback.jsonl"
+}

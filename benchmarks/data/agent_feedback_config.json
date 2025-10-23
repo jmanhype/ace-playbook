@@ -85,15 +85,15 @@
     "dataset": "agent_hard",
     "patterns": ["agent-hard-001"],
     "checker": "StepCountChecker",
-    "params": {"required_steps": 6}
+    "params": {"required_steps": 7}
   },
   {
     "dataset": "agent_hard",
     "patterns": ["agent-hard-002"],
     "checker": "ChecklistChecker",
     "params": {
-      "min_bullets": 6,
-      "min_keywords": 3,
+      "min_bullets": 8,
+      "min_keywords": 4,
       "keywords": ["remediate", "validate", "evidence", "owner", "due date"]
     }
   },
@@ -101,7 +101,7 @@
     "dataset": "agent_hard",
     "patterns": ["agent-hard-003"],
     "checker": "ScheduleChecker",
-    "params": {}
+    "params": {"min_slots": 4, "min_bullets": 4}
   },
   {
     "dataset": "agent_hard",
@@ -118,7 +118,7 @@
     "checker": "KeywordsChecker",
     "params": {
       "required": ["summary", "impact", "timeline", "factors", "actions", "owner"],
-      "min_bullets": 5
+      "min_bullets": 6
     }
   },
   {
@@ -153,7 +153,7 @@
     "dataset": "agent_hard",
     "patterns": ["agent-hard-009"],
     "checker": "StepCountChecker",
-    "params": {"required_steps": 7}
+    "params": {"required_steps": 8}
   },
   {
     "dataset": "agent_hard",
@@ -162,8 +162,8 @@
     "params": {
       "required": ["sev-1", "sev-2", "sev-3"],
       "any_of": ["contact", "notify", "escalate"],
-      "min_matches": 1,
-      "min_bullets": 3
+      "min_matches": 2,
+      "min_bullets": 4
     }
   },
   {

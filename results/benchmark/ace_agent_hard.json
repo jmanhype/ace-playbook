@@ -1,0 +1,92 @@
+{
+  "variant": "ace_full",
+  "total": 12,
+  "correct": 7,
+  "promotions": 0,
+  "quarantines": 0,
+  "new_bullets": 18,
+  "increments": 2,
+  "latency_ms": [],
+  "failures": [
+    {
+      "task_id": "agent-hard-001",
+      "answer": "- **Step 1:** Monitor network latency (Owner: Network Operations Team, Trigger Metric: Latency > 100ms, Response Window: 5 minutes)\n- **Step 2:** Check server health (Owner: Infrastructure Team, Trigger Metric: Server Uptime < 95%, Response Window: 10 minutes)\n- **Step 3:** Verify database replication (Owner: Database Administration Team, Trigger Metric: Replication Lag > 1 minute, Response Window: 15 minutes)\n- **Step 4:** Assess application availability (Owner: Application Development Team, Trigger Metric: Application Response Time > 2 seconds, Response Window: 20 minutes)\n- **Step 5:** Evaluate storage performance (Owner: Storage Management Team, Trigger Metric: Disk I/O Errors > 10 per hour, Response Window: 25 minutes)\n- **Step 6:** Review security logs (Owner: Security Team, Trigger Metric: Unusual Activity Detected, Response Window: Immediate)",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.6,
+        "evidence": "Expected >= 7 structured steps",
+        "features": {
+          "bullet_count": 6,
+          "numeric_markers": 0,
+          "derived_from": "heuristic"
+        }
+      }
+    },
+    {
+      "task_id": "agent-hard-004",
+      "answer": "- **Discovery**:\n  - Identify the source and target systems.\n  - Assess the current state of the data and systems.\n  - Define the scope and objectives of the migration.\n  - Assign ownership and set deadlines for each task.\n  \n- **Dry Run**:\n  - Perform a simulated migration to identify potential issues.\n  - Validate data integrity and accuracy.\n  - Test all technical components (network, servers, databases).\n  - Document findings and prepare for adjustments.\n  \n- **Final Switch**:\n  - Execute the actual migration.\n  - Monitor the system closely for any anomalies.\n  - Ensure smooth transition of data and services.\n  \n- **Rollback**:\n  - Prepare rollback procedures in case of failure.\n  - Have a backup plan ready.\n  - Conduct a rollback if necessary.\n  \n- **Verification**:\n  - Confirm that the new system is functioning correctly.\n  - Validate data consistency and accuracy.\n  - Conduct user acceptance testing.\n  \n- **Executive Sign-Off**:\n  - Obtain approval from key stakeholders.\n  - Ensure all technical and non-technical aspects are covered.\n  - Finalize documentation and handover materials.",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-005",
+      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**\n   - Brief overview of the incident\n   - Key takeaways and lessons learned\n\n2. **Customer Impact**\n   - Description of how customers were affected\n   - Metrics and KPIs related to customer experience\n\n3. **Detailed Timeline**\n   - Chronological sequence of events\n   - Key milestones and decision points\n\n4. **Contributing Factors**\n   - Technical issues (network, servers, databases)\n   - Non-technical issues (communication, escalation)\n\n5. **Corrective Actions**\n   - Steps taken to resolve the issue\n   - Actionable recommendations for future prevention\n\n6. **Named Owners**\n   - Specific individuals responsible for each action item\n   - Deadlines for completion\n\nThis template ensures accountability, covers all critical aspects, and provides a comprehensive view of the incident.",
+      "ground_truth": "success"
+    },
+    {
+      "task_id": "agent-hard-009",
+      "answer": "A vendor risk review workflow with at least seven sequenced steps is as follows:\n\n1. Intake: Receive and document vendor information and requirements.\n2. Classification: Categorize vendors based on their risk level and business impact.\n3. Questionnaire Distribution: Distribute a standardized questionnaire to gather necessary information from vendors.\n4. Scoring: Evaluate the responses from the questionnaires using predefined criteria to assign a risk score.\n5. Mitigation Planning: Develop and implement mitigation strategies based on the risk scores.\n6. Approval: Obtain approval from relevant stakeholders before proceeding with the vendor relationship.\n7. Archival: Maintain records of the entire review process for future reference and compliance purposes.",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.6,
+        "evidence": "Expected >= 8 structured steps",
+        "features": {
+          "bullet_count": 7,
+          "numeric_markers": 7,
+          "derived_from": "heuristic"
+        }
+      }
+    },
+    {
+      "task_id": "agent-hard-012",
+      "answer": "success",
+      "ground_truth": "agent_feedback_fail",
+      "feedback": {
+        "status": "fail",
+        "confidence": 0.7,
+        "evidence": "Missing required keywords: ['asks']",
+        "features": {
+          "missing_required": [
+            "asks"
+          ],
+          "optional_matches": 0,
+          "derived_from": "heuristic"
+        }
+      }
+    }
+  ],
+  "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_summary": {
+    "success": 3,
+    "fail": 3,
+    "unknown": 6
+  },
+  "format_corrections": [
+    {
+      "task_id": "agent-hard-011",
+      "original_answer": "A change-freeze communication plan with a time-boxed schedule is as follows:\n\n1. Initial Announcement: 10:00 AM - Notify all stakeholders about the upcoming change-freeze period.\n2. Reminder: 12:00 PM - Send a reminder to all relevant teams and individuals about the ongoing change-freeze.\n3. Freeze Start: 2:00 PM - Officially start the change-freeze period to prevent any new changes from being implemented.\n4. Monitoring Checkpoint: 4:00 PM - Conduct a checkpoint to monitor the status of the change-freeze and ensure no unauthorized changes have occurred.\n5. Release Communication: 6:00 PM - Provide a final update to all stakeholders regarding the successful completion of the change-freeze and any necessary follow-up actions.",
+      "corrected_answer": "success"
+    },
+    {
+      "task_id": "agent-hard-012",
+      "original_answer": "A customer status update template should include the following labeled sections:\n\n### Achievements\n- **Description:** List recent accomplishments and successes related to the project or service.\n- **Example:** \"Completed the integration of payment gateway with a 99.9% success rate.\"\n\n### Blockers\n- **Description:** Identify any obstacles or issues preventing progress.\n- **Example:** \"Waiting for API documentation from the development team.\"\n\n### Next Steps\n- **Description:** Outline the immediate actions needed to move forward.\n- **Example:** \"Schedule a meeting with the development team to discuss the blocker.\"\n\n### Outstanding Risks\n- **Description:** Highlight any potential risks that could impact the project or service.\n- **Example:** \"Risk of a network outage affecting user experience.\"\n\n### Executive Ask\n- **Description:** Provide a brief request or question for executive leadership.\n- **Example:** \"Request approval for additional resources to address the outstanding risk.\"\n\nThis template ensures clarity and accountability, making it easier for stakeholders to understand the current status and take necessary actions.",
+      "corrected_answer": "success"
+    }
+  ],
+  "agent_feedback_log": "results/benchmark/ace_agent_hard.feedback.jsonl"
+}
