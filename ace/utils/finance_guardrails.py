@@ -331,6 +331,135 @@ FINANCE_GUARDRAILS: Dict[str, FinanceGuardrail] = {
         auto_correct=True,
         decimals=2,
     ),
+    "fin-hard-002": FinanceGuardrail(
+        instructions=(
+            "Apply the CAGR formula ((final / initial) ** (1 / years) - 1) * 100 with initial value 18500.40, final value 29877.92, and years = 3.25. "
+            "Return only the percentage rounded to two decimals with a trailing % sign."),
+        calculator=lambda: _cagr(Decimal("18500.40"), Decimal("29877.92"), Decimal("3.25")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-005": FinanceGuardrail(
+        instructions=(
+            "Calculate straight-line depreciation using (cost - salvage) / useful_life with cost = 182450.90, salvage = 17895.25, and useful_life = 9 years. "
+            "Return only the annual depreciation rounded to two decimals."),
+        calculator=lambda: (Decimal("182450.90") - Decimal("17895.25")) / Decimal("9"),
+        format="number",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-009": FinanceGuardrail(
+        instructions=(
+            "Use the compound interest formula A = P(1 + r/n)^(n*t) with P = 12750.40, r = 0.072, n = 12, and t = 6 years. "
+            "Compute the interest earned (A - P) and report only that value rounded to two decimals."),
+        calculator=lambda: _compound_interest_interest(Decimal("12750.40"), Decimal("0.072"), 12, 6),
+        format="number",
+    ),
+    "fin-hard-012": FinanceGuardrail(
+        instructions=(
+            "Compute gross margin percentage as ((revenue - COGS) / revenue) * 100 with revenue 348920.75 and COGS 244577.18. "
+            "Return only the percentage rounded to two decimals with a trailing % sign."),
+        calculator=lambda: _percentage((Decimal("348920.75") - Decimal("244577.18")) / Decimal("348920.75")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-014": FinanceGuardrail(
+        instructions=(
+            "Convert 22 months to years (22 / 12) and compute the annualized return using ((final / initial) ** (1 / years) - 1) * 100 with initial 48250 and final 61345.80. "
+            "Return only the percentage with two decimals and a trailing % sign; do not add extra text."),
+        calculator=lambda: _annualized_return(Decimal("48250"), Decimal("61345.80"), Decimal("22") / Decimal("12")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-017": FinanceGuardrail(
+        instructions=(
+            "Calculate dividend yield as (dividend per share / share price) * 100 using dividend per share 3.25 and share price 56.40. "
+            "Return only the percentage rounded to two decimals with a trailing % sign."),
+        calculator=lambda: _percentage(Decimal("3.25") / Decimal("56.40")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-018": FinanceGuardrail(
+        instructions=(
+            "Discount each cash flow [-8350, 2420.75, 3180.40, 4590.90, 5285.35] by (1 + 0.095)^period (with period starting at 0). "
+            "Sum the discounted values and report the net present value rounded to two decimals."),
+        calculator=lambda: _net_present_value(
+            (
+                Decimal("-8350"),
+                Decimal("2420.75"),
+                Decimal("3180.40"),
+                Decimal("4590.90"),
+                Decimal("5285.35"),
+            ),
+            Decimal("0.095"),
+        ),
+        format="number",
+    ),
+    "fin-hard-019": FinanceGuardrail(
+        instructions=(
+            "Solve for the internal rate of return that makes the net present value of [-4600, 1525.50, 1840.75, 2175.10, 2490.60] equal to zero. "
+            "Use an iterative solver until the NPV is within 0.0001 of zero and return the IRR as a percentage with two decimals and a trailing % sign."),
+        calculator=lambda: _irr_newton(
+            (
+                Decimal("-4600"),
+                Decimal("1525.50"),
+                Decimal("1840.75"),
+                Decimal("2175.10"),
+                Decimal("2490.60"),
+            )
+        ),
+        format="percent",
+        auto_correct=True,
+    ),
+    "fin-hard-020": FinanceGuardrail(
+        instructions=(
+            "Compute the fixed monthly payment for a $485,000 loan at 4.35% annual interest over 18 years with monthly compounding. "
+            "Use the standard amortization formula and return only the payment rounded to two decimals (no currency symbol)."),
+        calculator=lambda: _loan_payment(Decimal("485000"), Decimal("0.0435"), Decimal("18"), 12),
+        format="number",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-021": FinanceGuardrail(
+        instructions=(
+            "Compute the contribution margin ratio as ((sales price - variable cost) / sales price) * 100 using sales price 142.80 and variable cost 58.45. "
+            "Return only the percentage with two decimals and a trailing % sign."),
+        calculator=lambda: _percentage((Decimal("142.80") - Decimal("58.45")) / Decimal("142.80")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-023": FinanceGuardrail(
+        instructions=(
+            "Compute the effective annual rate as ((1 + 0.114/12) ** 12 - 1) * 100. "
+            "Return only the percentage rounded to two decimals and include a trailing % sign."),
+        calculator=lambda: ((Decimal(1) + Decimal("0.114") / Decimal(12)) ** 12 - Decimal(1)) * Decimal(100),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-024": FinanceGuardrail(
+        instructions=(
+            "Use the ordinary annuity future value formula FV = payment * (((1 + r)^n - 1) / r) with payment = 785.60, r = 0.055, and n = 12. "
+            "Return only the future value rounded to two decimals."),
+        calculator=lambda: _future_value_annuity(Decimal("785.60"), Decimal("0.055"), 12),
+        format="number",
+        auto_correct=True,
+        decimals=2,
+    ),
+    "fin-hard-025": FinanceGuardrail(
+        instructions=(
+            "Compute the weighted average cost of capital as w_e * cost_e + w_d * cost_d without applying a tax adjustment to the debt component, using w_e = 0.55, cost_e = 0.116, w_d = 0.45, cost_d = 0.058. "
+            "Return the result as a percentage with two decimals and a trailing % sign."),
+        calculator=lambda: _wacc(Decimal("0.55"), Decimal("0.116"), Decimal("0.45"), Decimal("0.058"), Decimal("0.27")),
+        format="percent",
+        auto_correct=True,
+        decimals=2,
+    ),
 }
 
 

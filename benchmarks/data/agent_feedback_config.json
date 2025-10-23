@@ -80,5 +80,105 @@
       "min_matches": 1,
       "min_bullets": 4
     }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-001"],
+    "checker": "StepCountChecker",
+    "params": {"required_steps": 6}
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-002"],
+    "checker": "ChecklistChecker",
+    "params": {
+      "min_bullets": 6,
+      "min_keywords": 3,
+      "keywords": ["remediate", "validate", "evidence", "owner", "due date"]
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-003"],
+    "checker": "ScheduleChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-004"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["discovery", "dry run", "final switch", "rollback", "verification", "sign-off"],
+      "min_bullets": 6
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-005"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["summary", "impact", "timeline", "factors", "actions", "owner"],
+      "min_bullets": 5
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-006"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["metrics", "incidents", "backlog", "risks", "follow-up"],
+      "min_bullets": 5
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-007"],
+    "checker": "ChecklistChecker",
+    "params": {
+      "min_bullets": 8,
+      "min_keywords": 3,
+      "keywords": ["paging", "runbook", "shadow", "escalation", "tooling", "handoff"]
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-008"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["green", "yellow", "red"],
+      "min_bullets": 5
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-009"],
+    "checker": "StepCountChecker",
+    "params": {"required_steps": 7}
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-010"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["sev-1", "sev-2", "sev-3"],
+      "any_of": ["contact", "notify", "escalate"],
+      "min_matches": 1,
+      "min_bullets": 3
+    }
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-011"],
+    "checker": "ScheduleChecker",
+    "params": {}
+  },
+  {
+    "dataset": "agent_hard",
+    "patterns": ["agent-hard-012"],
+    "checker": "KeywordsChecker",
+    "params": {
+      "required": ["achievements", "blockers", "next steps", "risks", "asks"],
+      "min_bullets": 5
+    }
   }
 ]
