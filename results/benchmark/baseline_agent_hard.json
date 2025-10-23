@@ -1,69 +1,56 @@
 {
   "variant": "baseline",
   "total": 12,
-  "correct": 7,
+  "correct": 8,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 27,
-  "increments": 1,
+  "new_bullets": 28,
+  "increments": 3,
   "latency_ms": [],
   "failures": [
     {
       "task_id": "agent-hard-004",
-      "answer": "- **Discovery Phase**: Inventory data sources, assess dependencies, and document migration requirements.  \n- **Dry Run Phase**: Execute a simulated migration to test processes, tools, and team readiness.  \n- **Final Switch Phase**: Migrate live data during a scheduled window, monitoring for disruptions in real-time.  \n- **Rollback Phase**: Activate pre-defined rollback procedures if post-migration issues exceed acceptable thresholds.  \n- **Verification Phase**: Conduct data accuracy checks, performance testing, and user acceptance testing (UAT).  \n- **Executive Sign-Off Phase**: Secure leadership approval after confirming compliance with SLAs and risk mitigation.",
+      "answer": "- **Discovery Phase**: Inventory source/destination systems, identify data dependencies, and document migration requirements.  \n- **Dry Run Phase**: Execute a full simulation of the migration process with test data to validate workflows and timing.  \n- **Final Switch Phase**: Migrate live data during a scheduled window, monitoring for errors in real-time.  \n- **Rollback Phase**: Activate pre-defined rollback procedures (e.g., restoring backups) if post-migration validation fails.  \n- **Verification Phase**: Cross-check data accuracy, test application functionality, and ensure compliance with SLAs.  \n- **Executive Sign-Off Phase**: Present migration results to leadership for approval, including risk mitigation and success metrics.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-005",
-      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**\n   - Brief description of the incident.\n   - When it occurred.\n   - Its impact.\n\n2. **Customer Impact**\n   - Description of how the incident affected customers.\n   - Any service disruptions or data issues.\n\n3. **Detailed Timeline**\n   - Chronological account of events leading up to, during, and after the incident.\n\n4. **Contributing Factors**\n   - Technical, human, and organizational factors that contributed to the incident.\n\n5. **Corrective Actions**\n   - Steps taken to address the incident.\n   - Prevent similar incidents in the future.\n\n6. **Named Owners**\n   - Individuals or teams responsible for each action item.",
-      "ground_truth": "success"
-    },
-    {
-      "task_id": "agent-hard-006",
-      "answer": "Weekly Reliability Review Agenda:\n\n1. Metrics Health: Review current performance metrics to identify any anomalies or trends that may indicate potential issues.\n2. Recent Incidents: Discuss any recent incidents that have occurred, their root causes, and steps taken to mitigate them.\n3. Technical Debt Backlog: Assess the technical debt backlog to prioritize tasks that could improve system stability and reduce future risks.\n4. Active Risks: Identify and evaluate any active risks that could affect system reliability, and discuss mitigation strategies.\n5. Follow-Up Actions: Ensure that any actions identified in previous meetings are followed up on, and new actions are planned as necessary.",
+      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**: A brief overview of the incident, including the date, time, and a high-level description of the event.\n2. **Customer Impact**: A detailed description of how the incident affected customers, including any service disruptions or data loss.\n3. **Detailed Timeline**: A chronological sequence of events leading up to, during, and after the incident.\n4. **Contributing Factors**: An analysis of what led to the incident, including any technical, procedural, or human factors.\n5. **Corrective Actions**: Steps taken to address the root cause of the incident and prevent similar incidents in the future.\n6. **Named Owners**: Identification of the individuals or teams responsible for implementing the corrective actions and ensuring the incident does not recur.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-008",
-      "answer": "**Launch Readiness Standup Outline**  \n1. **Engineering Status** [GREEN/YELLOW/RED] - Lead: Engineering Manager  \n2. **Product Status** [GREEN/YELLOW/RED] - Lead: Product Manager  \n3. **Marketing Status** [GREEN/YELLOW/RED] - Lead: Director of Marketing  \n4. **Support Status** [GREEN/YELLOW/RED] - Lead: Support Manager  \n5. **Risk Status** [GREEN/YELLOW/RED] - Lead: Project Risk Officer  \n\n*Note: Status indicators must be updated based on real-time validation before launch.*",
-      "ground_truth": "success"
-    },
-    {
-      "task_id": "agent-hard-012",
-      "answer": "success",
+      "answer": "1. **Engineering**: GREEN - [Engineering Manager]\n2. **Product**: GREEN - [Product Manager]\n3. **Marketing**: GREEN - [Marketing Manager]\n4. **Support**: GREEN - [Support Manager]\n5. **Risk**: GREEN - [Risk Manager]",
       "ground_truth": "agent_feedback_fail",
       "feedback": {
         "status": "fail",
         "confidence": 0.7,
-        "evidence": "Missing required keywords: ['asks']",
+        "evidence": "Missing required keywords: ['yellow', 'red']",
         "features": {
           "missing_required": [
-            "asks"
+            "yellow",
+            "red"
           ],
           "optional_matches": 0,
           "derived_from": "heuristic"
         }
       }
-    }
-  ],
-  "generator_temperature": 0.9,
-  "reflector_use_ground_truth": true,
-  "agent_feedback_summary": {
-    "success": 5,
-    "fail": 1,
-    "unknown": 6
-  },
-  "format_corrections": [
-    {
-      "task_id": "agent-hard-011",
-      "original_answer": "**Change-Freeze Communication Plan**\n\n1. **Initial Announcement** - 10/10/2023 10:00 AM  \n   *Communicate freeze schedule, scope, and expectations to all stakeholders*\n\n2. **Reminder** - 10/17/2023 2:00 PM  \n   *Reinforce freeze start date and consequences of late changes*\n\n3. **Freeze Start** - 10/24/2023 8:00 AM  \n   *Official start of change freeze period with strict access controls*\n\n4. **Monitoring Checkpoint** - 10/26/2023 3:00 PM  \n   *Status review of freeze compliance and risk assessment*\n\n5. **Release Communication** - 11/01/2023 11:00 AM  \n   *Notify stakeholders of successful freeze completion and release timeline*",
-      "corrected_answer": "success"
     },
     {
       "task_id": "agent-hard-012",
-      "original_answer": "A customer status update template could be structured as follows:\n\n1. **Achievements**\n   - Briefly summarize recent successes or milestones achieved by the customer.\n   \n2. **Blockers**\n   - List any current obstacles or issues preventing the customer from achieving their goals.\n   \n3. **Next Steps**\n   - Outline the actions planned for the upcoming period to address blockers and achieve objectives.\n   \n4. **Outstanding Risks**\n   - Identify potential risks that may impact the customer's progress and provide mitigation strategies.\n   \n5. **Executive Ask**\n   - Request specific support or resources from executives to help the customer overcome challenges or accelerate progress.",
-      "corrected_answer": "success"
+      "answer": "A customer status update template could be structured as follows:\n\n1. **Achievements**\n   - Briefly describe recent successes or milestones achieved by the customer.\n   \n2. **Blockers**\n   - List any issues or challenges currently hindering progress.\n   \n3. **Next Steps**\n   - Outline the planned actions or tasks to address the blockers and move forward.\n   \n4. **Outstanding Risks**\n   - Identify potential risks that may impact the project or customer success.\n   \n5. **Executive Asks**\n   - Provide any requests or information needed from executives or higher-level stakeholders.",
+      "ground_truth": "success"
     }
   ],
+  "generator_temperature": 1.3,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": false,
+  "runtime_adapter_enabled": false,
+  "reflector_use_ground_truth": true,
+  "agent_feedback_summary": {
+    "success": 7,
+    "fail": 1,
+    "unknown": 4
+  },
   "agent_feedback_log": "results/benchmark/baseline_agent_hard.feedback.jsonl"
 }

@@ -1,7 +1,7 @@
 {
   "variant": "ace_full",
   "total": 12,
-  "correct": 5,
+  "correct": 7,
   "promotions": 0,
   "quarantines": 0,
   "new_bullets": 0,
@@ -10,32 +10,27 @@
   "failures": [
     {
       "task_id": "agent-hard-003",
-      "answer": "Crisis Communication Schedule (First 12 Hours):\n07:30 AM - Internal Incident Response Meeting (Slack/Teams) | Lead: CISO\n09:00 AM - Stakeholder Notification (Secure Email) | Lead: Director of Communications\n11:30 AM - Public Statement Release (Press Release) | Lead: PR Director\n03:00 PM - Customer Impact Update (Dedicated Portal) | Lead: Customer Support Manager",
+      "answer": "Here is a crisis communication schedule covering the first 12 hours after a security breach:\n\n07:30 AM - Internal Notification: IT Security Lead will notify the internal team about the security breach via email and phone. This ensures all relevant departments are aware of the incident.\n\n09:00 AM - Initial Update: Communications Director will send out an initial update to all employees via company-wide email. The message will provide basic information about the breach and reassure employees that steps are being taken to address the issue.\n\n11:30 AM - Stakeholder Communication: Communications Director will call key stakeholders (e.g., customers, partners, investors) to inform them about the breach and outline the steps being taken to resolve it. This will be done over the phone to ensure a personal connection.\n\n02:00 PM - Progress Report: IT Security Lead will provide a progress report to the executive team via video conference. This will include updates on containment efforts and any known impacts on business operations.\n\n04:30 PM - Media Briefing: Communications Director will hold a media briefing to provide more detailed information about the breach and the company's response strategy. This will be conducted through a live stream to reach a wider audience.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-004",
-      "answer": "- **Discovery**: Identify all data sources, target systems, and dependencies. Document current system configurations, data volumes, and any third-party integrations. Perform a gap analysis to identify potential issues and risks.\n- **Dry Run**: Conduct a simulated migration to test the process without affecting live systems. Verify data integrity, performance, and user experience. Address any issues identified during the dry run before proceeding.\n- **Final Switch**: Execute the actual migration according to the planned timeline. Monitor the process closely for any anomalies or errors. Ensure all stakeholders are informed and ready to handle any unexpected issues.\n- **Rollback**: Prepare a rollback plan in case the migration fails. Have a clear set of instructions and a team ready to revert to the previous state if necessary. Test the rollback plan thoroughly before the migration.\n- **Verification**: Validate the migrated data against the original source to ensure accuracy and completeness. Perform post-migration testing to confirm that all systems and applications are functioning correctly.\n- **Executive Sign-Off**: Obtain approval from senior management and relevant stakeholders to proceed with the final switch. Ensure all legal and compliance requirements are met and that all necessary documentation is in place.",
+      "answer": "- **Discovery**: Conduct data inventory, map dependencies, identify stakeholders, and document current system architecture.  \n- **Dry Run**: Execute migration in a test environment, validate data integrity, and refine processes.  \n- **Final Switch**: Migrate live data during a scheduled maintenance window, with real-time monitoring.  \n- **Rollback**: Prepare failover mechanisms (e.g., revert to legacy systems) if critical issues arise.  \n- **Verification**: Post-migration testing, compare data accuracy, and confirm system performance metrics.  \n- **Executive Sign-Off**: Present migration results, risk mitigation, and obtain formal approval from leadership.",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-005",
-      "answer": "A post-incident review template should include the following sections:\n\n1. **Summary**\n   - Brief overview of the incident, including key dates and times.\n   - Description of the incident and its resolution.\n\n2. **Customer Impact**\n   - Description of how the incident affected customers.\n   - Metrics or KPIs that were impacted.\n\n3. **Detailed Timeline**\n   - Chronological sequence of events leading up to, during, and after the incident.\n   - Key milestones and decision points.\n\n4. **Contributing Factors**\n   - Analysis of what caused the incident.\n   - Root cause(s) identified through investigation.\n\n5. **Corrective Actions**\n   - Steps taken to address the incident.\n   - Long-term measures to prevent similar incidents from occurring.\n\n6. **Named Owners**\n   - Individuals or teams responsible for each section of the review.\n   - Roles and responsibilities clearly defined.\n\nThis template ensures a comprehensive and actionable post-incident review process.",
+      "answer": "Post-Incident Review Template:\n\n1. **Summary**  \n   - Brief overview of the incident (what, when, where)  \n   - Example: \"Service outage affecting 80% of users on [date/time] due to [root cause]\"\n\n2. **Customer Impact**  \n   - Duration and scope of impact  \n   - Affected user segments (e.g., geographic regions, product features)  \n   - Example: \"Users in North America experienced 4-hour downtime; payment processing halted\"\n\n3. **Detailed Timeline**  \n   - Chronological sequence with timestamps  \n   - Example:  \n     - [Time] Incident detected by [monitoring system]  \n     - [Time] Escalation to [team/role]  \n     - [Time] Resolution implemented  \n\n4. **Contributing Factors**  \n   - Technical, procedural, or human factors  \n   - Example: \"Misconfigured server settings + lack of automated failover\"  \n\n5. **Corrective Actions**  \n   - Immediate fixes and long-term improvements  \n   - Example: \"Reconfigure servers + implement daily health checks\"  \n\n6. **Named Owners**  \n   - Assign responsibility for each action  \n   - Example: \"John Doe (DevOps) - Server reconfiguration by [date]\"",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-006",
-      "answer": "Weekly Reliability Review Agenda:  \n1. **Metrics Health**: Review KPIs (uptime, error rates, latency, data integrity checks, ETL efficiency) and anomalies.  \n2. **Recent Incidents**: Log critical issues, post-mortems, and mitigation strategies.  \n3. **Technical Debt Backlog**: Prioritize tasks (e.g., code refactors, infrastructure upgrades) with owners and timelines.  \n4. **Active Risks**: Address vulnerabilities, redundancy gaps, and failover mechanisms with escalation paths.  \n5. **Follow-up Actions**: Assign specific tasks (e.g., \"Implement ETL monitoring by [date]\") with accountability.",
-      "ground_truth": "success"
-    },
-    {
-      "task_id": "agent-hard-008",
-      "answer": "Launch Readiness Standup Outline:\n1. Engineering [YELLOW] - Lead: Engineering Manager | Status: Dependency mapping incomplete (Strategy 1), ETL processes pending validation (Strategy 8)\n2. Product [GREEN] - Lead: Product Owner | Status: All features validated, AC-22 compliance confirmed (Strategy 5)\n3. Marketing [YELLOW] - Lead: Marketing Director | Status: Regional redundancy plans missing (Strategy 3), placeholder dates in campaign timelines (Strategy 4)\n4. Support [RED] - Lead: Customer Success Lead | Status: No defined escalation paths (Strategy 2), risk assessment incomplete (Strategy 6)\n5. Risk [YELLOW] - Lead: Risk Manager | Status: 3 high-priority risks unresolved, mitigation plans pending (Strategy 12)",
+      "answer": "Weekly Reliability Review Agenda\n\n1. Metrics Health\n   - System uptime percentage (current vs. target)\n   - Error rate trends (API, infrastructure, user-facing)\n   - Mean time to recovery (MTTR) for critical services\n   - SLA compliance status\n\n2. Recent Incidents\n   - Summary of incidents (date, impact, resolution status)\n   - Root cause analysis highlights\n   - Post-mortem action items\n\n3. Technical Debt Backlog\n   - Outstanding debt items (priority, owner, estimated resolution time)\n   - High-risk technical debt requiring immediate attention\n\n4. Active Risks\n   - Known risks with mitigation status (e.g., third-party vulnerabilities, capacity constraints)\n   - Risk prioritization matrix review\n\n5. Follow-up Actions\n   - Action items from previous reviews\n   - Owner and deadline for each task\n   - Dependencies and blockers",
       "ground_truth": "success"
     },
     {
       "task_id": "agent-hard-011",
-      "answer": "A change-freeze communication plan with a time-boxed schedule is as follows:\n\n1. **Initial Announcement**:\n   - **Date/Time**: [Due Date - 7 days]\n   - **Content**: Notify all stakeholders about the upcoming change-freeze period. Include the reasons for the freeze and the expected duration.\n   - **Communication Channels**: Email, internal messaging platform.\n   - **Action Required**: Confirm receipt from all relevant teams.\n\n2. **Reminder**:\n   - **Date/Time**: [Due Date - 3 days]\n   - **Content**: Send a reminder to all stakeholders about the impending change-freeze. Highlight the importance of adhering to the schedule.\n   - **Communication Channels**: Email, internal messaging platform.\n   - **Action Required**: Ensure all teams are aware and prepared.\n\n3. **Freeze Start**:\n   - **Date/Time**: [Due Date]\n   - **Content**: Announce the official start of the change-freeze period. Provide a list of critical systems that will be affected.\n   - **Communication Channels**: Email, internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Monitor system performance and address any issues promptly.\n\n4. **Monitoring Checkpoints**:\n   - **Date/Time**: [Due Date + 1 day], [Due Date + 3 days], [Due Date + 5 days]\n   - **Content**: Conduct regular check-ins to monitor system performance and address any issues that arise.\n   - **Communication Channels**: Internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Document any issues and their resolutions.\n\n5. **Release Communication**:\n   - **Date/Time**: [Due Date + 7 days]\n   - **Content**: Announce the end of the change-freeze period. Provide a summary of any issues encountered and how they were addressed.\n   - **Communication Channels**: Email, internal messaging platform, phone call with key stakeholders.\n   - **Action Required**: Confirm that all systems are back to normal operation.\n\nThis plan ensures that all stakeholders are informed and prepared for the change-freeze period, and it includes specific times for each step to maintain a structured approach.",
+      "answer": "Change-Freeze Communication Plan:\n\n1. Initial Announcement:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"Attention all team members, we are initiating a change-freeze starting from [Insert Start Date and Time]. Please ensure no new changes are made until further notice.\"\n\n2. Reminder 1:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"This is a friendly reminder that the change-freeze is still in effect. Please continue to avoid making any new changes.\"\n\n3. Freeze Start:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"The change-freeze has officially started. All new changes are prohibited until the end of the freeze period.\"\n\n4. Monitoring Checkpoint 1:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"We are currently monitoring the impact of the change-freeze. If there are any issues, please reach out to the on-call engineer immediately.\"\n\n5. Monitoring Checkpoint 2:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"Another checkpoint to ensure the change-freeze is being adhered to. Any violations will be addressed promptly.\"\n\n6. Release Communication:\n   - Date: [Insert Date]\n   - Time: [Insert Time]\n   - Content: \"The change-freeze has been lifted. New changes can now be made. Please update your systems accordingly.\"\n\nCommunication Channels: Email and phone will be used for all announcements and check-ins.\n\nContact Roles: Team leads and on-call engineers will handle escalations and responses.\n\nDocumentation: A post-incident review will be conducted after the change-freeze ends to document lessons learned.",
       "ground_truth": "agent_feedback_fail",
       "feedback": {
         "status": "fail",
@@ -43,23 +38,28 @@
         "evidence": "No recognisable time slots",
         "features": {
           "time_mentions": 0,
-          "bullet_count": 25,
+          "bullet_count": 24,
           "derived_from": "heuristic"
         }
       }
-    },
-    {
-      "task_id": "agent-hard-012",
-      "answer": "A customer status update template should include the following labeled sections:\n\n**Achievements:**\n- List of recent accomplishments related to the project or service.\n- Specific milestones achieved.\n- Key performance indicators (KPIs) met.\n\n**Blockers:**\n- Any obstacles or issues preventing progress.\n- Steps taken to address these issues.\n- Expected resolution timeline.\n\n**Next Steps:**\n- Immediate tasks to be completed.\n- Dependencies and prerequisites for upcoming activities.\n- Timeline for completion.\n\n**Outstanding Risks:**\n- Potential challenges or threats to the project.\n- Mitigation strategies in place.\n- Likelihood and impact assessment.\n\n**Executive Asks:**\n- Requests from executives or stakeholders.\n- Action items for senior management review.\n- Follow-up meetings or reports needed.\n\nThis template ensures transparency and provides a clear overview of the current status, while also highlighting areas requiring attention and future actions.",
-      "ground_truth": "success"
     }
   ],
   "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
   "reflector_use_ground_truth": true,
   "agent_feedback_summary": {
     "success": 5,
     "fail": 1,
     "unknown": 6
   },
+  "format_corrections": [
+    {
+      "task_id": "agent-hard-012",
+      "original_answer": "Customer Status Update Template:\n\n- **Achievements:**\n  - [List of recent achievements or successes]\n  - [Detailed description of each achievement]\n\n- **Blockers:**\n  - [List of current blockers or challenges]\n  - [Detailed description of each blocker and any relevant context]\n\n- **Next Steps:**\n  - [List of planned actions or tasks]\n  - [Detailed description of each next step and responsible parties]\n\n- **Outstanding Risks:**\n  - [List of potential risks or issues]\n  - [Detailed description of each risk and mitigation strategies]\n\n- **Executive Asks:**\n  - [List of specific requests or questions from executives]\n  - [Detailed description of each ask and any relevant context]\n\nThis template ensures a clear and structured communication of the customer's status, including all necessary components.",
+      "corrected_answer": "success"
+    }
+  ],
   "agent_feedback_log": "results/benchmark/ace_agent_hard.feedback.jsonl"
 }

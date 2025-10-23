@@ -1,75 +1,70 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 20,
-  "promotions": 3,
+  "correct": 24,
+  "promotions": 5,
   "quarantines": 0,
-  "new_bullets": 22,
-  "increments": 11,
+  "new_bullets": 2,
+  "increments": 5,
   "latency_ms": [],
   "failures": [
-    {
-      "task_id": "fin-hard-006",
-      "answer": "The ROI is 43.72%.",
-      "ground_truth": "43.71%"
-    },
-    {
-      "task_id": "fin-hard-007",
-      "answer": "(38942.67 / 256780.45) * 100 = 15.14",
-      "ground_truth": "15.17%"
-    },
     {
       "task_id": "fin-hard-009",
       "answer": "6834.21",
       "ground_truth": "6864.15"
     },
     {
-      "task_id": "fin-hard-013",
-      "answer": "7.95",
-      "ground_truth": "7.93"
-    },
-    {
       "task_id": "fin-hard-018",
-      "answer": "-5275.73",
+      "answer": "3685.85",
       "ground_truth": "3686.25"
-    },
-    {
-      "task_id": "fin-hard-026",
-      "answer": "(18750.40 - 3894.75) / 18750.40 * 100 = 79.99%",
-      "ground_truth": "79.23%"
     }
   ],
   "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
   "reflector_use_ground_truth": true,
+  "format_corrections": [
+    {
+      "task_id": "fin-hard-006",
+      "original_answer": "The ROI is 43.71%.",
+      "corrected_answer": "43.71%"
+    },
+    {
+      "task_id": "fin-hard-007",
+      "original_answer": "The net profit margin is 15.17%.",
+      "corrected_answer": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-026",
+      "original_answer": "The retention ratio is 79.23%.",
+      "corrected_answer": "79.23%"
+    }
+  ],
   "auto_corrections": [
     {
-      "task_id": "fin-hard-002",
-      "original_answer": "15.88%",
-      "corrected_answer": "15.89%"
-    },
-    {
-      "task_id": "fin-hard-005",
-      "original_answer": "20000.0",
-      "corrected_answer": "18283.96"
-    },
-    {
       "task_id": "fin-hard-014",
-      "original_answer": "13.90%",
+      "original_answer": "12.97%",
       "corrected_answer": "13.99%"
     },
     {
       "task_id": "fin-hard-019",
-      "original_answer": "24.28%",
+      "original_answer": "24.23%",
       "corrected_answer": "24.24%"
     },
     {
       "task_id": "fin-hard-020",
-      "original_answer": "3246.50",
+      "original_answer": "3236.63",
       "corrected_answer": "3241.86"
     },
     {
+      "task_id": "fin-hard-023",
+      "original_answer": "12.00%",
+      "corrected_answer": "12.01%"
+    },
+    {
       "task_id": "fin-hard-024",
-      "original_answer": "13857.68",
+      "original_answer": "12853.26",
       "corrected_answer": "12872.52"
     }
   ],

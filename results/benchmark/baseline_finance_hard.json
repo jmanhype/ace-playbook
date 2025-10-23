@@ -1,22 +1,32 @@
 {
   "variant": "baseline",
   "total": 26,
-  "correct": 21,
+  "correct": 13,
   "promotions": 0,
   "quarantines": 0,
-  "new_bullets": 57,
-  "increments": 12,
+  "new_bullets": 48,
+  "increments": 21,
   "latency_ms": [],
   "failures": [
     {
+      "task_id": "fin-hard-002",
+      "answer": "10.23%",
+      "ground_truth": "15.89%"
+    },
+    {
       "task_id": "fin-hard-003",
-      "answer": "The simple interest is calculated as follows:\n\n1. Convert the rate to a decimal: \\(4.625\\% \\div 100 = 0.04625\\)\n2. Calculate the simple interest: \\(18450.75 \\times 0.04625 \\times 7.5 = 659.0484375\\)\n3. Round the result to two decimal places: \\(659.05\\)\n\nTherefore, the simple interest is 659.05.",
+      "answer": "5934.09",
       "ground_truth": "6400.10"
     },
     {
-      "task_id": "fin-hard-006",
-      "answer": "43.72%",
-      "ground_truth": "43.71%"
+      "task_id": "fin-hard-007",
+      "answer": "15.16%",
+      "ground_truth": "15.17%"
+    },
+    {
+      "task_id": "fin-hard-008",
+      "answer": "4.00",
+      "ground_truth": "3.97"
     },
     {
       "task_id": "fin-hard-009",
@@ -24,59 +34,50 @@
       "ground_truth": "6864.15"
     },
     {
+      "task_id": "fin-hard-012",
+      "answer": "30.00%",
+      "ground_truth": "29.90%"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "answer": "13.90%",
+      "ground_truth": "13.99%"
+    },
+    {
       "task_id": "fin-hard-018",
       "answer": "3685.23",
       "ground_truth": "3686.25"
     },
     {
-      "task_id": "fin-hard-026",
-      "answer": "106.00%",
-      "ground_truth": "79.23%"
-    }
-  ],
-  "generator_temperature": 0.9,
-  "reflector_use_ground_truth": true,
-  "auto_corrections": [
-    {
-      "task_id": "fin-hard-002",
-      "original_answer": "15.88%",
-      "corrected_answer": "15.89%"
-    },
-    {
-      "task_id": "fin-hard-012",
-      "original_answer": "30.00%",
-      "corrected_answer": "29.90%"
-    },
-    {
-      "task_id": "fin-hard-014",
-      "original_answer": "10.97%",
-      "corrected_answer": "13.99%"
-    },
-    {
       "task_id": "fin-hard-019",
-      "original_answer": "12.34%",
-      "corrected_answer": "24.24%"
+      "answer": "12.34%",
+      "ground_truth": "24.24%"
     },
     {
       "task_id": "fin-hard-020",
-      "original_answer": "2497.75",
-      "corrected_answer": "3241.86"
+      "answer": "3397.78",
+      "ground_truth": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "answer": "45.67%",
+      "ground_truth": "59.07%"
     },
     {
       "task_id": "fin-hard-023",
-      "original_answer": "11.86%",
-      "corrected_answer": "12.01%"
+      "answer": "11.85%",
+      "ground_truth": "12.01%"
     },
     {
       "task_id": "fin-hard-024",
-      "original_answer": "13877.79",
-      "corrected_answer": "12872.52"
-    },
-    {
-      "task_id": "fin-hard-025",
-      "original_answer": "9.91%",
-      "corrected_answer": "8.99%"
+      "answer": "14107.17",
+      "ground_truth": "12872.52"
     }
   ],
+  "generator_temperature": 1.3,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": false,
+  "runtime_adapter_enabled": false,
+  "reflector_use_ground_truth": true,
   "agent_feedback_log": "results/benchmark/baseline_finance_hard.feedback.jsonl"
 }

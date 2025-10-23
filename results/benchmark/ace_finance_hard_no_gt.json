@@ -1,13 +1,18 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 20,
-  "promotions": 7,
+  "correct": 19,
+  "promotions": 6,
   "quarantines": 0,
-  "new_bullets": 6,
-  "increments": 14,
+  "new_bullets": 0,
+  "increments": 2,
   "latency_ms": [],
   "failures": [
+    {
+      "task_id": "fin-hard-004",
+      "answer": "The break-even units are 1283.",
+      "ground_truth": "1282"
+    },
     {
       "task_id": "fin-hard-006",
       "answer": "The ROI is 43.72%.",
@@ -15,7 +20,7 @@
     },
     {
       "task_id": "fin-hard-007",
-      "answer": "15.21",
+      "answer": "(38942.67 / 256780.45) * 100 = 15.15",
       "ground_truth": "15.17%"
     },
     {
@@ -25,69 +30,55 @@
     },
     {
       "task_id": "fin-hard-010",
-      "answer": "793664.13",
+      "answer": "993665.13",
       "ground_truth": "393665.13"
     },
     {
-      "task_id": "fin-hard-016",
-      "answer": "27.00",
-      "ground_truth": "27.11"
+      "task_id": "fin-hard-018",
+      "answer": "-5275.77",
+      "ground_truth": "3686.25"
     },
     {
-      "task_id": "fin-hard-018",
-      "answer": "3685.74",
-      "ground_truth": "3686.25"
+      "task_id": "fin-hard-026",
+      "answer": "50.61%",
+      "ground_truth": "79.23%"
     }
   ],
-  "generator_temperature": 0.5,
+  "generator_temperature": 0.6,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
   "reflector_use_ground_truth": false,
   "auto_corrections": [
     {
       "task_id": "fin-hard-002",
-      "original_answer": "15.90%",
+      "original_answer": "15.85%",
       "corrected_answer": "15.89%"
     },
     {
-      "task_id": "fin-hard-005",
-      "original_answer": "19022.83",
-      "corrected_answer": "18283.96"
-    },
-    {
       "task_id": "fin-hard-012",
-      "original_answer": "29.91%",
+      "original_answer": "35.00%",
       "corrected_answer": "29.90%"
     },
     {
       "task_id": "fin-hard-014",
-      "original_answer": "13.92%",
+      "original_answer": "12.34%",
       "corrected_answer": "13.99%"
     },
     {
       "task_id": "fin-hard-020",
-      "original_answer": "3233.80",
+      "original_answer": "3127.43",
       "corrected_answer": "3241.86"
     },
     {
-      "task_id": "fin-hard-023",
-      "original_answer": "12.00%",
-      "corrected_answer": "12.01%"
-    },
-    {
       "task_id": "fin-hard-024",
-      "original_answer": "12837.97",
+      "original_answer": "12853.83",
       "corrected_answer": "12872.52"
     },
     {
       "task_id": "fin-hard-025",
-      "original_answer": "55.30%",
+      "original_answer": "10.02%",
       "corrected_answer": "8.99%"
-    }
-  ],
-  "format_corrections": [
-    {
-      "task_id": "fin-hard-026",
-      "original_answer": "The retention ratio is 79.23%.",
-      "corrected_answer": "79.23%"
     }
   ],
   "agent_feedback_log": "results/benchmark/ace_finance_hard_no_gt.feedback.jsonl"

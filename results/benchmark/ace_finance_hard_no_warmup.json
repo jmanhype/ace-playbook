@@ -1,21 +1,21 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 18,
-  "promotions": 2,
+  "correct": 11,
+  "promotions": 1,
   "quarantines": 0,
-  "new_bullets": 0,
-  "increments": 5,
+  "new_bullets": 54,
+  "increments": 14,
   "latency_ms": [],
   "failures": [
     {
-      "task_id": "fin-hard-003",
-      "answer": "Unknown action",
-      "ground_truth": "6400.10"
+      "task_id": "fin-hard-002",
+      "answer": "16.23%",
+      "ground_truth": "15.89%"
     },
     {
       "task_id": "fin-hard-004",
-      "answer": "The break-even units are 1000.",
+      "answer": "break_even_units = 83750 / (189.95 - 124.60) = 83750 / 65.35 \u2248 1283.33\nSince we need to round up to the next whole unit, the break-even units are 1284.",
       "ground_truth": "1282"
     },
     {
@@ -25,78 +25,69 @@
     },
     {
       "task_id": "fin-hard-007",
-      "answer": "The net profit margin is 15.16%.",
+      "answer": "(38942.67 / 256780.45) * 100",
       "ground_truth": "15.17%"
     },
     {
-      "task_id": "fin-hard-008",
-      "answer": "4.00",
-      "ground_truth": "3.97"
-    },
-    {
       "task_id": "fin-hard-009",
-      "answer": "6834.21",
+      "answer": "3849.97",
       "ground_truth": "6864.15"
     },
     {
+      "task_id": "fin-hard-012",
+      "answer": "35.06%",
+      "ground_truth": "29.90%"
+    },
+    {
+      "task_id": "fin-hard-013",
+      "answer": "The inventory turnover is 8.00.",
+      "ground_truth": "7.93"
+    },
+    {
+      "task_id": "fin-hard-014",
+      "answer": "12.97%",
+      "ground_truth": "13.99%"
+    },
+    {
       "task_id": "fin-hard-018",
-      "answer": "3685.25",
+      "answer": "-1234.56",
       "ground_truth": "3686.25"
     },
     {
+      "task_id": "fin-hard-019",
+      "answer": "24.25%",
+      "ground_truth": "24.24%"
+    },
+    {
+      "task_id": "fin-hard-020",
+      "answer": "3239.73",
+      "ground_truth": "3241.86"
+    },
+    {
+      "task_id": "fin-hard-021",
+      "answer": "24.00%",
+      "ground_truth": "59.07%"
+    },
+    {
+      "task_id": "fin-hard-023",
+      "answer": "12.07%",
+      "ground_truth": "12.01%"
+    },
+    {
+      "task_id": "fin-hard-024",
+      "answer": "14937.77",
+      "ground_truth": "12872.52"
+    },
+    {
       "task_id": "fin-hard-026",
-      "answer": "The retention ratio is 79.20%.",
+      "answer": "The retention ratio is 79.23%.",
       "ground_truth": "79.23%"
     }
   ],
   "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": false,
   "reflector_use_ground_truth": true,
-  "auto_corrections": [
-    {
-      "task_id": "fin-hard-002",
-      "original_answer": "10.99%",
-      "corrected_answer": "15.89%"
-    },
-    {
-      "task_id": "fin-hard-005",
-      "original_answer": "20450.00",
-      "corrected_answer": "18283.96"
-    },
-    {
-      "task_id": "fin-hard-012",
-      "original_answer": "29.91%",
-      "corrected_answer": "29.90%"
-    },
-    {
-      "task_id": "fin-hard-014",
-      "original_answer": "20.00%",
-      "corrected_answer": "13.99%"
-    },
-    {
-      "task_id": "fin-hard-020",
-      "original_answer": "2857.78",
-      "corrected_answer": "3241.86"
-    },
-    {
-      "task_id": "fin-hard-021",
-      "original_answer": "45.17%",
-      "corrected_answer": "59.07%"
-    },
-    {
-      "task_id": "fin-hard-023",
-      "original_answer": "12.00%",
-      "corrected_answer": "12.01%"
-    },
-    {
-      "task_id": "fin-hard-024",
-      "original_answer": "12872.48",
-      "corrected_answer": "12872.52"
-    },
-    {
-      "task_id": "fin-hard-025",
-      "original_answer": "55.18%",
-      "corrected_answer": "8.99%"
-    }
-  ],
   "agent_feedback_log": "results/benchmark/ace_finance_hard_no_warmup.feedback.jsonl"
 }

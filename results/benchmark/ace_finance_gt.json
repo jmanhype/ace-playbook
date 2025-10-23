@@ -1,41 +1,38 @@
 {
   "variant": "ace_full",
   "total": 26,
-  "correct": 25,
-  "promotions": 3,
+  "correct": 26,
+  "promotions": 7,
   "quarantines": 0,
-  "new_bullets": 6,
-  "increments": 1,
+  "new_bullets": 0,
+  "increments": 7,
   "latency_ms": [],
-  "failures": [
-    {
-      "task_id": "fin-009",
-      "answer": "24.51",
-      "ground_truth": "78.25"
-    }
-  ],
+  "failures": [],
   "generator_temperature": 0.5,
+  "reflector_enabled": true,
+  "multi_epoch_enabled": true,
+  "runtime_adapter_enabled": true,
   "reflector_use_ground_truth": true,
   "auto_corrections": [
     {
-      "task_id": "fin-005",
-      "original_answer": "200",
-      "corrected_answer": "250"
+      "task_id": "fin-002",
+      "original_answer": "29%",
+      "corrected_answer": "30%"
     },
     {
       "task_id": "fin-014",
-      "original_answer": "19.10%",
+      "original_answer": "32.00%",
       "corrected_answer": "19.11%"
     },
     {
       "task_id": "fin-019",
-      "original_answer": "22.00%",
+      "original_answer": "22.15%",
       "corrected_answer": "21.65%"
     },
     {
-      "task_id": "fin-020",
-      "original_answer": "188.77",
-      "corrected_answer": "188.71"
+      "task_id": "fin-021",
+      "original_answer": "54%",
+      "corrected_answer": "60%"
     },
     {
       "task_id": "fin-025",
@@ -46,7 +43,7 @@
   "format_corrections": [
     {
       "task_id": "fin-006",
-      "original_answer": "The ROI for the investment is 30%.",
+      "original_answer": "ROI = ((1040 - 800) / 800) * 100 = (240 / 800) * 100 = 0.3 * 100 = 30%",
       "corrected_answer": "30%"
     },
     {
