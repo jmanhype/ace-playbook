@@ -1,0 +1,60 @@
+# Bash temporary files
+*.swp
+*.swo
+*.tmp
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Receipt temporary files
+vault/receipts/**/*.json.tmp
+vault/receipts/**/.writing
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-workspace
+
+# Node.js (for potential tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Test outputs
+.tox/
+.pytest_cache/
+test-results/
+coverage/
+
+# Blake3 checksum cache (if implemented)
+.checksums_cache
