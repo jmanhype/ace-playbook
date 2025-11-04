@@ -17,8 +17,13 @@ from ace.utils.logging_config import get_logger
 logger = get_logger(__name__, component="database")
 
 
-def _enable_sqlite_wal_mode(dbapi_connection, connection_record):
-    """Enable WAL mode for SQLite to support concurrent reads."""
+def _enable_sqlite_wal_mode(dbapi_connection: any, connection_record: any) -> None:
+    """Enable WAL mode for SQLite to support concurrent reads.
+
+    Args:
+        dbapi_connection: Database API connection object
+        connection_record: SQLAlchemy connection record
+    """
     if "sqlite" in str(connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
