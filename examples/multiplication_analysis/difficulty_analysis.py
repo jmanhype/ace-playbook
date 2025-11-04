@@ -60,7 +60,7 @@ def analyze_difficulty_distribution(session):
             parts = problem.replace("×", "*").split("*")
             a = int(parts[0].strip())
             b = int(parts[1].strip())
-        except:
+        except (ValueError, IndexError, AttributeError):
             continue
 
         difficulty = calculate_problem_difficulty(a, b)

@@ -42,9 +42,14 @@ def _resolve_model(preferred: Optional[str] = None) -> Optional[str]:
 
 @lru_cache(maxsize=1)
 def _load_dspy():
+    """Load DSPy module with error handling.
+
+    Returns:
+        dspy module if available, None otherwise
+    """
     try:
         import dspy  # type: ignore
-    except Exception as exc:  # pragma: no cover - defensive import guard
+    except (ImportError, ModuleNotFoundError) as exc:  # pragma: no cover - defensive import guard
         logger.error("json_mode_adapter_unavailable", error=str(exc))
         return None
     return dspy

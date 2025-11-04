@@ -18,7 +18,13 @@ os.environ.setdefault("BITSANDBYTES_NOWELCOME", "1")
 _original_print = builtins.print
 
 
-def _suppress_bitsandbytes_message(*args, **kwargs):
+def _suppress_bitsandbytes_message(*args: any, **kwargs: any) -> None:
+    """Suppress noisy bitsandbytes initialization messages.
+
+    Args:
+        *args: Positional arguments to print
+        **kwargs: Keyword arguments to print
+    """
     if len(args) == 1 and isinstance(args[0], str) and "cadam32bit_grad_fp32" in args[0]:
         return
     _original_print(*args, **kwargs)
