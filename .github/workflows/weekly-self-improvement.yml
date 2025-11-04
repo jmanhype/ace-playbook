@@ -1,0 +1,283 @@
+name: Weekly Self-Improvement with Claude Code
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      focus_area:
+        description: 'Specific area to focus on (optional)'
+        required: false
+        type: choice
+        options:
+          - all
+          - code-quality
+          - tests
+          - documentation
+          - security
+          - performance
+        default: 'all'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  code-quality-improvements:
+    name: Code Quality & Linting Improvements
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == 'code-quality' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for code quality improvements
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Review the codebase for code quality improvements. Focus on:
+
+            1. Run the linters (ruff, black, mypy) and fix any issues
+            2. Look for code duplication and refactor where appropriate
+            3. Check for unused imports, variables, or functions
+            4. Identify opportunities to simplify complex functions
+            5. Look for type hints that could be improved or added
+            6. Check for docstring completeness and accuracy
+
+            Run `pre-commit run --all-files` to check all hooks and fix any issues.
+
+            Create commits for each category of improvements with clear, descriptive messages.
+            Only make changes that improve code quality without altering functionality.
+          branch_prefix: 'claude/weekly-code-quality'
+          commit_message: 'chore: automated code quality improvements'
+
+  test-coverage-improvements:
+    name: Test Coverage Enhancements
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == 'tests' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for test improvements
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Analyze and improve the test suite:
+
+            1. Run `pytest tests/ --cov=ace --cov-report=term-missing` to check coverage
+            2. Identify modules or functions with low test coverage
+            3. Add meaningful unit tests for uncovered code paths
+            4. Look for edge cases that aren't being tested
+            5. Ensure tests are following best practices (clear names, good assertions, proper fixtures)
+            6. Check if any tests are flaky or could be improved
+
+            Focus on adding tests for critical paths and business logic.
+            Create commits with clear messages describing what was tested.
+          branch_prefix: 'claude/weekly-test-coverage'
+          commit_message: 'test: improve test coverage and quality'
+
+  documentation-improvements:
+    name: Documentation Updates
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == 'documentation' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for documentation improvements
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Review and improve documentation:
+
+            1. Check README.md for accuracy and completeness
+            2. Review docstrings for completeness and clarity
+            3. Look for functions/classes missing docstrings
+            4. Check if examples in docs/ are up to date
+            5. Identify any outdated information in documentation
+            6. Look for broken links or references
+            7. Check if new features need documentation
+
+            Run `interrogate -vv ace/` to check docstring coverage.
+
+            Focus on making documentation clear, accurate, and helpful.
+            Create commits with descriptive messages.
+          branch_prefix: 'claude/weekly-documentation'
+          commit_message: 'docs: improve documentation clarity and completeness'
+
+  security-audit:
+    name: Security & Dependency Audit
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == 'security' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for security improvements
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Perform a security and dependency audit:
+
+            1. Run `bandit -r ace/` to check for security issues
+            2. Check for hardcoded secrets or credentials
+            3. Look for SQL injection vulnerabilities
+            4. Check for insecure random number generation
+            5. Review input validation and sanitization
+            6. Look for outdated dependencies in pyproject.toml
+            7. Check for known vulnerabilities in dependencies
+
+            Fix any security issues found. For dependency updates, be conservative
+            and only update if there are security fixes or critical bug fixes.
+
+            Create clear commits documenting what security improvements were made.
+          branch_prefix: 'claude/weekly-security'
+          commit_message: 'security: address security findings and update dependencies'
+
+  bug-monitoring:
+    name: Bug Detection & Monitoring
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for bug detection
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Search for potential bugs and issues:
+
+            1. Look for TODO, FIXME, XXX, HACK comments that could be addressed
+            2. Search for common bug patterns:
+               - Off-by-one errors
+               - Resource leaks (unclosed files, connections)
+               - Race conditions or concurrency issues
+               - Null/None checks that might be missing
+               - Exception handling that's too broad or missing
+            3. Check for deprecated API usage
+            4. Look for anti-patterns or code smells
+            5. Review error messages for clarity and helpfulness
+
+            Address any issues found that can be fixed safely.
+            For complex issues, create detailed comments or issues instead of fixing directly.
+
+            Create commits with clear descriptions of bugs fixed.
+          branch_prefix: 'claude/weekly-bug-fixes'
+          commit_message: 'fix: address detected bugs and code issues'
+
+  performance-analysis:
+    name: Performance Analysis
+    runs-on: ubuntu-latest
+    if: github.event.inputs.focus_area == 'all' || github.event.inputs.focus_area == 'performance' || github.event.inputs.focus_area == ''
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code for performance analysis
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            Analyze code for performance improvements:
+
+            1. Look for inefficient algorithms or data structures
+            2. Check for unnecessary computations in loops
+            3. Look for opportunities to cache expensive operations
+            4. Check database queries for N+1 problems
+            5. Look for memory leaks or excessive memory usage
+            6. Check for blocking I/O that could be made async
+            7. Review critical paths identified in benchmarks/
+
+            Only make performance improvements that are:
+            - Clearly beneficial
+            - Don't sacrifice readability significantly
+            - Don't introduce complexity without measurement
+
+            For major performance opportunities, document them in comments
+            rather than implementing without benchmarking.
+
+            Create commits describing performance improvements made.
+          branch_prefix: 'claude/weekly-performance'
+          commit_message: 'perf: optimize performance bottlenecks'
+
+  create-summary-issue:
+    name: Create Summary Issue
+    runs-on: ubuntu-latest
+    needs: [code-quality-improvements, test-coverage-improvements, documentation-improvements, security-audit, bug-monitoring, performance-analysis]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create summary issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const date = new Date().toISOString().split('T')[0];
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const jobs = [
+              { name: 'Code Quality', result: '${{ needs.code-quality-improvements.result }}' },
+              { name: 'Test Coverage', result: '${{ needs.test-coverage-improvements.result }}' },
+              { name: 'Documentation', result: '${{ needs.documentation-improvements.result }}' },
+              { name: 'Security Audit', result: '${{ needs.security-audit.result }}' },
+              { name: 'Bug Monitoring', result: '${{ needs.bug-monitoring.result }}' },
+              { name: 'Performance', result: '${{ needs.performance-analysis.result }}' }
+            ];
+
+            const successJobs = jobs.filter(j => j.result === 'success');
+            const failedJobs = jobs.filter(j => j.result === 'failure');
+            const skippedJobs = jobs.filter(j => j.result === 'skipped');
+
+            let body = `## Weekly Self-Improvement Summary - ${date}\n\n`;
+            body += `[View Workflow Run](${runUrl})\n\n`;
+            body += `### Results\n\n`;
+            body += `- ✅ Successful: ${successJobs.length}\n`;
+            body += `- ❌ Failed: ${failedJobs.length}\n`;
+            body += `- ⏭️ Skipped: ${skippedJobs.length}\n\n`;
+
+            if (successJobs.length > 0) {
+              body += `#### ✅ Successful Jobs\n\n`;
+              successJobs.forEach(job => {
+                body += `- ${job.name}\n`;
+              });
+              body += `\n`;
+            }
+
+            if (failedJobs.length > 0) {
+              body += `#### ❌ Failed Jobs\n\n`;
+              failedJobs.forEach(job => {
+                body += `- ${job.name}\n`;
+              });
+              body += `\n`;
+            }
+
+            body += `### Next Steps\n\n`;
+            body += `1. Review any pull requests created by Claude Code\n`;
+            body += `2. Investigate any failed jobs\n`;
+            body += `3. Merge approved improvements\n\n`;
+            body += `---\n`;
+            body += `*This issue was automatically created by the weekly self-improvement workflow.*`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Weekly Self-Improvement Summary - ${date}`,
+              body: body,
+              labels: ['automation', 'maintenance']
+            });
