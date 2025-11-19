@@ -1,0 +1,26 @@
+# Root-level ignores
+.DS_Store
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Docker
+.docker/
+
+# Secrets (NEVER COMMIT)
+secrets/
+*.pem
+*.key
+credentials.json
+
+# CI/CD artifacts
+.github/outputs/

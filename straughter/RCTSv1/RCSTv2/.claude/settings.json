@@ -1,0 +1,266 @@
+{
+  "project": {
+    "name": "Spec Kit Workflow System",
+    "version": "1.0.0",
+    "description": "Specification-driven development framework with quality gates",
+    "type": "development-framework"
+  },
+  "agents": {
+    "default": "general-purpose",
+    "available": [
+      "code-reviewer",
+      "frontend-engineer",
+      "tech-lead-architect",
+      "project-manager",
+      "ux-designer"
+    ],
+    "auto_select": true
+  },
+  "workflows": {
+    "enabled": true,
+    "default": "feature-development",
+    "available": [
+      "feature-development",
+      "bug-fix"
+    ]
+  },
+  "tools": {
+    "permissions": {
+      "Read": {
+        "enabled": true,
+        "paths": ["**/*"],
+        "excluded_paths": [
+          "node_modules/**",
+          ".git/**",
+          "**/.env*",
+          "**/secrets/**",
+          "**/*.key",
+          "**/*.pem"
+        ]
+      },
+      "Write": {
+        "enabled": true,
+        "paths": [
+          "src/**",
+          "tests/**",
+          "specs/**",
+          "docs/**",
+          "*.md",
+          "*.json",
+          "*.yaml",
+          "*.yml"
+        ],
+        "excluded_paths": [
+          "package-lock.json",
+          "yarn.lock",
+          "pnpm-lock.yaml",
+          ".env*",
+          "**/.git/**"
+        ],
+        "require_confirmation": [
+          "package.json",
+          "tsconfig.json",
+          "*.config.js",
+          "*.config.ts"
+        ]
+      },
+      "Edit": {
+        "enabled": true,
+        "paths": ["**/*"],
+        "excluded_paths": [
+          "node_modules/**",
+          ".git/**",
+          "**/.env*",
+          "**/dist/**",
+          "**/build/**"
+        ]
+      },
+      "Bash": {
+        "enabled": true,
+        "allowed_commands": [
+          "ls",
+          "cat",
+          "git",
+          "npm",
+          "yarn",
+          "pnpm",
+          "node",
+          "python",
+          "pytest",
+          "cargo",
+          "go",
+          "make",
+          "docker",
+          "kubectl"
+        ],
+        "dangerous_commands_require_confirmation": [
+          "rm -rf",
+          "sudo",
+          "chmod",
+          "chown",
+          "kill",
+          "pkill"
+        ],
+        "timeout_ms": 120000
+      },
+      "Glob": {
+        "enabled": true,
+        "max_results": 1000
+      },
+      "Grep": {
+        "enabled": true,
+        "max_results": 500
+      },
+      "WebFetch": {
+        "enabled": true,
+        "allowed_domains": [
+          "github.com",
+          "docs.anthropic.com",
+          "stackoverflow.com",
+          "developer.mozilla.org"
+        ],
+        "rate_limit": {
+          "requests_per_minute": 10
+        }
+      },
+      "TodoWrite": {
+        "enabled": true
+      },
+      "Task": {
+        "enabled": true,
+        "max_concurrent": 3,
+        "timeout_minutes": 30
+      }
+    }
+  },
+  "quality_gates": {
+    "enabled": true,
+    "strict_mode": false,
+    "domains": [
+      "security",
+      "accessibility",
+      "performance",
+      "observability"
+    ],
+    "checklist": {
+      "auto_generate": true,
+      "min_completion_percentage": 80
+    },
+    "code_review": {
+      "required": true,
+      "auto_invoke_agent": true
+    }
+  },
+  "spec_kit": {
+    "constitution": {
+      "path": ".specify/memory/constitution.md",
+      "enforce": true
+    },
+    "templates": {
+      "spec": ".specify/templates/spec-template.md",
+      "plan": ".specify/templates/plan-template.md",
+      "tasks": ".specify/templates/tasks-template.md",
+      "checklist": ".specify/templates/checklist-template.md"
+    },
+    "branch_naming": {
+      "pattern": "^[0-9]{3}-[a-z0-9-]+$",
+      "auto_create": true,
+      "check_existing": true
+    },
+    "task_organization": {
+      "by_user_story": true,
+      "mark_parallel": true,
+      "include_file_paths": true
+    }
+  },
+  "testing": {
+    "required": true,
+    "min_coverage": 80,
+    "frameworks": {
+      "javascript": ["jest", "vitest", "mocha"],
+      "python": ["pytest", "unittest"],
+      "rust": ["cargo test"],
+      "go": ["go test"]
+    }
+  },
+  "documentation": {
+    "auto_update": true,
+    "required_files": [
+      "README.md",
+      "CLAUDE.md"
+    ],
+    "api_docs": {
+      "format": "openapi",
+      "auto_generate": false
+    }
+  },
+  "git": {
+    "auto_commit": false,
+    "commit_message_format": {
+      "type": "conventional",
+      "include_co_author": true,
+      "co_author": "Claude <noreply@anthropic.com>"
+    },
+    "hooks": {
+      "pre_commit": {
+        "enabled": false
+      },
+      "pre_push": {
+        "enabled": false
+      }
+    }
+  },
+  "logging": {
+    "level": "info",
+    "output": ".claude/hooks/logs/",
+    "events": [
+      "chat",
+      "pre_tool_use",
+      "post_tool_use",
+      "stop"
+    ]
+  },
+  "context": {
+    "storage_path": ".claude/context/",
+    "max_size_mb": 10,
+    "auto_cleanup_days": 30
+  },
+  "preferences": {
+    "code_style": "consistent_with_project",
+    "language_preference": "infer_from_project",
+    "verbosity": "balanced",
+    "ask_before_major_changes": true,
+    "parallel_execution": true
+  },
+  "integrations": {
+    "github": {
+      "enabled": false,
+      "auto_create_issues": false,
+      "auto_create_pr": false
+    },
+    "jira": {
+      "enabled": false
+    },
+    "slack": {
+      "enabled": false
+    }
+  },
+  "security": {
+    "scan_dependencies": true,
+    "check_secrets": true,
+    "required_reviews": 1,
+    "security_domains_required": ["security", "privacy"]
+  },
+  "performance": {
+    "max_file_size_mb": 5,
+    "max_context_items": 100,
+    "cache_enabled": true
+  },
+  "experimental": {
+    "features": {
+      "ai_pair_programming": false,
+      "auto_refactoring": false,
+      "predictive_testing": false
+    }
+  }
+}

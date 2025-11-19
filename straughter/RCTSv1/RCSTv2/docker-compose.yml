@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: rcst-postgres
+    environment:
+      POSTGRES_USER: rcst_user
+      POSTGRES_PASSWORD: rcst_password
+      POSTGRES_DB: rcst_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rcst_user -d rcst_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rcst-network
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:7-alpine
+    container_name: rcst-redis
+    command: redis-server --appendonly yes --requirepass rcst_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rcst-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: rcst-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://rcst_user:rcst_password@postgres:5432/rcst_db
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MAX_OVERFLOW: 20
+
+      # Redis
+      REDIS_URL: redis://:rcst_redis_password@redis:6379/0
+
+      # Security
+      SECRET_KEY: dev-secret-key-change-in-production
+      JWT_SECRET_KEY: dev-jwt-secret-key-change-in-production
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_MINUTES: 15
+      REFRESH_TOKEN_EXPIRATION_DAYS: 7
+
+      # OIDC (placeholder - configure with actual provider)
+      OIDC_DISCOVERY_URL: https://your-oidc-provider.com/.well-known/openid-configuration
+      OIDC_CLIENT_ID: your-client-id
+      OIDC_CLIENT_SECRET: your-client-secret
+
+      # CORS
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+
+      # LLM Providers (configure with actual API keys)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # Storage (local development - use S3 in production)
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_PATH: /app/storage
+
+      # Observability
+      LOG_LEVEL: DEBUG
+      ENABLE_TRACING: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+      # Application
+      API_VERSION: v1
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - rcst-network
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: rcst-celery-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://rcst_user:rcst_password@postgres:5432/rcst_db
+      REDIS_URL: redis://:rcst_redis_password@redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LOG_LEVEL: INFO
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+      - backend_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A src.tasks.celery_app worker --loglevel=info --concurrency=4
+    networks:
+      - rcst-network
+
+  # Celery Beat (scheduled tasks)
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: rcst-celery-beat
+    environment:
+      DATABASE_URL: postgresql+asyncpg://rcst_user:rcst_password@postgres:5432/rcst_db
+      REDIS_URL: redis://:rcst_redis_password@redis:6379/0
+      LOG_LEVEL: INFO
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A src.tasks.celery_app beat --loglevel=info
+    networks:
+      - rcst-network
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: rcst-frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api/v1
+      VITE_OIDC_AUTHORITY: https://your-oidc-provider.com
+      VITE_OIDC_CLIENT_ID: your-client-id
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+    networks:
+      - rcst-network
+
+  # Jaeger for distributed tracing (optional - for development)
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: rcst-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP receiver
+    networks:
+      - rcst-network
+
+  # Prometheus for metrics (optional - for development)
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: rcst-prometheus
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - rcst-network
+
+  # Grafana for observability dashboards (optional - for development)
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: rcst-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - rcst-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_storage:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  rcst-network:
+    driver: bridge
