@@ -1,0 +1,296 @@
+openapi: 3.1.0
+info:
+  title: UMES (Unified Management of Entitlements and Identity Subsystem) API
+  version: 1.0.0
+  description: |
+    Cloud-agnostic, multi-tenant identity and authorization system for Hextropian products.
+
+    ## Features
+    - Multi-tenant user authentication (Local, OIDC, SAML)
+    - Capability-based + role-based authorization
+    - API key management
+    - Comprehensive audit logging
+    - Cloud-agnostic KMS integration
+
+    ## Authentication
+    All endpoints require authentication via:
+    - **Bearer Token**: JWT access token in `Authorization: Bearer <token>` header
+    - **API Key**: API key in `X-API-Key` header
+
+    ## Tenant Context
+    Most endpoints require tenant context via `X-Tenant-Id` header.
+
+    ## Rate Limits
+    - Unauthenticated: 10 req/min per IP
+    - Authenticated: 1000 req/min per user
+    - Admin: 5000 req/min per user
+  contact:
+    name: Hextropian API Support
+    email: api-support@hextropian.com
+  license:
+    name: Proprietary
+    url: https://hextropian.com/license
+
+servers:
+  - url: https://umes.hextropian.com/api/v1
+    description: Production
+  - url: https://umes-staging.hextropian.com/api/v1
+    description: Staging
+  - url: http://localhost:8000/api/v1
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Authorization
+    description: Permission checks and entitlement evaluation
+  - name: Tokens
+    description: JWT token management and validation
+  - name: API Keys
+    description: API key lifecycle management
+  - name: Users
+    description: User management
+  - name: Tenants
+    description: Tenant management
+  - name: Roles
+    description: Role and entitlement management
+  - name: Audit
+    description: Audit log querying and export
+  - name: Health
+    description: System health and readiness checks
+
+paths:
+  # Authentication endpoints
+  /auth/login:
+    $ref: './auth.yaml#/paths/~1auth~1login'
+  /auth/logout:
+    $ref: './auth.yaml#/paths/~1auth~1logout'
+  /auth/refresh:
+    $ref: './auth.yaml#/paths/~1auth~1refresh'
+  /auth/mfa/enable:
+    $ref: './auth.yaml#/paths/~1auth~1mfa~1enable'
+  /auth/mfa/verify:
+    $ref: './auth.yaml#/paths/~1auth~1mfa~1verify'
+
+  # Authorization endpoints
+  /authz/check:
+    $ref: './authz.yaml#/paths/~1authz~1check'
+  /authz/batch:
+    $ref: './authz.yaml#/paths/~1authz~1batch'
+
+  # Token endpoints
+  /tokens/validate:
+    $ref: './tokens.yaml#/paths/~1tokens~1validate'
+  /tokens/introspect:
+    $ref: './tokens.yaml#/paths/~1tokens~1introspect'
+  /tokens/revoke:
+    $ref: './tokens.yaml#/paths/~1tokens~1revoke'
+
+  # API Key endpoints
+  /api-keys:
+    $ref: './api-keys.yaml#/paths/~1api-keys'
+  /api-keys/{key_id}:
+    $ref: './api-keys.yaml#/paths/~1api-keys~1{key_id}'
+  /api-keys/{key_id}/rotate:
+    $ref: './api-keys.yaml#/paths/~1api-keys~1{key_id}~1rotate'
+  /api-keys/{key_id}/revoke:
+    $ref: './api-keys.yaml#/paths/~1api-keys~1{key_id}~1revoke'
+
+  # User endpoints
+  /users:
+    $ref: './users.yaml#/paths/~1users'
+  /users/{user_id}:
+    $ref: './users.yaml#/paths/~1users~1{user_id}'
+  /users/{user_id}/memberships:
+    $ref: './users.yaml#/paths/~1users~1{user_id}~1memberships'
+  /users/{user_id}/entitlements:
+    $ref: './users.yaml#/paths/~1users~1{user_id}~1entitlements'
+
+  # Tenant endpoints
+  /tenants:
+    $ref: './tenants.yaml#/paths/~1tenants'
+  /tenants/{tenant_id}:
+    $ref: './tenants.yaml#/paths/~1tenants~1{tenant_id}'
+  /tenants/{tenant_id}/members:
+    $ref: './tenants.yaml#/paths/~1tenants~1{tenant_id}~1members'
+  /tenants/{tenant_id}/roles:
+    $ref: './tenants.yaml#/paths/~1tenants~1{tenant_id}~1roles'
+
+  # Role endpoints
+  /roles:
+    $ref: './roles.yaml#/paths/~1roles'
+  /roles/{role_id}:
+    $ref: './roles.yaml#/paths/~1roles~1{role_id}'
+  /roles/{role_id}/entitlements:
+    $ref: './roles.yaml#/paths/~1roles~1{role_id}~1entitlements'
+
+  # Audit endpoints
+  /audit/events:
+    $ref: './audit.yaml#/paths/~1audit~1events'
+  /audit/export:
+    $ref: './audit.yaml#/paths/~1audit~1export'
+  /audit/verify:
+    $ref: './audit.yaml#/paths/~1audit~1verify'
+
+  # Health endpoints
+  /health:
+    get:
+      summary: Health check (liveness)
+      tags: [Health]
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  version:
+                    type: string
+                    example: "1.0.0"
+  /ready:
+    get:
+      summary: Readiness check
+      description: Checks if service is ready to accept requests (database + Redis connectivity)
+      tags: [Health]
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+                  dependencies:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        enum: [connected, degraded]
+                      redis:
+                        type: string
+                        enum: [connected, degraded]
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from `/auth/login` or `/auth/refresh`
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for programmatic access (format: `umes_live_AbCd1234.SecretKey...`)
+
+  schemas:
+    # Common schemas
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, correlation_id]
+          properties:
+            code:
+              type: string
+              enum:
+                - AUTHENTICATION_FAILED
+                - AUTHORIZATION_DENIED
+                - TENANT_ISOLATION_VIOLATION
+                - INVALID_TOKEN
+                - RATE_LIMIT_EXCEEDED
+                - KMS_UNAVAILABLE
+                - IDP_UNAVAILABLE
+                - VALIDATION_ERROR
+                - RESOURCE_NOT_FOUND
+                - CONFLICT
+                - INTERNAL_ERROR
+              example: AUTHENTICATION_FAILED
+            message:
+              type: string
+              example: Invalid credentials
+            correlation_id:
+              type: string
+              format: uuid
+              example: 550e8400-e29b-41d4-a716-446655440000
+            details:
+              type: object
+              additionalProperties: true
+              description: Optional error-specific details
+
+    UUID:
+      type: string
+      format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
+
+    Timestamp:
+      type: string
+      format: date-time
+      example: "2025-12-02T10:15:30Z"
+
+    # Pagination
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        total_pages:
+          type: integer
+          example: 8
+
+  parameters:
+    TenantIdHeader:
+      name: X-Tenant-Id
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+      description: Tenant context for request
+
+    PageQuery:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number
+
+    PerPageQuery:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Items per page
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
