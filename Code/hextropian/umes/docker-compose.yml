@@ -1,0 +1,165 @@
+version: '3.9'
+
+services:
+  # PostgreSQL 15 - Primary database
+  postgres:
+    image: postgres:15-alpine
+    container_name: umes-postgres
+    environment:
+      POSTGRES_USER: umes
+      POSTGRES_PASSWORD: umes
+      POSTGRES_DB: umes
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - umes-network
+
+  # Redis 7 - Caching and token revocation
+  redis:
+    image: redis:7-alpine
+    container_name: umes-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass umes
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "umes", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - umes-network
+
+  # Keycloak 23 - OIDC/SAML IdP for testing
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: umes-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: umes
+      KC_DB_PASSWORD: umes
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+    ports:
+      - "8080:8080"
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - umes-network
+
+  # LocalStack - AWS services emulation (KMS, Secrets Manager)
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: umes-localstack
+    environment:
+      SERVICES: kms,secretsmanager
+      DEBUG: 0
+      DATA_DIR: /tmp/localstack/data
+      DOCKER_HOST: unix:///var/run/docker.sock
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    volumes:
+      - localstack_data:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - umes-network
+
+  # OpenBao - HashiCorp Vault alternative for KMS testing
+  openbao:
+    image: openbao/openbao:2.0.0
+    container_name: umes-openbao
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - umes-network
+
+  # UMES Backend (for integration testing)
+  umes-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: umes-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://umes:umes@postgres:5432/umes
+      REDIS_URL: redis://:umes@redis:6379/0
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      JWT_SECRET_KEY: dev-secret-key-32-characters-minimum
+      JWT_ALGORITHM: HS256
+      # KMS Configuration
+      KMS_PROVIDER: local
+      AWS_ENDPOINT_URL: http://localstack:4566
+      VAULT_ADDR: http://openbao:8200
+      VAULT_TOKEN: root
+      # IdP Configuration
+      OIDC_PROVIDER_URL: http://keycloak:8080/realms/umes
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      openbao:
+        condition: service_healthy
+    networks:
+      - umes-network
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    command: uvicorn umes.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  localstack_data:
+    driver: local
+
+networks:
+  umes-network:
+    driver: bridge

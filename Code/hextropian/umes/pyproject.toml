@@ -1,0 +1,242 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "umes"
+version = "0.1.0"
+description = "Unified Management of Entitlements and Identity Subsystem"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Hextropian Team", email = "team@hextropian.com"}
+]
+keywords = ["authentication", "authorization", "identity", "multi-tenant", "kms", "idp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+
+    # Database
+    "sqlalchemy>=2.0.0",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+
+    # Cache
+    "redis>=5.0.0",
+    "aiocache>=0.12.0",
+
+    # KMS Adapters
+    "aioboto3>=12.0.0",  # AWS KMS
+    "google-cloud-kms>=2.20.0",  # GCP KMS
+    "azure-keyvault-keys>=4.9.0",  # Azure Key Vault
+    "azure-identity>=1.15.0",  # Azure auth
+    "oci>=2.119.0",  # Oracle Cloud KMS
+    "async-hvac>=0.7.4",  # HashiCorp Vault / OpenBao
+    "cryptography>=41.0.0",  # Local KMS
+
+    # IdP Adapters
+    "authlib>=1.6.0",  # OIDC support
+    "python3-saml>=1.16.0",  # SAML support
+    "argon2-cffi>=25.1.0",  # Local password hashing
+
+    # Resilience
+    "purgatory>=3.0.0",  # Circuit breakers
+    "tenacity>=8.2.0",  # Retries
+
+    # Auth & Security
+    "python-jose[cryptography]>=3.3.0",  # JWT
+    "python-multipart>=0.0.6",  # Form parsing
+    "passlib[argon2]>=1.7.4",  # Password hashing
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "httpx>=0.25.0",  # HTTP client
+    "structlog>=23.2.0",  # Structured logging
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-env>=1.1.0",
+    "pytest-mock>=3.12.0",
+    "testcontainers>=3.7.0",
+    "faker>=20.1.0",
+
+    # Code quality
+    "black>=23.12.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "bandit>=1.7.5",  # Security linting
+
+    # Type stubs
+    "types-redis>=4.6.0",
+    "types-passlib>=1.7.7",
+    "sqlalchemy[mypy]>=2.0.0",
+
+    # Load testing
+    "locust>=2.18.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hextropian/umes"
+Documentation = "https://docs.hextropian.com/umes"
+Repository = "https://github.com/hextropian/umes"
+Issues = "https://github.com/hextropian/umes/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["umes*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+minversion = "7.4"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/umes",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=100",  # 100% coverage requirement
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "smoke: Smoke tests",
+    "contract: Contract tests",
+    "security: Security tests",
+    "performance: Performance tests",
+    "slow: Slow running tests",
+]
+env = [
+    "ENVIRONMENT=test",
+    "LOG_LEVEL=DEBUG",
+]
+
+[tool.coverage.run]
+source = ["src/umes"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "C",    # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "T20",  # flake8-print
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "S101",  # use of assert detected (pytest uses assert)
+]
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "dist",
+]
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["S101"]  # Allow assert in tests
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+plugins = ["sqlalchemy.ext.mypy.plugin", "pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "testcontainers.*",
+    "jose.*",
+    "passlib.*",
+    "purgatory.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "test"]
+tests = ["B201", "B301"]
+skips = ["B101", "B601"]
