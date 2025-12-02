@@ -4,6 +4,7 @@ Unit tests for database engine configuration.
 Tests the async SQLAlchemy engine setup with connection pooling.
 """
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from umes.database import create_async_engine, get_engine
@@ -36,7 +37,7 @@ class TestAsyncEngine:
         engine = create_async_engine(postgres_url)
 
         async with engine.begin() as conn:
-            result = await conn.execute("SELECT 1")
+            result = await conn.execute(text("SELECT 1"))
             row = result.fetchone()
             assert row[0] == 1
 
