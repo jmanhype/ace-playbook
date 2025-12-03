@@ -27,13 +27,14 @@ if os.name == "nt":
 @pytest.fixture(scope="session")
 def postgres_container() -> Generator[PostgresContainer, None, None]:
     """
-    Session-scoped PostgreSQL container.
+    Session-scoped PostgreSQL container with extensions.
 
-    Provides a clean PostgreSQL 15+ instance for all tests in the session.
+    Provides PostgreSQL 17 with pgvecto.rs, Apache AGE, and TimescaleDB.
+    Custom image from /PostgresWithExtensions.
     Container is started once and shared across all tests.
     """
     with PostgresContainer(
-        image="postgres:15-alpine",
+        image="postgres-extensions:17",
         username="umes",
         password="umes",
         dbname="umes_test",

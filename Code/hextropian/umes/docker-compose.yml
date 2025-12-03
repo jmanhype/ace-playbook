@@ -1,9 +1,13 @@
 version: '3.9'
 
 services:
-  # PostgreSQL 15 - Primary database
+  # PostgreSQL 17 with Extensions - Primary database
+  # Custom image from /PostgresWithExtensions with pgvecto.rs, Apache AGE, TimescaleDB
   postgres:
-    image: postgres:15-alpine
+    image: postgres-extensions:17
+    build:
+      context: ../PostgresWithExtensions
+      dockerfile: Dockerfile
     container_name: umes-postgres
     environment:
       POSTGRES_USER: umes
