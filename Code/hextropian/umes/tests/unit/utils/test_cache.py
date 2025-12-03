@@ -473,3 +473,44 @@ class TestCacheErrorHandling:
 
         # Should not error even with empty cache
         await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_clear_with_many_keys_completes_iteration(self, redis_url: str):
+        """Test that clear() completes full iteration over many Redis keys."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Add many keys to ensure multiple scan_iter iterations
+        for i in range(20):
+            await cache.set(f"bulk_key_{i}", f"value_{i}")
+
+        # Clear should iterate through all keys until completion
+        await cache.clear()
+
+        # Verify L1 is empty
+        assert len(cache._l1_cache) == 0
+
+        # Verify all keys removed from L2 (spot check)
+        assert await cache._get_l2("bulk_key_0") is None
+        assert await cache._get_l2("bulk_key_10") is None
+        assert await cache._get_l2("bulk_key_19") is None
+
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_clear_l1_only_mode_without_redis(self):
+        """Test that clear() works in L1-only mode (no Redis client)."""
+        cache = TieredCache(max_l1_size=100)  # No Redis URL
+
+        # Add some L1 entries
+        await cache.set("l1_key1", "value1")
+        await cache.set("l1_key2", "value2")
+        assert len(cache._l1_cache) == 2
+
+        # Clear should only clear L1 (no Redis to clear)
+        await cache.clear()
+
+        # Verify L1 is empty
+        assert len(cache._l1_cache) == 0
+        # Verify no Redis client
+        assert cache._redis_client is None
