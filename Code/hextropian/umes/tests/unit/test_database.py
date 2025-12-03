@@ -3,11 +3,13 @@ Unit tests for database engine configuration.
 
 Tests the async SQLAlchemy engine setup with connection pooling.
 """
+import os
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from umes.database import create_async_engine, get_engine
+from umes.database import create_async_engine, get_engine, dispose_engine
+import umes.database
 
 
 class TestAsyncEngine:
@@ -61,3 +63,47 @@ class TestAsyncEngine:
         assert "asyncpg" in str(engine.url)
 
         await engine.dispose()
+
+    def test_get_engine_raises_when_no_database_url(self, monkeypatch):
+        """Test that get_engine raises ValueError when DATABASE_URL not set."""
+        # Reset singleton to force re-initialization
+        umes.database._engine = None
+
+        # Remove DATABASE_URL from environment
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+
+        # Should raise ValueError
+        with pytest.raises(ValueError, match="DATABASE_URL environment variable must be set"):
+            get_engine()
+
+    @pytest.mark.asyncio
+    async def test_dispose_engine_closes_connections(self, postgres_url: str, monkeypatch):
+        """Test that dispose_engine disposes of engine and resets singleton."""
+        # Reset singleton
+        umes.database._engine = None
+
+        # Set DATABASE_URL in environment
+        monkeypatch.setenv("DATABASE_URL", postgres_url)
+
+        # Get engine (creates singleton)
+        engine = get_engine()
+        assert engine is not None
+        assert umes.database._engine is engine
+
+        # Dispose of engine
+        await dispose_engine()
+
+        # Verify engine was disposed and singleton reset
+        assert umes.database._engine is None
+
+    @pytest.mark.asyncio
+    async def test_dispose_engine_when_no_engine_exists(self):
+        """Test that dispose_engine handles case when no engine exists."""
+        # Reset singleton
+        umes.database._engine = None
+
+        # Should not raise exception
+        await dispose_engine()
+
+        # Singleton should still be None
+        assert umes.database._engine is None

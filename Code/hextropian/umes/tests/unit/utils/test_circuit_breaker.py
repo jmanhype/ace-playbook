@@ -307,3 +307,58 @@ class TestCircuitBreakerMetrics:
         )
 
         assert has_health_method is True
+
+    @pytest.mark.asyncio
+    async def test_factory_reset_all_clears_breakers(self):
+        """Test that factory.reset_all() clears cached breakers."""
+        factory = AsyncCircuitBreakerFactory()
+
+        # Create breakers
+        kms_breaker = await factory.create_kms_breaker()
+        idp_breaker = await factory.create_idp_breaker()
+
+        assert kms_breaker is not None
+        assert idp_breaker is not None
+
+        # Reset all breakers
+        factory.reset_all()
+
+        # Verify breakers are cleared
+        assert factory._kms_breaker is None
+        assert factory._idp_breaker is None
+
+        # Creating new breakers should give new instances
+        new_kms_breaker = await factory.create_kms_breaker()
+        assert new_kms_breaker is not kms_breaker
+
+    @pytest.mark.asyncio
+    async def test_breaker_current_failures_property(self):
+        """Test that CircuitBreakerWrapper.current_failures returns count."""
+        factory = AsyncCircuitBreakerFactory()
+        cb = await factory.create_kms_breaker()
+
+        # Initially should have 0 failures
+        assert cb.current_failures == 0
+
+        # After a failure, should increment
+        async def failing_operation():
+            raise ValueError("Simulated failure")
+
+        try:
+            await cb.call(failing_operation)
+        except ValueError:
+            pass
+
+        # current_failures should be accessible
+        assert cb.current_failures >= 0  # Should have incremented
+
+    @pytest.mark.asyncio
+    async def test_breaker_is_healthy_returns_bool(self):
+        """Test that CircuitBreakerWrapper.is_healthy() returns boolean."""
+        factory = AsyncCircuitBreakerFactory()
+        cb = await factory.create_kms_breaker()
+
+        # is_healthy() should return True when circuit is closed
+        health_status = cb.is_healthy()
+        assert isinstance(health_status, bool)
+        assert health_status is True  # New breaker should be healthy

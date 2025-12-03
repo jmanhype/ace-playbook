@@ -15,6 +15,7 @@ from umes.models.base import (
     TimestampMixin,
     SoftDeleteMixin,
     TenantMixin,
+    receive_before_update,
 )
 
 
@@ -23,6 +24,16 @@ class TestModel(Base, TimestampMixin, SoftDeleteMixin, TenantMixin):
     """Test model with all mixins for integration testing."""
 
     __tablename__ = "test_models"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+
+
+# Test model WITHOUT TimestampMixin (to test event listener branch)
+class TestModelNoTimestamp(Base, TenantMixin):
+    """Test model without TimestampMixin for event listener branch testing."""
+
+    __tablename__ = "test_models_no_timestamp"
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
@@ -289,5 +300,44 @@ class TestModelIntegration:
 
             assert test_obj.is_deleted is True
             assert test_obj.deleted_at is not None
+
+        await engine.dispose()
+
+
+class TestEventListener:
+    """Test SQLAlchemy event listener for updated_at."""
+
+    @pytest.mark.asyncio
+    async def test_event_listener_skips_models_without_updated_at(self, postgres_url: str):
+        """Test that event listener handles models without TimestampMixin gracefully."""
+        engine = create_async_engine(postgres_url)
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async_session = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+        # Create object without TimestampMixin
+        async with async_session() as session:
+            test_obj = TestModelNoTimestamp(name="No Timestamp", tenant_id="tenant-1")
+            session.add(test_obj)
+            await session.commit()
+            obj_id = test_obj.id
+
+        # Update object - event listener should skip it (no updated_at attribute)
+        async with async_session() as session:
+            result = await session.execute(
+                select(TestModelNoTimestamp).where(TestModelNoTimestamp.id == obj_id)
+            )
+            test_obj = result.scalar_one()
+            test_obj.name = "Updated Without Timestamp"
+            await session.commit()
+
+            # Should succeed without error
+            assert test_obj.name == "Updated Without Timestamp"
+            # Verify no updated_at attribute exists
+            assert not hasattr(test_obj, "updated_at")
 
         await engine.dispose()

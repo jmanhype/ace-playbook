@@ -286,3 +286,49 @@ class TestProviderEnums:
         assert KMSProvider.ORACLE.value == "oracle"
         assert IDPType.KEYCLOAK.value == "keycloak"
         assert IDPType.AUTH0.value == "auth0"
+
+
+class TestValidatorBranches:
+    """Test validator branch coverage for non-string inputs."""
+
+    def test_kms_provider_validator_handles_enum_input(self):
+        """Test that KMS provider validator handles enum input."""
+        # Pass enum directly (not string) - should skip lowercase conversion
+        settings = Settings(kms_provider=KMSProvider.ORACLE)
+        assert settings.kms_provider == KMSProvider.ORACLE
+
+    def test_idp_type_validator_handles_enum_input(self):
+        """Test that IdP type validator handles enum input."""
+        # Pass enum directly (not string) - should skip lowercase conversion
+        settings = Settings(idp_type=IDPType.KEYCLOAK)
+        assert settings.idp_type == IDPType.KEYCLOAK
+
+    def test_kms_provider_validator_lowercase_conversion(self, monkeypatch):
+        """Test that KMS provider validator converts strings to lowercase."""
+        monkeypatch.setenv("KMS_PROVIDER", "GCP")  # Uppercase
+        settings = Settings()
+        assert settings.kms_provider == KMSProvider.GCP  # Should work
+
+    def test_idp_type_validator_lowercase_conversion(self, monkeypatch):
+        """Test that IdP type validator converts strings to lowercase."""
+        monkeypatch.setenv("IDP_TYPE", "KEYCLOAK")  # Uppercase
+        settings = Settings()
+        assert settings.idp_type == IDPType.KEYCLOAK  # Should work
+
+    def test_kms_validator_with_integer_input(self):
+        """Test that KMS validator handles non-string input (returns as-is)."""
+        # Call validator directly with a non-string value
+        from umes.config import Settings
+
+        # The validator should handle non-string types by returning them as-is
+        result = Settings.validate_kms_provider(123)  # Non-string input
+        assert result == 123  # Should return unchanged
+
+    def test_idp_validator_with_integer_input(self):
+        """Test that IdP validator handles non-string input (returns as-is)."""
+        # Call validator directly with a non-string value
+        from umes.config import Settings
+
+        # The validator should handle non-string types by returning them as-is
+        result = Settings.validate_idp_type(456)  # Non-string input
+        assert result == 456  # Should return unchanged

@@ -366,3 +366,110 @@ class TestCacheComplexTypes:
         # Should distinguish between cached None and cache miss
         # (Implementation detail: may need sentinel value)
         assert result is None or result == {"__cached_none__": True}
+
+
+class TestCacheErrorHandling:
+    """Test cache error handling and graceful degradation."""
+
+    @pytest.mark.asyncio
+    async def test_get_l2_handles_redis_errors_gracefully(self, redis_url: str):
+        """Test that _get_l2() returns None on Redis errors."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Close Redis connection to simulate error
+        await cache._redis_client.close()
+
+        # Should return None instead of raising exception
+        result = await cache._get_l2("key1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_set_l2_handles_redis_errors_gracefully(self, redis_url: str):
+        """Test that _set_l2() fails silently on Redis errors."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Close Redis connection to simulate error
+        await cache._redis_client.close()
+
+        # Should not raise exception (degrades to L1-only)
+        await cache._set_l2("key1", "value1", None)
+        # No assertion needed - test passes if no exception raised
+
+    @pytest.mark.asyncio
+    async def test_set_l2_without_redis_client(self):
+        """Test that _set_l2() returns early when no Redis client."""
+        cache = TieredCache(max_l1_size=100)  # No Redis URL
+
+        # Should return early without error
+        await cache._set_l2("key1", "value1", None)
+        # No assertion needed - test passes if no exception raised
+
+    @pytest.mark.asyncio
+    async def test_clear_with_redis_scan_iter(self, redis_url: str):
+        """Test that clear() uses scan_iter to remove Redis keys."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Set multiple values with same prefix
+        await cache.set("test:key1", "value1")
+        await cache.set("test:key2", "value2")
+        await cache.set("test:key3", "value3")
+
+        # Clear should iterate through all keys and delete them
+        await cache.clear()
+
+        # Verify all keys removed from L2
+        assert await cache._get_l2("test:key1") is None
+        assert await cache._get_l2("test:key2") is None
+        assert await cache._get_l2("test:key3") is None
+
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_get_l2_handles_json_decode_errors(self, redis_url: str):
+        """Test that _get_l2() handles JSON decode errors gracefully."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Manually set invalid JSON in Redis
+        redis_key = cache._make_redis_key("invalid_json_key")
+        await cache._redis_client.set(redis_key, "this is not valid JSON {{{")
+
+        # Should return None instead of raising exception
+        result = await cache._get_l2("invalid_json_key")
+        assert result is None
+
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_set_l2_handles_json_encode_errors(self, redis_url: str):
+        """Test that _set_l2() handles JSON encode errors gracefully."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Try to cache a non-serializable object
+        class NonSerializable:
+            pass
+
+        # Should not raise exception (degrades to L1-only)
+        await cache._set_l2("key1", NonSerializable(), None)
+        # No assertion needed - test passes if no exception raised
+
+        await cache.close()
+
+    @pytest.mark.asyncio
+    async def test_clear_when_cache_empty(self, redis_url: str):
+        """Test that clear() handles empty cache gracefully (no keys to iterate)."""
+        cache = TieredCache(max_l1_size=100, redis_url=redis_url)
+        await cache.connect()
+
+        # Clear without adding any keys - should iterate zero times
+        await cache.clear()
+
+        # Verify L1 is empty
+        assert len(cache._l1_cache) == 0
+
+        # Should not error even with empty cache
+        await cache.close()
