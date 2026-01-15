@@ -47,7 +47,11 @@ class Config:
 
     # Video monitoring
     video_stale_minutes: int = 60
+    video_stuck_minutes: int = 15  # Stale + pending = stuck production
     video_dir: Path = field(default_factory=lambda: Path("/home/straughter/ComfyUI/output/video"))
+
+    # Director for unsticking
+    director_id: str = "agent-22069f59-7a79-4890-bf4f-1f2a69696267"
 
     # State persistence
     state_file: Path = field(default_factory=lambda: Path("/tmp/letta_maintenance_state.json"))
@@ -675,11 +679,75 @@ class MaintenanceRunner:
                         data={"message": f"VIDEO STALE - No new video in {age_minutes:.1f} min"}
                     ))
 
+                # NEW: Detect stuck production (stale videos but queue should be active)
+                if age_minutes > self.config.video_stuck_minutes and queue["running"] == 0 and queue["pending"] == 0:
+                    self._check_and_unstick_production(age_minutes)
+
             self.state["last_video_count"] = video_count
             self.state["last_video_time"] = latest_time.isoformat() if latest_time else None
 
         except Exception as e:
             print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [ERROR] Video health check failed: {e}")
+
+    def _check_and_unstick_production(self, stale_minutes: float) -> None:
+        """
+        Detect and fix stuck production pipeline.
+
+        If videos are stale but Director has pending work, the pipeline is stuck
+        (likely on a failed video). Send skip command to continue production.
+        """
+        try:
+            # Check Director's production_queue for pending videos
+            resp = requests.get(
+                f"{self.config.letta_url}/v1/agents/{self.config.director_id}",
+                timeout=30
+            )
+            if resp.status_code != 200:
+                return
+
+            data = resp.json()
+            blocks = {b['label']: b for b in data.get('memory', {}).get('blocks', [])}
+            queue_block = blocks.get('production_queue', {}).get('value', '')
+
+            # Parse queue status
+            has_pending = 'PENDING_VIDEOS:' in queue_block and 'remaining' in queue_block.lower()
+            has_in_progress = 'IN_PROGRESS:' in queue_block
+            has_failure = 'FAILURE' in queue_block or 'FAILED' in queue_block
+
+            if has_pending and has_failure:
+                print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [WARN] STUCK PRODUCTION DETECTED")
+                print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [WARN]   Videos stale for {stale_minutes:.1f} min")
+                print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [WARN]   Director has pending videos but pipeline stuck")
+                print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO] Sending skip command to Director...")
+
+                # Send skip command
+                skip_resp = requests.post(
+                    f"{self.config.letta_url}/v1/agents/{self.config.director_id}/messages",
+                    headers={"Content-Type": "application/json"},
+                    json={"messages": [{
+                        "role": "user",
+                        "content": "The current video has failed permanently. Skip it, clear IN_PROGRESS, and continue with the next video in PENDING_VIDEOS. Resume autonomous production immediately."
+                    }]},
+                    timeout=120
+                )
+
+                success = skip_resp.status_code == 200
+                self.event_bus.emit(HealingEvent(
+                    source="ProductionUnstick",
+                    data={
+                        "action": "SKIP_FAILED_VIDEO",
+                        "success": success,
+                        "message": f"Skip command {'sent' if success else 'failed'}"
+                    }
+                ))
+
+                if success:
+                    self.state.setdefault("unstick_count", 0)
+                    self.state["unstick_count"] += 1
+                    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [SUCCESS] Production unstuck")
+
+        except Exception as e:
+            print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [ERROR] Failed to unstick production: {e}")
 
     def _update_state_on_success(self, name: str, action: HealingAction) -> None:
         """Update state after successful healing."""
@@ -725,6 +793,7 @@ class MaintenanceRunner:
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO] SUMMARY")
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO]   Resets: {self.state.get('reset_count', {})}")
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO]   Failures: {self.state.get('summarization_failures', {})}")
+        print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO]   Unsticks: {self.state.get('unstick_count', 0)}")
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO]   Videos: {self.state.get('last_video_count', 'unknown')}")
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] [INFO] {'=' * 50}")
 
