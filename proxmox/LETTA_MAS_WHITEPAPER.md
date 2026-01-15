@@ -349,27 +349,147 @@ All 8 use cases demonstrated with live data:
 
 ---
 
-## 7. Future Work
+## 7. Dynamic Quality Alignment Framework
 
-### 7.1 Adaptive Sleeptime Frequency
+### 7.1 Motivation
+
+The current quality grading system relies on heuristic evaluation—a subjective bottleneck for autonomous production. To achieve fully autonomous operation, the system requires objective prompt adherence measurement combined with learned user preference prediction.
+
+### 7.2 DQA Architecture
+
+The Dynamic Quality Alignment (DQA) framework introduces two new specialized agents:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    VERIFIER AGENT                           │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐ │
+│  │ Unified-VQA │    │  ProxyCLIP  │    │   VBench-2.0    │ │
+│  │  (semantic) │    │  (spatial)  │    │   (benchmark)   │ │
+│  └──────┬──────┘    └──────┬──────┘    └────────┬────────┘ │
+│         │                  │                     │          │
+│         └────────┬─────────┴─────────────────────┘          │
+│                  ▼                                          │
+│         Prompt Adherence Score (objective)                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     TUNER AGENT                             │
+│  ┌─────────────────┐         ┌─────────────────────────┐   │
+│  │       DPO       │         │     VisionReward        │   │
+│  │ (preference     │         │  (multi-axis quality:   │   │
+│  │  optimization)  │         │   aesthetic, motion,    │   │
+│  │                 │         │   coherence, fidelity)  │   │
+│  └────────┬────────┘         └────────────┬────────────┘   │
+│           │                               │                 │
+│           └───────────┬───────────────────┘                 │
+│                       ▼                                     │
+│          User Preference Score (subjective)                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Verifier Agent** (`agent-dqa-verifier`): Uses Vision-Language Models to generate objective prompt adherence scores by comparing generated video against the original prompt.
+
+**Tuner Agent** (`agent-dqa-tuner-sleeptime`): Background sleeptime agent that fine-tunes a lightweight quality prediction model using preference-labeled data from the `ab_testing` block.
+
+### 7.3 SOTA Component Stack (January 2026)
+
+| Component | Purpose | Source |
+|-----------|---------|--------|
+| **Unified-VQA** | Semantic understanding (SOTA on 18 benchmarks) | Dec 2025 |
+| **ProxyCLIP** | Spatial grounding + segmentation | ECCV 2024, arXiv:2408.04883 |
+| **VBench-2.0** | Objective prompt adherence scoring | arXiv:2503.21755 |
+| **DPO** | Simpler preference learning (replaces RLHF) | Dominant 2025 |
+| **VisionReward** | Multi-axis quality decomposition | AAAI 2026, arXiv:2412.21059 |
+
+### 7.4 Quality Synthesis
+
+The final quality assessment becomes a weighted synthesis:
+
+```
+Final Grade = w₁(Unified-VQA semantic score)
+            + w₂(ProxyCLIP spatial score)
+            + w₃(VBench-2.0 benchmark score)
+            + w₄(DPO-learned preference)
+            + w₅(VisionReward multi-axis)
+```
+
+Initial weights: `w₁=0.25, w₂=0.15, w₃=0.20, w₄=0.25, w₅=0.15`
+
+### 7.5 Hardware Constraints (RTX 3090, 24GB VRAM)
+
+Implementation requires sequential worker pattern rather than parallel execution:
+
+| Component | Strategy | VRAM |
+|-----------|----------|------|
+| Unified-VQA 7B | 4-bit AWQ quantization | ~5-6GB |
+| ProxyCLIP | Shared backbone | +1GB |
+| VBench-2.0 | Sequential evaluation, release after | ~2-4GB |
+| DPO Tuner | QLoRA + Unsloth (training only) | ~14-18GB |
+| VisionReward | Chain-of-Thought on shared backbone | 0GB extra |
+
+**Critical Optimizations**:
+- Flash Attention 2 for all components
+- CPU offload between phases
+- Unsloth for 40-70% training VRAM reduction
+- Single backbone shared across VisionReward scoring
+
+### 7.6 Execution Timeline
+
+```
+Phase 1: VERIFICATION ─────── Load Unified-VQA + ProxyCLIP (7GB)
+                              Run semantic + spatial scoring
+                              Unload to CPU RAM
+
+Phase 2: BENCHMARK ─────────── Load VBench-2.0 metrics (4GB)
+                              Calculate prompt adherence
+                              Release memory
+
+Phase 3: PREFERENCE ─────────── Load Tuner model inference (6GB)
+                              Predict user preference score
+                              Unload to CPU RAM
+
+Phase 4: SYNTHESIS ─────────── Combine scores (CPU only)
+                              Generate A-F grade
+                              Trigger refinement if needed
+
+Phase 5: TRAINING ─────────── Load QLoRA + DPO (18GB)
+         (Sleeptime)          Fine-tune on new preferences
+                              Save adapter weights
+```
+
+### 7.7 Integration with Existing Architecture
+
+The DQA framework integrates with existing memory blocks:
+
+- **Input**: `ab_testing.USER_SELECTIONS` provides preference-labeled training data
+- **Input**: `user_style` block provides feature engineering inputs
+- **Output**: Updates `quality_standards.FAILURE_PATTERNS` with model-identified issues
+- **Output**: Final grade feeds existing refinement loop in Cameraman agent
+
+---
+
+## 8. Future Work
+
+### 8.1 Adaptive Sleeptime Frequency
 
 Current implementation uses fixed trigger frequency (every 5 interactions). Adaptive frequency based on conversation complexity could optimize resource utilization.
 
-### 7.2 Multi-User Preference Isolation
+### 8.2 Multi-User Preference Isolation
 
 Current architecture assumes single user. Multi-tenant deployments require preference isolation and potentially hierarchical style inheritance.
 
-### 7.3 Quality Model Fine-Tuning
+### 8.3 Quality Model Fine-Tuning
 
 Current quality grading relies on heuristics. Fine-tuned evaluation models could provide more consistent and nuanced quality assessment.
 
-### 7.4 Distributed Agent Execution
+### 8.4 Distributed Agent Execution
 
 Current topology runs all agents on single Letta server. Distributed execution could enable horizontal scaling for production workloads.
 
 ---
 
-## 8. Conclusion
+## 9. Conclusion
 
 This implementation demonstrates that stateful multi-agent systems can effectively address the limitations of traditional LLM deployments for creative production workflows. The combination of shared memory blocks, archival storage, and background consolidation agents enables capabilities previously requiring human oversight: preference learning, cross-session continuity, and quality-driven iteration.
 
