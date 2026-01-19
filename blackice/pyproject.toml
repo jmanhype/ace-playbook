@@ -1,0 +1,160 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blackice"
+version = "3.0.0"
+description = "Agentic software factory that converts vision to working software"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "BLACKICE Team" }
+]
+keywords = ["agentic", "ai", "software-factory", "automation", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    # Core
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+
+    # Logging & Tracing
+    "structlog>=23.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "opentelemetry-instrumentation-httpx>=0.41b0",
+
+    # CLI
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+
+    # API
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+
+    # Async
+    "anyio>=4.0.0",
+    "aiofiles>=23.0.0",
+
+    # Cryptography
+    "cryptography>=41.0.0",
+    "pynacl>=1.5.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+    "orjson>=3.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "hypothesis>=6.82.0",
+    "testcontainers>=3.7.0",
+    "respx>=0.20.0",
+
+    # Linting & Formatting
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "mypy>=1.5.0",
+
+    # Type stubs
+    "types-pyyaml>=6.0.0",
+    "types-aiofiles>=23.0.0",
+]
+
+docker = [
+    "docker>=6.1.0",
+]
+
+letta = [
+    "letta-client>=0.1.0",
+]
+
+[project.scripts]
+blackice = "blackice.cli.main:run"
+
+[project.urls]
+Homepage = "https://github.com/your-org/blackice"
+Documentation = "https://blackice.dev/docs"
+Repository = "https://github.com/your-org/blackice"
+
+[tool.hatch.build.targets.wheel]
+packages = ["blackice"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.isort]
+known-first-party = ["blackice"]
+
+[tool.black]
+target-version = ["py311"]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--cov=blackice",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "contract: Contract tests",
+    "slow: Slow running tests",
+]
+
+[tool.coverage.run]
+source = ["blackice"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

@@ -1,0 +1,658 @@
+openapi: 3.1.0
+info:
+  title: BLACKICE 3.0 API
+  description: |
+    Agentic software factory API for converting vision to working software.
+    Supports three editions: Lite, Core, Enterprise.
+  version: 1.0.0
+  contact:
+    name: BLACKICE Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+  - url: https://api.blackice.dev/v1
+    description: Production
+
+tags:
+  - name: runs
+    description: Run management (vision to software)
+  - name: tasks
+    description: Task operations within runs
+  - name: events
+    description: Event log access (Core/Enterprise)
+  - name: memory
+    description: Memory and learning (Core/Enterprise)
+  - name: health
+    description: Health and status endpoints
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags: [health]
+      summary: Readiness check
+      operationId: readyCheck
+      responses:
+        '200':
+          description: Service is ready to accept requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runs:
+    post:
+      tags: [runs]
+      summary: Start a new run
+      operationId: createRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRunRequest'
+      responses:
+        '201':
+          description: Run created and started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [runs]
+      summary: List runs
+      operationId: listRuns
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RunStatus'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunList'
+
+  /runs/{runId}:
+    get:
+      tags: [runs]
+      summary: Get run details
+      operationId: getRun
+      parameters:
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          description: Run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runs/{runId}/resume:
+    post:
+      tags: [runs]
+      summary: Resume a paused or crashed run (Core/Enterprise)
+      operationId: resumeRun
+      parameters:
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          description: Run resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '400':
+          description: Run cannot be resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Run not found
+
+  /runs/{runId}/pause:
+    post:
+      tags: [runs]
+      summary: Pause a running run
+      operationId: pauseRun
+      parameters:
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          description: Run paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '400':
+          description: Run cannot be paused
+        '404':
+          description: Run not found
+
+  /runs/{runId}/tasks:
+    get:
+      tags: [tasks]
+      summary: List tasks in a run
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/runId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskList'
+        '404':
+          description: Run not found
+
+  /runs/{runId}/tasks/{taskId}:
+    get:
+      tags: [tasks]
+      summary: Get task details
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/runId'
+        - $ref: '#/components/parameters/taskId'
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+
+  /runs/{runId}/events:
+    get:
+      tags: [events]
+      summary: Get event log (Core/Enterprise)
+      operationId: getEvents
+      parameters:
+        - $ref: '#/components/parameters/runId'
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Event log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventList'
+        '404':
+          description: Run not found
+
+  /runs/{runId}/receipt:
+    get:
+      tags: [runs]
+      summary: Get run receipt (Enterprise)
+      operationId: getReceipt
+      parameters:
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          description: Run receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '400':
+          description: Run not completed or not Enterprise edition
+        '404':
+          description: Run not found
+
+  /memory/search:
+    post:
+      tags: [memory]
+      summary: Search memory (Core/Enterprise)
+      operationId: searchMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemorySearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemorySearchResponse'
+
+  /memory/entries:
+    post:
+      tags: [memory]
+      summary: Store memory entry (Core/Enterprise)
+      operationId: storeMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryEntry'
+      responses:
+        '201':
+          description: Entry stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryEntry'
+
+  /taskspecs:
+    get:
+      tags: [runs]
+      summary: List TaskSpecs (Enterprise)
+      operationId: listTaskSpecs
+      responses:
+        '200':
+          description: List of TaskSpecs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSpecList'
+    post:
+      tags: [runs]
+      summary: Create TaskSpec (Enterprise)
+      operationId: createTaskSpec
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskSpec'
+      responses:
+        '201':
+          description: TaskSpec created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSpec'
+
+components:
+  parameters:
+    runId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    taskId:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        version:
+          type: string
+
+    ReadyResponse:
+      type: object
+      required: [ready, checks]
+      properties:
+        ready:
+          type: boolean
+        checks:
+          type: object
+          additionalProperties:
+            type: boolean
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    CreateRunRequest:
+      type: object
+      required: [vision]
+      properties:
+        vision:
+          type: string
+          maxLength: 10000
+          description: Natural language description of desired software
+        edition:
+          $ref: '#/components/schemas/Edition'
+        config:
+          type: object
+          description: Run configuration
+        taskspec_id:
+          type: string
+          format: uuid
+          description: TaskSpec to validate against (Enterprise)
+
+    RunStatus:
+      type: string
+      enum: [pending, planning, executing, verifying, completed, failed, paused]
+
+    TaskStatus:
+      type: string
+      enum: [pending, in_progress, completed, failed, skipped]
+
+    Edition:
+      type: string
+      enum: [lite, core, enterprise]
+      default: lite
+
+    Run:
+      type: object
+      required: [id, vision, status, edition, created_at, workspace_path]
+      properties:
+        id:
+          type: string
+          format: uuid
+        vision:
+          type: string
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        edition:
+          $ref: '#/components/schemas/Edition'
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        workspace_path:
+          type: string
+        config:
+          type: object
+        task_count:
+          type: integer
+        completed_task_count:
+          type: integer
+
+    RunList:
+      type: object
+      required: [runs, total]
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Run'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    Task:
+      type: object
+      required: [id, run_id, name, status, attempt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        attempt:
+          type: integer
+          minimum: 1
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        plan_file:
+          type: string
+        state_file:
+          type: string
+        notes_file:
+          type: string
+
+    TaskList:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    Event:
+      type: object
+      required: [id, run_id, type, timestamp, sequence]
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        payload:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+        hash:
+          type: string
+
+    EventList:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+
+    Receipt:
+      type: object
+      required: [id, run_id, spec_hash, artifact_hashes, verification, provenance, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        spec_hash:
+          type: string
+        artifact_hashes:
+          type: object
+          additionalProperties:
+            type: string
+        verification:
+          type: object
+          properties:
+            tests_passed:
+              type: boolean
+            coverage_percent:
+              type: number
+            security_scan:
+              type: object
+            policy_checks:
+              type: array
+              items:
+                type: object
+        provenance:
+          type: object
+          properties:
+            models_used:
+              type: array
+              items:
+                type: string
+            tool_versions:
+              type: object
+        signature:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    MemoryEntry:
+      type: object
+      required: [namespace, key, value]
+      properties:
+        id:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+        key:
+          type: string
+        value:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        ttl:
+          type: integer
+          nullable: true
+
+    MemorySearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        namespace:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          default: 10
+
+    MemorySearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryEntry'
+
+    TaskSpec:
+      type: object
+      required: [name, version, strictness, input_schema, output_schema]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: string
+        strictness:
+          type: string
+          enum: [learning, permissive, strict]
+        input_schema:
+          type: object
+        output_schema:
+          type: object
+        validation_rules:
+          type: array
+          items:
+            type: object
+
+    TaskSpecList:
+      type: object
+      required: [taskspecs]
+      properties:
+        taskspecs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskSpec'
