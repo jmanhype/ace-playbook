@@ -18,6 +18,8 @@ from rich.table import Table
 
 from blackice import __version__
 from blackice.core.config import BlackiceConfig
+from blackice.core.providers import verify_ai_factory_connection
+from blackice.infrastructure import get_ai_factory_config, AIFactoryConfig
 from blackice.instrumentation import get_logger
 
 logger = get_logger(__name__)
@@ -221,39 +223,80 @@ async def _check_model_providers(verbose: bool) -> list[dict]:
     """Check model provider connectivity."""
     results = []
 
-    # Check for API keys
-    providers = {
+    # Check for cloud API keys
+    cloud_providers = {
         "ANTHROPIC_API_KEY": "Claude",
         "OPENAI_API_KEY": "OpenAI",
     }
 
-    found_providers = []
-    for env_var, name in providers.items():
+    found_cloud = []
+    for env_var, name in cloud_providers.items():
         if os.environ.get(env_var):
-            found_providers.append(name)
+            found_cloud.append(name)
 
-    # Check Ollama
-    try:
-        import httpx
-        async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/tags", timeout=2.0)
-            if response.status_code == 200:
-                found_providers.append("Ollama")
-    except Exception:
-        pass
-
-    if found_providers:
+    if found_cloud:
         results.append({
-            "name": "Model Providers",
+            "name": "Cloud Providers",
             "status": "pass",
-            "message": f"Available: {', '.join(found_providers)}",
+            "message": f"API keys found: {', '.join(found_cloud)}",
         })
-    else:
+
+    # Check AI Factory (Ollama + Letta)
+    try:
+        config = get_ai_factory_config()
+        connection_status = await verify_ai_factory_connection(config, check_memory=True)
+
+        # Ollama check
+        ollama_info = connection_status.get("ollama", {})
+        if ollama_info.get("healthy"):
+            models = ollama_info.get("models", [])
+            model_list = ", ".join(models[:3])
+            if len(models) > 3:
+                model_list += f" (+{len(models) - 3} more)"
+            results.append({
+                "name": f"Ollama ({config.ollama.host}:{config.ollama.port})",
+                "status": "pass",
+                "message": f"Models: {model_list}" if models else "Connected",
+            })
+        else:
+            results.append({
+                "name": f"Ollama ({config.ollama.host}:{config.ollama.port})",
+                "status": "fail",
+                "message": ollama_info.get("error", "Connection failed"),
+                "fix": f"Ensure Ollama is running at {config.ollama.base_url}",
+            })
+
+        # Letta check
+        letta_info = connection_status.get("letta", {})
+        if letta_info.get("healthy"):
+            agent_count = letta_info.get("agent_count", 0)
+            results.append({
+                "name": f"Letta MAS ({config.letta.host}:{config.letta.port})",
+                "status": "pass",
+                "message": f"Agents: {agent_count}",
+            })
+        else:
+            results.append({
+                "name": f"Letta MAS ({config.letta.host}:{config.letta.port})",
+                "status": "warn",
+                "message": letta_info.get("error", "Connection failed"),
+            })
+
+    except Exception as e:
+        results.append({
+            "name": "AI Factory",
+            "status": "fail",
+            "message": str(e),
+            "fix": "Check AI Factory configuration and connectivity",
+        })
+
+    # If no providers found at all
+    if not results:
         results.append({
             "name": "Model Providers",
             "status": "fail",
             "message": "No model providers configured",
-            "fix": "Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or start Ollama",
+            "fix": "Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or configure AI Factory",
         })
 
     return results

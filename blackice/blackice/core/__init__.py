@@ -36,6 +36,14 @@ from blackice.core.retry import (
     retry_async,
     retry_sync,
 )
+from blackice.core.providers import (
+    ProviderSet,
+    create_execution_provider,
+    create_memory_provider,
+    create_model_provider,
+    create_provider_set,
+    verify_ai_factory_connection,
+)
 
 __all__ = [
     # Config
@@ -67,4 +75,11 @@ __all__ = [
     "CancellationTokenSource",
     "with_cancellation",
     "CancellableOperation",
+    # Providers
+    "ProviderSet",
+    "create_model_provider",
+    "create_memory_provider",
+    "create_execution_provider",
+    "create_provider_set",
+    "verify_ai_factory_connection",
 ]

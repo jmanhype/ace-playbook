@@ -10,10 +10,12 @@ from blackice.adapters.memory.base import (
     RetentionPolicy,
     SearchResult,
 )
+from blackice.adapters.memory.letta import LettaMemoryProvider
 
 __all__ = [
     "MemoryProvider",
     "BaseMemoryProvider",
+    "LettaMemoryProvider",
     "MemoryType",
     "MemoryEntry",
     "RetentionPolicy",
