@@ -20,6 +20,15 @@ from blackice.primitives.types import (
 )
 
 
+class EvidenceReference(BaseModel):
+    """Reference to evidence attached to a receipt."""
+
+    evidence_id: str = Field(..., description="Evidence item ID")
+    evidence_type: str = Field(..., description="Type of evidence (test_report, security_scan, etc.)")
+    status: str = Field(..., description="Evidence status (passed, failed, partial)")
+    content_hash: str = Field(..., description="SHA-256 hash of evidence content")
+
+
 class ArtifactHash(BaseModel):
     """Hash of a generated artifact for verification."""
 
@@ -115,6 +124,10 @@ class Receipt(BaseModel):
     artifact_count: int = Field(ge=0)
     total_size_bytes: int = Field(ge=0)
 
+    # Evidence references (Enterprise)
+    evidence_refs: list[EvidenceReference] = Field(default_factory=list)
+    evidence_all_passed: bool = Field(default=True, description="Whether all evidence passed")
+
     # Process information
     provenance: ProvenanceInfo
     verification: VerificationInfo
@@ -151,6 +164,11 @@ class Receipt(BaseModel):
                 {"path": a.path, "hash": a.hash.value, "size": a.size_bytes}
                 for a in self.artifact_hashes
             ],
+            "evidence_refs": [
+                {"id": e.evidence_id, "type": e.evidence_type, "status": e.status, "hash": e.content_hash}
+                for e in self.evidence_refs
+            ],
+            "evidence_all_passed": self.evidence_all_passed,
             "verification": {
                 "event_log_hash": self.verification.event_log_hash,
                 "event_count": self.verification.event_count,
@@ -203,6 +221,8 @@ class Receipt(BaseModel):
             "signed": self.signature is not None,
             "taskspec_used": self.verification.taskspec_id is not None,
             "deviations": self.verification.deviation_count,
+            "evidence_count": len(self.evidence_refs),
+            "evidence_all_passed": self.evidence_all_passed,
         }
 
 
@@ -213,6 +233,7 @@ class ReceiptBuilder:
         self.run_id = run_id
         self.vision_hash = Hash(value=hashlib.sha256(vision.encode()).hexdigest())
         self.artifact_hashes: list[ArtifactHash] = []
+        self.evidence_refs: list[EvidenceReference] = []
         self.provenance: ProvenanceInfo | None = None
         self.verification: VerificationInfo | None = None
         self.pii_policy = PIIPolicy.REDACT
@@ -225,6 +246,24 @@ class ReceiptBuilder:
                 path=path,
                 hash=Hash(value=hash_value),
                 size_bytes=len(content),
+            )
+        )
+        return self
+
+    def add_evidence(
+        self,
+        evidence_id: str,
+        evidence_type: str,
+        status: str,
+        content_hash: str,
+    ) -> ReceiptBuilder:
+        """Add an evidence reference."""
+        self.evidence_refs.append(
+            EvidenceReference(
+                evidence_id=evidence_id,
+                evidence_type=evidence_type,
+                status=status,
+                content_hash=content_hash,
             )
         )
         return self
@@ -251,6 +290,11 @@ class ReceiptBuilder:
         if self.verification is None:
             raise ValueError("Verification must be set")
 
+        # Check if all evidence passed
+        evidence_all_passed = all(
+            ref.status == "passed" for ref in self.evidence_refs
+        ) if self.evidence_refs else True
+
         return Receipt(
             id=receipt_id,
             run_id=self.run_id,
@@ -258,6 +302,8 @@ class ReceiptBuilder:
             artifact_hashes=self.artifact_hashes,
             artifact_count=len(self.artifact_hashes),
             total_size_bytes=sum(a.size_bytes for a in self.artifact_hashes),
+            evidence_refs=self.evidence_refs,
+            evidence_all_passed=evidence_all_passed,
             provenance=self.provenance,
             verification=self.verification,
             pii_policy=self.pii_policy,

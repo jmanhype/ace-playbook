@@ -17,7 +17,7 @@ import typer
 from rich.console import Console
 
 from blackice import __version__
-from blackice.cli.commands import build, doctor, status
+from blackice.cli.commands import build, doctor, receipt, status
 from blackice.instrumentation import get_logger
 
 logger = get_logger(__name__)
@@ -35,6 +35,9 @@ app = typer.Typer(
 app.command(name="build")(build.build)
 app.command(name="status")(status.status)
 app.command(name="doctor")(doctor.doctor)
+
+# Register sub-apps
+app.add_typer(receipt.app, name="receipt")
 
 
 @app.command()

@@ -180,7 +180,11 @@ class TaskSpec(BaseModel):
     def check_deviation(self, action: str) -> tuple[bool, str]:
         """Check if an action deviates from the spec.
 
-        Returns (is_allowed, message).
+        Returns (is_allowed, message) based on strictness level:
+        - LEARNING: Always allow, warn about forbidden patterns
+        - PERMISSIVE: Allow, warn about forbidden patterns
+        - STRICT: Block forbidden patterns, but override is possible
+        - LOCKED: Block forbidden patterns completely, no override
         """
         # Check forbidden patterns
         for pattern in self.forbidden_patterns:
@@ -190,6 +194,8 @@ class TaskSpec(BaseModel):
                     return False, message
                 elif self.strictness == StrictnessLevel.STRICT:
                     return False, f"{message} (override possible)"
+                elif self.strictness == StrictnessLevel.LEARNING:
+                    return True, f"Warning: {message} (learning mode - all actions allowed)"
                 else:  # PERMISSIVE
                     return True, f"Warning: {message}"
 

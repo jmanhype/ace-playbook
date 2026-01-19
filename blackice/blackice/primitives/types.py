@@ -112,18 +112,36 @@ class EventType(str, Enum):
 
 
 class StrictnessLevel(str, Enum):
-    """TaskSpec strictness levels for Enterprise edition."""
+    """TaskSpec strictness levels for Enterprise edition.
 
+    Levels (from most to least permissive):
+    - LEARNING: Most permissive, allows all deviations with warnings (for training)
+    - PERMISSIVE: Warns on deviations but allows them
+    - STRICT: Blocks deviations but allows override with acknowledgment
+    - LOCKED: Blocks all deviations with no override possible
+    """
+
+    LEARNING = "learning"
     PERMISSIVE = "permissive"
     STRICT = "strict"
     LOCKED = "locked"
 
 
 class PIIPolicy(str, Enum):
-    """PII handling policies for memory storage."""
+    """PII handling policies for receipts and memory storage.
 
-    ALLOW = "allow"
+    Policies:
+    - RETAIN: Keep original data as-is (for private/internal use)
+    - HASH_ONLY: Store only cryptographic hashes (for verification without exposure)
+    - REDACT: Remove or mask sensitive data (for shareable receipts)
+    - ALLOW: Legacy alias for RETAIN
+    - REJECT: Reject storage of data containing PII
+    """
+
+    RETAIN = "retain"
+    HASH_ONLY = "hash_only"
     REDACT = "redact"
+    ALLOW = "allow"  # Legacy alias for RETAIN
     REJECT = "reject"
 
 
@@ -137,8 +155,11 @@ class Timestamp(BaseModel):
 
     @field_validator("value", mode="before")
     @classmethod
-    def ensure_utc(cls, v: datetime) -> datetime:
+    def ensure_utc(cls, v: datetime | str) -> datetime:
         """Ensure timestamp is UTC."""
+        # Handle string input from JSON deserialization
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
         if v.tzinfo is None:
             return v.replace(tzinfo=timezone.utc)
         return v.astimezone(timezone.utc)

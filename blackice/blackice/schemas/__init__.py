@@ -19,6 +19,7 @@ from blackice.schemas.event import (
 )
 from blackice.schemas.receipt import (
     ArtifactHash,
+    EvidenceReference,
     ProvenanceInfo,
     Receipt,
     ReceiptBuilder,
@@ -41,6 +42,19 @@ from blackice.schemas.taskspec import (
     TaskSpecRegistry,
     TaskSpecVersion,
     ValidationRule,
+)
+from blackice.schemas.evidence import (
+    CommandOutput,
+    Evidence,
+    EvidenceCollection,
+    EvidenceStatus,
+    EvidenceType,
+    LintIssue,
+    LintReport,
+    SecurityFinding,
+    SecurityScan,
+    TestReport,
+    TestResult,
 )
 
 __all__ = [
@@ -74,7 +88,20 @@ __all__ = [
     "Receipt",
     "ReceiptBuilder",
     "ArtifactHash",
+    "EvidenceReference",
     "ProvenanceInfo",
     "VerificationInfo",
     "Signature",
+    # Evidence (Enterprise)
+    "Evidence",
+    "EvidenceCollection",
+    "EvidenceType",
+    "EvidenceStatus",
+    "TestReport",
+    "TestResult",
+    "SecurityScan",
+    "SecurityFinding",
+    "LintReport",
+    "LintIssue",
+    "CommandOutput",
 ]

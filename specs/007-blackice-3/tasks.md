@@ -231,28 +231,28 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Integration Tests for User Story 3
 
-- [ ] T070 [P] [US3] Integration test IT-005: TaskSpec validation in tests/integration/test_taskspec_validation.py
-- [ ] T071 [P] [US3] Integration test IT-006: Receipt generation in tests/integration/test_receipt_generation.py
+- [x] T070 [P] [US3] Integration test IT-005: TaskSpec validation in tests/integration/test_taskspec_validation.py
+- [x] T071 [P] [US3] Integration test IT-006: Receipt generation in tests/integration/test_receipt_generation.py
 
 ### TaskSpec Validation
 
-- [ ] T072 [US3] Implement TaskSpecValidator in blackice/schemas/taskspec.py with strictness tiers (learning, permissive, strict)
-- [ ] T073 [US3] Implement policy violation messaging in blackice/schemas/taskspec.py
+- [x] T072 [US3] Implement TaskSpecValidator in blackice/schemas/taskspec.py with strictness tiers (learning, permissive, strict)
+- [x] T073 [US3] Implement policy violation messaging in blackice/schemas/taskspec.py
 
 ### Receipt Generation
 
-- [ ] T074 [US3] Implement ReceiptGenerator in blackice/schemas/receipt.py deriving from event log
-- [ ] T074a [US3] Implement EvidenceModel (test reports, scan outputs, exit codes, stdout/stderr digests) in blackice/schemas/evidence.py (FR-012)
-- [ ] T074b [US3] Implement evidence artifact persistence and event emission in blackice/persistence/artifact_store.py (FR-012)
-- [ ] T074c [US3] Add contract test validating evidence presence in receipts for IT-006 in tests/contract/test_receipt_evidence.py (FR-012)
-- [ ] T075 [US3] Implement spec hash generation (SHA-256) in blackice/schemas/receipt.py
-- [ ] T076 [US3] Implement artifact hash generation in blackice/schemas/receipt.py
-- [ ] T077 [US3] Implement redaction policy (hash-only, scrubbed fields) in blackice/schemas/receipt.py
-- [ ] T078 [P] [US3] Implement optional Ed25519 signing for non-repudiation in blackice/schemas/receipt.py
+- [x] T074 [US3] Implement ReceiptGenerator in blackice/schemas/receipt.py deriving from event log
+- [x] T074a [US3] Implement EvidenceModel (test reports, scan outputs, exit codes, stdout/stderr digests) in blackice/schemas/evidence.py (FR-012)
+- [x] T074b [US3] Implement evidence artifact persistence and event emission in blackice/persistence/artifact_store.py (FR-012)
+- [x] T074c [US3] Add contract test validating evidence presence in receipts for IT-006 in tests/contract/test_receipt_evidence.py (FR-012)
+- [x] T075 [US3] Implement spec hash generation (SHA-256) in blackice/schemas/receipt.py
+- [x] T076 [US3] Implement artifact hash generation in blackice/schemas/receipt.py
+- [x] T077 [US3] Implement redaction policy (hash-only, scrubbed fields) in blackice/schemas/receipt.py
+- [x] T078 [P] [US3] Implement optional Ed25519 signing for non-repudiation in blackice/schemas/receipt.py
 
 ### CLI Extension
 
-- [ ] T079 [US3] Implement `receipt` command in blackice/cli/commands/receipt.py (get run receipt)
+- [x] T079 [US3] Implement `receipt` command in blackice/cli/commands/receipt.py (get run receipt)
 
 **Checkpoint**: User Story 3 complete - Enterprise governance with cryptographic receipts
 

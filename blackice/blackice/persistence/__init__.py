@@ -13,6 +13,11 @@ from blackice.persistence.artifact_store import (
     ArtifactStoreConfig,
     ArtifactType,
 )
+from blackice.persistence.evidence_store import (
+    AsyncEvidenceStore,
+    EvidenceStore,
+    EvidenceStoreConfig,
+)
 from blackice.persistence.event_schema import (
     EventMigrator,
     Migration,
@@ -60,4 +65,8 @@ __all__ = [
     "ArtifactStoreConfig",
     "ArtifactMetadata",
     "ArtifactType",
+    # Evidence Store (Enterprise)
+    "EvidenceStore",
+    "EvidenceStoreConfig",
+    "AsyncEvidenceStore",
 ]
