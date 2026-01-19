@@ -27,13 +27,13 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create project structure per plan.md 11-layer architecture in blackice/
-- [ ] T002 Initialize Python 3.11+ project with pyproject.toml and dependencies (Pydantic, httpx, structlog, OpenTelemetry, FastAPI, Typer, pytest)
-- [ ] T003 [P] Configure linting (ruff) and formatting (black) in pyproject.toml
-- [ ] T004 [P] Configure pytest with pytest-asyncio and hypothesis in pyproject.toml
-- [ ] T005 [P] Create blackice/primitives/types.py with base types (RunId, TaskId, EventId, AgentRole enum)
-- [ ] T006 [P] Create blackice/primitives/errors.py with exception hierarchy (BlackiceError, ConfigError, ExecutionError, ProviderError)
-- [ ] T007 [P] Create blackice/primitives/patterns.py with common patterns (Result, Either, retry decorator)
+- [x] T001 Create project structure per plan.md 11-layer architecture in blackice/
+- [x] T002 Initialize Python 3.11+ project with pyproject.toml and dependencies (Pydantic, httpx, structlog, OpenTelemetry, FastAPI, Typer, pytest)
+- [x] T003 [P] Configure linting (ruff) and formatting (black) in pyproject.toml
+- [x] T004 [P] Configure pytest with pytest-asyncio and hypothesis in pyproject.toml
+- [x] T005 [P] Create blackice/primitives/types.py with base types (RunId, TaskId, EventId, AgentRole enum)
+- [x] T006 [P] Create blackice/primitives/errors.py with exception hierarchy (BlackiceError, ConfigError, ExecutionError, ProviderError)
+- [x] T007 [P] Create blackice/primitives/patterns.py with common patterns (Result, Either, retry decorator)
 
 ---
 
@@ -45,22 +45,22 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Schemas (shared across all stories)
 
-- [ ] T008 [P] Create blackice/schemas/run.py with Run Pydantic model (id, vision, status, edition, created_at, completed_at, workspace_path, config)
-- [ ] T009 [P] Create blackice/schemas/task.py with Task Pydantic model (id, run_id, name, status, attempt, dependencies, plan_file, state_file, notes_file, idempotency_key)
-- [ ] T010 [P] Create blackice/schemas/event.py with Event Pydantic model (id, run_id, type, payload, timestamp, correlation_id, sequence, hash)
-- [ ] T011 [P] Create blackice/schemas/agent.py with Agent Pydantic model (id, model_provider, capabilities, system_prompt) and AgentExecution model
-- [ ] T012 [P] Create blackice/schemas/taskspec.py with TaskSpec Pydantic model (id, name, version, strictness, input_schema, output_schema, validation_rules) - Enterprise
-- [ ] T013 [P] Create blackice/schemas/receipt.py with Receipt Pydantic model (id, run_id, spec_hash, artifact_hashes, verification, provenance, signature) - Enterprise
+- [x] T008 [P] Create blackice/schemas/run.py with Run Pydantic model (id, vision, status, edition, created_at, completed_at, workspace_path, config)
+- [x] T009 [P] Create blackice/schemas/task.py with Task Pydantic model (id, run_id, name, status, attempt, dependencies, plan_file, state_file, notes_file, idempotency_key)
+- [x] T010 [P] Create blackice/schemas/event.py with Event Pydantic model (id, run_id, type, payload, timestamp, correlation_id, sequence, hash)
+- [x] T011 [P] Create blackice/schemas/agent.py with Agent Pydantic model (id, model_provider, capabilities, system_prompt) and AgentExecution model
+- [x] T012 [P] Create blackice/schemas/taskspec.py with TaskSpec Pydantic model (id, name, version, strictness, input_schema, output_schema, validation_rules) - Enterprise
+- [x] T013 [P] Create blackice/schemas/receipt.py with Receipt Pydantic model (id, run_id, spec_hash, artifact_hashes, verification, provenance, signature) - Enterprise
 
 ### Provider Base Interfaces
 
-- [ ] T014 [P] Create blackice/adapters/models/base.py with ModelProvider protocol (generate, chat, embed, health)
-- [ ] T015 [P] Create blackice/adapters/execution/base.py with ExecutionProvider protocol (execute, health, attach)
-- [ ] T015a [P] Implement ProviderSelector with capability negotiation for execution environments in blackice/adapters/execution/selector.py (FR-018)
-- [ ] T015b [P] Add provider interface contract tests in tests/contract/test_execution_providers.py (FR-018)
-- [ ] T016 [P] Create blackice/adapters/memory/base.py with MemoryProvider protocol (put, search, load_context, retention_policy)
-- [ ] T017 [P] Create blackice/adapters/connectivity/base.py with ConnectivityProvider protocol (attach, rescue, port_forward)
-- [ ] T018 [P] Create blackice/adapters/secrets/base.py with SecretsProvider protocol (get, inject_env, redact)
+- [x] T014 [P] Create blackice/adapters/models/base.py with ModelProvider protocol (generate, chat, embed, health)
+- [x] T015 [P] Create blackice/adapters/execution/base.py with ExecutionProvider protocol (execute, health, attach)
+- [x] T015a [P] Implement ProviderSelector with capability negotiation for execution environments in blackice/adapters/execution/selector.py (FR-018)
+- [x] T015b [P] Add provider interface contract tests in tests/contract/test_execution_providers.py (FR-018)
+- [x] T016 [P] Create blackice/adapters/memory/base.py with MemoryProvider protocol (put, search, load_context, retention_policy)
+- [x] T017 [P] Create blackice/adapters/connectivity/base.py with ConnectivityProvider protocol (attach, rescue, port_forward)
+- [x] T018 [P] Create blackice/adapters/secrets/base.py with SecretsProvider protocol (get, inject_env, redact)
 
 ### Connectivity Provider Adapters (FR-020)
 
@@ -69,19 +69,19 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Core Loop Infrastructure
 
-- [ ] T019 Create blackice/core/retry.py with exponential backoff retry logic
-- [ ] T020 [P] Create blackice/core/budget.py with token/cost budget management
-- [ ] T021 [P] Create blackice/core/cancellation.py with cancellation token support
+- [x] T019 Create blackice/core/retry.py with exponential backoff retry logic
+- [x] T020 [P] Create blackice/core/budget.py with token/cost budget management
+- [x] T021 [P] Create blackice/core/cancellation.py with cancellation token support
 
 ### Instrumentation Layer (L5)
 
-- [ ] T022 [P] Create blackice/instrumentation/logger.py with structlog JSON configuration and correlation IDs
-- [ ] T023 [P] Create blackice/instrumentation/tracing.py with OpenTelemetry setup and span creation
-- [ ] T024 [P] Create blackice/instrumentation/metrics.py with Prometheus metrics (run_count, task_duration, model_calls)
+- [x] T022 [P] Create blackice/instrumentation/logger.py with structlog JSON configuration and correlation IDs
+- [x] T023 [P] Create blackice/instrumentation/tracing.py with OpenTelemetry setup and span creation
+- [x] T024 [P] Create blackice/instrumentation/metrics.py with Prometheus metrics (run_count, task_duration, model_calls)
 
 ### Workspace Builder
 
-- [ ] T025 Create blackice/workspace/builder.py with run workspace creation (repo/, tests/, docs/, decisions/, logs/)
+- [x] T025 Create blackice/workspace/builder.py with run workspace creation (repo/, tests/, docs/, decisions/, logs/)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -99,49 +99,49 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T026 [P] [US1] Integration test IT-001: End-to-end vision-to-software in tests/integration/test_end_to_end.py
-- [ ] T027 [P] [US1] Unit test for Ralph loop (try-fail-reflect-learn-retry) in tests/unit/test_ralph_loop.py
-- [ ] T028 [P] [US1] Unit test for safety pipeline in tests/unit/test_safety_pipeline.py
+- [x] T026 [P] [US1] Integration test IT-001: End-to-end vision-to-software in tests/integration/test_end_to_end.py
+- [x] T027 [P] [US1] Unit test for Ralph loop (try-fail-reflect-learn-retry) in tests/unit/test_ralph_loop.py
+- [x] T028 [P] [US1] Unit test for safety pipeline in tests/unit/test_safety_pipeline.py
 - [ ] T028a [P] [US1] Integration test IT-007: Secret handling in tests/integration/test_secrets.py
 
 ### Model Provider Adapters (L2)
 
-- [ ] T029 [P] [US1] Implement ClaudeProvider in blackice/adapters/models/claude.py with httpx async client
-- [ ] T030 [P] [US1] Implement OpenAIProvider in blackice/adapters/models/openai.py with httpx async client
-- [ ] T031 [P] [US1] Implement OllamaProvider in blackice/adapters/models/ollama.py for local inference
+- [x] T029 [P] [US1] Implement ClaudeProvider in blackice/adapters/models/claude.py with httpx async client
+- [x] T030 [P] [US1] Implement OpenAIProvider in blackice/adapters/models/openai.py with httpx async client
+- [x] T031 [P] [US1] Implement OllamaProvider in blackice/adapters/models/ollama.py for local inference
 
 ### Execution Provider Adapters (L2)
 
-- [ ] T032 [P] [US1] Implement LocalExecutionProvider in blackice/adapters/execution/local.py with subprocess execution
-- [ ] T033 [P] [US1] Implement ContainerExecutionProvider in blackice/adapters/execution/container.py with Docker support
-- [ ] T033a [P] [US1] Implement SandboxExecutionProvider in blackice/adapters/execution/sandbox.py for ephemeral isolated execution (FR-018)
-- [ ] T034 [US1] Implement safety pipeline (shell unwrap, semantic parse, allowlist, policy check) in blackice/adapters/execution/safety.py
+- [x] T032 [P] [US1] Implement LocalExecutionProvider in blackice/adapters/execution/local.py with subprocess execution
+- [x] T033 [P] [US1] Implement ContainerExecutionProvider in blackice/adapters/execution/container.py with Docker support
+- [x] T033a [P] [US1] Implement SandboxExecutionProvider in blackice/adapters/execution/sandbox.py for ephemeral isolated execution (FR-018)
+- [x] T034 [US1] Implement safety pipeline (shell unwrap, semantic parse, allowlist, policy check) in blackice/adapters/execution/safety.py
 
 ### Secrets Provider Adapters (L2)
 
-- [ ] T035 [P] [US1] Implement EnvSecretsProvider in blackice/adapters/secrets/env.py with environment variable lookup
-- [ ] T036 [US1] Implement secret redaction in blackice/adapters/secrets/redaction.py (never in prompts/logs)
+- [x] T035 [P] [US1] Implement EnvSecretsProvider in blackice/adapters/secrets/env.py with environment variable lookup
+- [x] T036 [US1] Implement secret redaction in blackice/adapters/secrets/redaction.py (never in prompts/logs)
 
 ### Reflexion Layer (L8)
 
-- [ ] T037 [US1] Implement RalphLoop in blackice/reflexion/ralph_loop.py (try-fail-reflect-learn-retry pattern)
-- [ ] T038 [US1] Implement Evaluator in blackice/reflexion/evaluator.py for test verification and repair
+- [x] T037 [US1] Implement RalphLoop in blackice/reflexion/ralph_loop.py (try-fail-reflect-learn-retry pattern)
+- [x] T038 [US1] Implement Evaluator in blackice/reflexion/evaluator.py for test verification and repair
 
 ### Flywheel Layer (L9)
 
-- [ ] T039 [US1] Implement UnifiedFlywheel in blackice/flywheel/unified.py for end-to-end pipeline execution
+- [x] T039 [US1] Implement UnifiedFlywheel in blackice/flywheel/unified.py for end-to-end pipeline execution
 
 ### Orchestrator Layer (L10)
 
-- [ ] T040 [US1] Implement RunStateMachine in blackice/orchestrator/state_machine.py (pending→planning→executing→verifying→completed/failed)
-- [ ] T041 [US1] Implement phase handlers in blackice/orchestrator/phases.py (plan, implement, test, verify)
+- [x] T040 [US1] Implement RunStateMachine in blackice/orchestrator/state_machine.py (pending→planning→executing→verifying→completed/failed)
+- [x] T041 [US1] Implement phase handlers in blackice/orchestrator/phases.py (plan, implement, test, verify)
 
 ### CLI Layer (L11)
 
-- [ ] T042 [US1] Implement CLI entry point in blackice/cli/main.py with Typer
-- [ ] T043 [US1] Implement `build` command in blackice/cli/commands/build.py (accepts vision, triggers pipeline)
-- [ ] T044 [P] [US1] Implement `status` command in blackice/cli/commands/status.py (list runs, show details)
-- [ ] T045 [P] [US1] Implement `doctor` command in blackice/cli/commands/doctor.py (health checks)
+- [x] T042 [US1] Implement CLI entry point in blackice/cli/main.py with Typer
+- [x] T043 [US1] Implement `build` command in blackice/cli/commands/build.py (accepts vision, triggers pipeline)
+- [x] T044 [P] [US1] Implement `status` command in blackice/cli/commands/status.py (list runs, show details)
+- [x] T045 [P] [US1] Implement `doctor` command in blackice/cli/commands/doctor.py (health checks)
 
 **Checkpoint**: User Story 1 complete - single command produces working software with tests
 
