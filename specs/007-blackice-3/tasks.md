@@ -157,30 +157,30 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Integration Tests for User Story 2
 
-- [ ] T046 [P] [US2] Integration test IT-002: Crash recovery in tests/integration/test_crash_recovery.py
-- [ ] T047 [P] [US2] Unit test for event store in tests/unit/test_event_store.py
+- [x] T046 [P] [US2] Integration test IT-002: Crash recovery in tests/integration/test_crash_recovery.py
+- [x] T047 [P] [US2] Unit test for event store in tests/unit/test_event_store.py
 
 ### Persistence Layer (L6)
 
-- [ ] T048 [US2] Implement EventStore in blackice/persistence/event_store.py with Beads JSONL format
-- [ ] T049 [US2] Implement hash chain for tamper detection in blackice/persistence/event_store.py
-- [ ] T049a [US2] Implement event schema versioning and migration strategy in blackice/persistence/event_schema.py (FR-009)
-- [ ] T049b [US2] Implement RunProjection and TaskProjection for deterministic state reconstruction from events (FR-009)
-- [ ] T049c [US2] Implement `replay` command in blackice/cli/commands/replay.py to prove deterministic reconstruction (FR-009)
-- [ ] T050 [P] [US2] Implement ArtifactStore in blackice/persistence/artifact_store.py for workspace artifacts
+- [x] T048 [US2] Implement EventStore in blackice/persistence/event_store.py with Beads JSONL format
+- [x] T049 [US2] Implement hash chain for tamper detection in blackice/persistence/event_store.py
+- [x] T049a [US2] Implement event schema versioning and migration strategy in blackice/persistence/event_schema.py (FR-009)
+- [x] T049b [US2] Implement RunProjection and TaskProjection for deterministic state reconstruction from events (FR-009)
+- [x] T049c [US2] Implement `replay` command in blackice/cli/commands/replay.py to prove deterministic reconstruction (FR-009)
+- [x] T050 [P] [US2] Implement ArtifactStore in blackice/persistence/artifact_store.py for workspace artifacts
 
 ### Recovery Layer (L7)
 
-- [ ] T051 [US2] Implement Checkpoint in blackice/recovery/checkpoint.py for snapshot creation
-- [ ] T052 [US2] Implement Resume in blackice/recovery/resume.py (skip completed, retry in-flight with new attempt IDs)
-- [ ] T053 [US2] Implement idempotency key handling in blackice/recovery/idempotency.py for external effects
-- [ ] T053a [US2] Wire idempotency keys into ExecutionProvider (generation, persistence, check, enforcement per effect type) (FR-008)
-- [ ] T054 [P] [US2] Implement dead letter handling in blackice/recovery/dead_letter.py
+- [x] T051 [US2] Implement Checkpoint in blackice/recovery/checkpoint.py for snapshot creation
+- [x] T052 [US2] Implement Resume in blackice/recovery/resume.py (skip completed, retry in-flight with new attempt IDs)
+- [x] T053 [US2] Implement idempotency key handling in blackice/recovery/idempotency.py for external effects
+- [x] T053a [US2] Wire idempotency keys into ExecutionProvider (generation, persistence, check, enforcement per effect type) (FR-008)
+- [x] T054 [P] [US2] Implement dead letter handling in blackice/recovery/dead_letter.py
 
 ### CLI Extension
 
-- [ ] T055 [US2] Implement `resume` command in blackice/cli/commands/resume.py (resumes crashed run)
-- [ ] T056 [US2] Implement `watch` command in blackice/cli/commands/watch.py (stream run progress)
+- [x] T055 [US2] Implement `resume` command in blackice/cli/commands/resume.py (resumes crashed run)
+- [x] T056 [US2] Implement `watch` command in blackice/cli/commands/watch.py (stream run progress)
 
 **Checkpoint**: User Story 2 complete - crashed runs resume without data loss
 
@@ -196,26 +196,26 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Integration Tests for User Story 4
 
-- [ ] T057 [P] [US4] Integration test IT-003: Multi-agent consensus in tests/integration/test_multi_agent.py
-- [ ] T058 [P] [US4] Integration test IT-008: Reservation conflicts in tests/integration/test_reservations.py
-- [ ] T059 [P] [US4] Unit test for consensus voting in tests/unit/test_consensus.py
+- [x] T057 [P] [US4] Integration test IT-003: Multi-agent consensus in tests/integration/test_multi_agent.py
+- [x] T058 [P] [US4] Integration test IT-008: Reservation conflicts in tests/integration/test_reservations.py
+- [x] T059 [P] [US4] Unit test for consensus voting in tests/unit/test_consensus.py
 
 ### Colony Layer (L4) - Agent Implementations
 
-- [ ] T060 [P] [US4] Implement PlannerAgent in blackice/colony/agents/planner.py (decompose, prioritize, estimate)
-- [ ] T061 [P] [US4] Implement ImplementerAgent in blackice/colony/agents/implementer.py (code, document, refactor)
-- [ ] T062 [P] [US4] Implement ReviewerAgent in blackice/colony/agents/reviewer.py (analyze, critique, suggest)
-- [ ] T063 [P] [US4] Implement TesterAgent in blackice/colony/agents/tester.py (test, verify, validate)
-- [ ] T064 [P] [US4] Implement SecurityAgent in blackice/colony/agents/security.py (audit, scan, harden)
+- [x] T060 [P] [US4] Implement PlannerAgent in blackice/colony/agents/planner.py (decompose, prioritize, estimate)
+- [x] T061 [P] [US4] Implement ImplementerAgent in blackice/colony/agents/implementer.py (code, document, refactor)
+- [x] T062 [P] [US4] Implement ReviewerAgent in blackice/colony/agents/reviewer.py (analyze, critique, suggest)
+- [x] T063 [P] [US4] Implement TesterAgent in blackice/colony/agents/tester.py (test, verify, validate)
+- [x] T064 [P] [US4] Implement SecurityAgent in blackice/colony/agents/security.py (audit, scan, harden)
 
 ### Colony Layer (L4) - Coordination
 
-- [ ] T065 [US4] Implement Supervisor in blackice/colony/supervisor.py (agent lifecycle management)
-- [ ] T066 [US4] Implement Consensus in blackice/colony/consensus.py (voting policies: majority, supermajority, unanimous, quorum, weighted)
-- [ ] T067 [US4] Implement Messaging in blackice/colony/messaging.py (threaded internal messaging, durable handoffs)
-- [ ] T067a [US4] Implement message durability (messages as events, replayable threads, correlation IDs) in blackice/colony/messaging.py (FR-017)
-- [ ] T068 [US4] Implement Registry in blackice/colony/registry.py (agent registration and discovery)
-- [ ] T069 [US4] Implement Reservation system in blackice/colony/reservation.py (file/directory leases with TTL)
+- [x] T065 [US4] Implement Supervisor in blackice/colony/supervisor.py (agent lifecycle management)
+- [x] T066 [US4] Implement Consensus in blackice/colony/consensus.py (voting policies: majority, supermajority, unanimous, quorum, weighted)
+- [x] T067 [US4] Implement Messaging in blackice/colony/messaging.py (threaded internal messaging, durable handoffs)
+- [x] T067a [US4] Implement message durability (messages as events, replayable threads, correlation IDs) in blackice/colony/messaging.py (FR-017)
+- [x] T068 [US4] Implement Registry in blackice/colony/registry.py (agent registration and discovery)
+- [x] T069 [US4] Implement Reservation system in blackice/colony/reservation.py (file/directory leases with TTL)
 
 **Checkpoint**: User Story 4 complete - multi-agent consensus reduces single-model brittleness
 
