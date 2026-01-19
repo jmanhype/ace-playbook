@@ -64,6 +64,16 @@ class LocalExecutionProvider(BaseExecutionProvider):
         cmd_list = self._normalize_command(command)
         cmd_str = command if isinstance(command, str) else " ".join(command)
 
+        # Handle empty commands gracefully
+        if not cmd_list or (len(cmd_list) == 1 and not cmd_list[0]):
+            return ExecutionResult(
+                exit_code=0,
+                stdout="",
+                stderr="",
+                duration_seconds=0.0,
+                command=cmd_str,
+            )
+
         # Validate command if allowlist is set
         if self.allowed_commands and cmd_list[0] not in self.allowed_commands:
             raise ExecutionError(
@@ -121,7 +131,7 @@ class LocalExecutionProvider(BaseExecutionProvider):
                 stderr = stderr[: config.max_output_bytes] + "\n[OUTPUT TRUNCATED]"
 
             return ExecutionResult(
-                exit_code=process.returncode or -1,
+                exit_code=process.returncode if process.returncode is not None else -1,
                 stdout=stdout,
                 stderr=stderr,
                 duration_seconds=duration,

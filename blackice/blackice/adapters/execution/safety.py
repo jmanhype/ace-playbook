@@ -75,7 +75,7 @@ class SafetyPolicy:
     # Dangerous patterns (regex)
     dangerous_patterns: list[str] = field(
         default_factory=lambda: [
-            r"rm\s+(-rf?|--recursive).*(/|~|\$HOME)",
+            r"rm\s+(-rf?|--recursive)\s+(/\s*$|/\*|~|\$HOME)",  # Only catch root/home deletion
             r">(>)?\s*/dev/sd",
             r"curl.*\|\s*(ba)?sh",
             r"wget.*\|\s*(ba)?sh",
@@ -207,17 +207,31 @@ class SafetyPipeline:
         # Check explicit blocklist
         for blocked in self.policy.blocked_commands:
             if blocked in cmd_str:
-                return CommandAnalysis(
-                    original=cmd_str,
-                    normalized=parsed["args"],
-                    risk_level=RiskLevel.BLOCKED,
-                    executable=parsed["executable"],
-                    arguments=parsed["arguments"],
-                    flags=parsed["flags"],
-                    risks=[f"Matches blocklist: {blocked}"],
-                    blocked=True,
-                    block_reason=f"Command contains blocked pattern: {blocked}",
-                )
+                should_block = True
+
+                # For path-based patterns (ending with /), check word boundary
+                # to avoid false positives like "rm -rf /" matching "rm -rf /tmp"
+                if blocked.endswith('/'):
+                    idx = cmd_str.find(blocked)
+                    end_idx = idx + len(blocked)
+                    # Only block if pattern is at end or followed by delimiter
+                    should_block = (
+                        end_idx >= len(cmd_str) or
+                        cmd_str[end_idx] in (' ', '\t', '\n', ';', '&', '|')
+                    )
+
+                if should_block:
+                    return CommandAnalysis(
+                        original=cmd_str,
+                        normalized=parsed["args"],
+                        risk_level=RiskLevel.BLOCKED,
+                        executable=parsed["executable"],
+                        arguments=parsed["arguments"],
+                        flags=parsed["flags"],
+                        risks=[f"Matches blocklist: {blocked}"],
+                        blocked=True,
+                        block_reason=f"Command contains blocked pattern: {blocked}",
+                    )
 
         # Check dangerous patterns
         for pattern in self._compiled_patterns:
@@ -228,7 +242,8 @@ class SafetyPipeline:
         # Check high-risk commands
         if parsed["executable"] in self.policy.high_risk_commands:
             risks.append(f"High-risk command: {parsed['executable']}")
-            if risk_level.value < RiskLevel.HIGH.value:
+            # Compare by enum order, not string value
+            if list(RiskLevel).index(risk_level) < list(RiskLevel).index(RiskLevel.HIGH):
                 risk_level = RiskLevel.HIGH
 
         # Check shell features
@@ -338,13 +353,10 @@ class SafetyPipeline:
         while i < len(args):
             arg = args[i]
             if arg.startswith("--"):
-                # Long flag
+                # Long flag - only consume value with = syntax for security
                 if "=" in arg:
                     key, value = arg[2:].split("=", 1)
                     flags[key] = value
-                elif i + 1 < len(args) and not args[i + 1].startswith("-"):
-                    flags[arg[2:]] = args[i + 1]
-                    i += 1
                 else:
                     flags[arg[2:]] = True
             elif arg.startswith("-") and len(arg) > 1:

@@ -19,6 +19,12 @@ from blackice.adapters.execution.safety import (
     SafetyPolicy,
 )
 from blackice.adapters.execution.sandbox import SandboxExecutionProvider
+from blackice.adapters.execution.selector import (
+    ProviderSelector,
+    SelectionRequirements,
+    SelectionResult,
+    SelectionStrategy,
+)
 
 __all__ = [
     # Protocol and base
@@ -40,4 +46,9 @@ __all__ = [
     "SafeExecutor",
     "CommandAnalysis",
     "RiskLevel",
+    # Selector
+    "ProviderSelector",
+    "SelectionStrategy",
+    "SelectionRequirements",
+    "SelectionResult",
 ]
