@@ -39,6 +39,7 @@ class OpenAIProvider(BaseModelProvider):
         base_url: str | None = None,
         model: str | None = None,
         timeout: float = 120.0,
+        chat_endpoint: str = "/v1/chat/completions",
     ) -> None:
         super().__init__(
             api_key=api_key or os.environ.get("OPENAI_API_KEY"),
@@ -46,6 +47,7 @@ class OpenAIProvider(BaseModelProvider):
             timeout=timeout,
         )
         self.model = model or self.DEFAULT_MODEL
+        self.chat_endpoint = chat_endpoint
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -133,7 +135,11 @@ class OpenAIProvider(BaseModelProvider):
         choice = response["choices"][0]
         message = choice["message"]
 
+        # Handle both standard OpenAI and Zhipu/GLM response formats
+        # Zhipu returns reasoning_content instead of content for some models
         content = message.get("content", "") or ""
+        if not content and message.get("reasoning_content"):
+            content = message.get("reasoning_content", "")
         tool_calls: list[ToolCall] = []
 
         if message.get("tool_calls"):
@@ -211,7 +217,7 @@ class OpenAIProvider(BaseModelProvider):
 
         start = time.monotonic()
         try:
-            response = await client.post("/v1/chat/completions", json=payload)
+            response = await client.post(self.chat_endpoint, json=payload)
             latency_ms = (time.monotonic() - start) * 1000
 
             if response.status_code != 200:
@@ -253,7 +259,7 @@ class OpenAIProvider(BaseModelProvider):
         }
 
         try:
-            async with client.stream("POST", "/v1/chat/completions", json=payload) as response:
+            async with client.stream("POST", self.chat_endpoint, json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
                     raise ProviderError(

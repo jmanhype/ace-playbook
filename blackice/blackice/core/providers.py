@@ -133,24 +133,33 @@ def create_model_provider(
         )
 
     elif provider_type == "zhipu":
-        # Zhipu/GLM BigModel China - CodeGeeX models
+        # Zhipu/GLM BigModel China - FREE coding plan (z.ai)
+        # Models: glm-4.5, glm-4.5-air, glm-4.6, glm-4.7
         import os
         return OpenAIProvider(
-            api_key=api_key or os.environ.get("ZHIPU_API_KEY"),
-            base_url=base_url or "https://open.bigmodel.cn/api/coding/paas/v4",
-            model=model or "codegeex-4",
+            api_key=api_key or os.environ.get("ZHIPU_API_KEY", "1cd54a1d237e4693b516a56e8513366a.1r4gXJRbfYp0Nw52"),
+            base_url=base_url or "https://open.bigmodel.cn/api/coding/paas",
+            model=model or "glm-4.5",
             timeout=120.0,
+            chat_endpoint="/v4/chat/completions",  # Zhipu uses v4, not v1
         )
 
-    elif provider_type in ("openai", "z.ai"):
-        # z.ai is OpenAI-compatible, just needs different base_url
-        effective_base_url = base_url
-        if provider_type == "z.ai" and not base_url:
-            effective_base_url = "https://api.zeroone.ai"
+    elif provider_type == "z.ai":
+        # z.ai = Zhipu/GLM coding plan (same as zhipu provider)
+        # FREE coding tier with glm-4.5, glm-4.6, glm-4.7
+        import os
+        return OpenAIProvider(
+            api_key=api_key or os.environ.get("ZHIPU_API_KEY", "1cd54a1d237e4693b516a56e8513366a.1r4gXJRbfYp0Nw52"),
+            base_url=base_url or "https://open.bigmodel.cn/api/coding/paas",
+            model=model or "glm-4.5",
+            timeout=120.0,
+            chat_endpoint="/v4/chat/completions",  # Zhipu uses v4, not v1
+        )
 
+    elif provider_type == "openai":
         return OpenAIProvider(
             api_key=api_key,  # Falls back to OPENAI_API_KEY env var
-            base_url=effective_base_url,  # Falls back to OpenAI default
+            base_url=base_url,  # Falls back to OpenAI default
             model=model,  # Falls back to gpt-4o
             timeout=120.0,
         )
