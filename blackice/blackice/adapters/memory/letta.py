@@ -97,6 +97,7 @@ class LettaMemoryProvider(BaseMemoryProvider):
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=httpx.Timeout(self.timeout),
+                follow_redirects=True,  # Handle 307 redirects from Letta
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {self.api_token}",

@@ -14,7 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from blackice.adapters.execution import ExecutionProvider, LocalExecutionProvider
+from blackice.adapters.execution import ExecutionConfig, ExecutionProvider, LocalExecutionProvider
 from blackice.adapters.memory import MemoryProvider
 from blackice.adapters.models import Message, ModelProvider
 from blackice.adapters.models.ollama import OllamaProvider
@@ -533,7 +533,10 @@ class TestPhaseHandler(PhaseHandler):
                 # Run pytest
                 result = await self.execution_provider.execute(
                     f"cd {workspace} && python -m pytest tests/ -v --tb=short 2>&1 || true",
-                    timeout=self.config.test_timeout,
+                    config=ExecutionConfig(
+                        timeout=self.config.test_timeout,
+                        shell=True,
+                    ),
                 )
 
                 # Parse pytest output
