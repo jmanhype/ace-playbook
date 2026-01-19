@@ -124,11 +124,13 @@ def create_memory_provider(
 
 def create_execution_provider(
     working_dir: str | None = None,
+    timeout: float = 300.0,
 ) -> LocalExecutionProvider:
     """Create a local execution provider.
 
     Args:
         working_dir: Working directory for command execution
+        timeout: Default timeout for commands
 
     Returns:
         Configured LocalExecutionProvider
@@ -139,7 +141,13 @@ def create_execution_provider(
         result = await provider.execute("pytest tests/ -v")
         ```
     """
-    return LocalExecutionProvider(working_directory=working_dir)
+    from pathlib import Path
+
+    working_path = Path(working_dir) if working_dir else None
+    return LocalExecutionProvider(
+        default_working_dir=working_path,
+        default_timeout=timeout,
+    )
 
 
 def create_provider_set(
