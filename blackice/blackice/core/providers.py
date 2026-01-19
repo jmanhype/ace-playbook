@@ -8,10 +8,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from typing import Literal, Union
+
 from blackice.adapters.execution import LocalExecutionProvider
 from blackice.adapters.memory import LettaMemoryProvider
+from blackice.adapters.models.base import BaseModelProvider
+from blackice.adapters.models.claude import ClaudeProvider
 from blackice.adapters.models.ollama import OllamaProvider
+from blackice.adapters.models.openai import OpenAIProvider
 from blackice.infrastructure import AIFactoryConfig, get_ai_factory_config
+
+
+# Type alias for provider selection
+ProviderType = Literal["ollama", "claude", "openai", "z.ai"]
 
 
 @dataclass
@@ -24,7 +33,7 @@ class ProviderSet:
     - execution_provider: For running commands and tests
     """
 
-    model_provider: OllamaProvider
+    model_provider: BaseModelProvider
     memory_provider: LettaMemoryProvider
     execution_provider: LocalExecutionProvider
 
@@ -60,32 +69,71 @@ class ProviderSet:
 def create_model_provider(
     config: AIFactoryConfig | None = None,
     model: str | None = None,
-) -> OllamaProvider:
-    """Create a model provider connected to Ollama on the AI Factory.
+    provider_type: ProviderType = "ollama",
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> BaseModelProvider:
+    """Create a model provider of the specified type.
 
     Args:
         config: AI Factory configuration (uses global if not provided)
-        model: Model name override (defaults to qwen2.5-coder:32b)
+        model: Model name override (defaults vary by provider)
+        provider_type: Provider to use ("ollama", "claude", "openai", "z.ai")
+        api_key: API key (required for Claude/OpenAI, uses env var if not provided)
+        base_url: Base URL override (for z.ai or custom endpoints)
 
     Returns:
-        Configured OllamaProvider
+        Configured model provider (OllamaProvider, ClaudeProvider, or OpenAIProvider)
 
     Example:
         ```python
+        # Use local Ollama (default)
         provider = create_model_provider()
-        result = await provider.chat([
-            Message(role="user", content="Write a Python function")
-        ])
+
+        # Use Claude API
+        provider = create_model_provider(provider_type="claude")
+
+        # Use z.ai (OpenAI-compatible)
+        provider = create_model_provider(
+            provider_type="z.ai",
+            base_url="https://api.zeroone.ai",
+            api_key="your-api-key",
+        )
         ```
     """
-    if config is None:
-        config = get_ai_factory_config()
+    if provider_type == "ollama":
+        if config is None:
+            config = get_ai_factory_config()
 
-    return OllamaProvider(
-        base_url=config.ollama.base_url,
-        model=model or config.ollama.default_model,
-        timeout=config.ollama.timeout,
-    )
+        return OllamaProvider(
+            base_url=base_url or config.ollama.base_url,
+            model=model or config.ollama.default_model,
+            timeout=config.ollama.timeout,
+        )
+
+    elif provider_type == "claude":
+        return ClaudeProvider(
+            api_key=api_key,  # Falls back to ANTHROPIC_API_KEY env var
+            base_url=base_url,  # Falls back to default Anthropic API
+            model=model,  # Falls back to claude-sonnet-4
+            timeout=120.0,
+        )
+
+    elif provider_type in ("openai", "z.ai"):
+        # z.ai is OpenAI-compatible, just needs different base_url
+        effective_base_url = base_url
+        if provider_type == "z.ai" and not base_url:
+            effective_base_url = "https://api.zeroone.ai"
+
+        return OpenAIProvider(
+            api_key=api_key,  # Falls back to OPENAI_API_KEY env var
+            base_url=effective_base_url,  # Falls back to OpenAI default
+            model=model,  # Falls back to gpt-4o
+            timeout=120.0,
+        )
+
+    else:
+        raise ValueError(f"Unknown provider type: {provider_type}. Use 'ollama', 'claude', 'openai', or 'z.ai'")
 
 
 def create_memory_provider(
@@ -155,6 +203,9 @@ def create_provider_set(
     model: str | None = None,
     working_dir: str | None = None,
     agent_id: str | None = None,
+    provider_type: ProviderType = "ollama",
+    api_key: str | None = None,
+    base_url: str | None = None,
 ) -> ProviderSet:
     """Create a complete set of providers for BLACKICE.
 
@@ -163,16 +214,23 @@ def create_provider_set(
 
     Args:
         config: AI Factory configuration (uses global if not provided)
-        model: Model name override for Ollama
+        model: Model name override
         working_dir: Working directory for execution
         agent_id: Letta agent ID for memory
+        provider_type: Model provider type ("ollama", "claude", "openai", "z.ai")
+        api_key: API key for cloud providers
+        base_url: Base URL override for custom endpoints
 
     Returns:
         ProviderSet with all configured providers
 
     Example:
         ```python
+        # Use local Ollama (default)
         providers = create_provider_set()
+
+        # Use Claude API
+        providers = create_provider_set(provider_type="claude")
 
         # Check all providers are healthy
         health = await providers.health_check()
@@ -191,7 +249,13 @@ def create_provider_set(
         config = get_ai_factory_config()
 
     return ProviderSet(
-        model_provider=create_model_provider(config, model),
+        model_provider=create_model_provider(
+            config=config,
+            model=model,
+            provider_type=provider_type,
+            api_key=api_key,
+            base_url=base_url,
+        ),
         memory_provider=create_memory_provider(config, agent_id),
         execution_provider=create_execution_provider(working_dir),
     )
@@ -279,6 +343,7 @@ async def verify_ai_factory_connection(
 
 
 __all__ = [
+    "ProviderType",
     "ProviderSet",
     "create_model_provider",
     "create_memory_provider",

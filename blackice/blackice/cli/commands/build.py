@@ -18,6 +18,7 @@ from rich.table import Table
 
 from blackice.core.config import BlackiceConfig, Edition
 from blackice.core.providers import (
+    ProviderType,
     create_model_provider,
     create_memory_provider,
     create_execution_provider,
@@ -34,6 +35,18 @@ console = Console()
 def build(
     vision: Annotated[str, typer.Argument(help="Vision description for what to build")],
     model: Annotated[str | None, typer.Option("--model", "-m", help="Model to use (default: from AI Factory config)")] = None,
+    provider: Annotated[
+        str,
+        typer.Option("--provider", "-p", help="LLM provider: ollama, claude, openai, z.ai (default: ollama)")
+    ] = "ollama",
+    api_key: Annotated[
+        str | None,
+        typer.Option("--api-key", "-k", help="API key for cloud providers (or use env var)")
+    ] = None,
+    base_url: Annotated[
+        str | None,
+        typer.Option("--base-url", help="Custom base URL for provider")
+    ] = None,
     workspace: Annotated[
         Path | None,
         typer.Option("--workspace", "-w", help="Workspace directory")
@@ -74,9 +87,19 @@ def build(
 
     Example:
         blackice build "Create a REST API for user management with JWT auth"
+        blackice build "Create a CLI tool" --provider claude
+        blackice build "Create a web scraper" --provider z.ai --api-key YOUR_KEY
 
     Uses the local AI Factory by default (Ollama at 192.168.1.143:11434).
     """
+    # Validate provider
+    valid_providers = {"ollama", "claude", "openai", "z.ai"}
+    provider_lower = provider.lower()
+    if provider_lower not in valid_providers:
+        console.print(f"[red]Invalid provider:[/red] {provider}")
+        console.print(f"Valid providers: {', '.join(sorted(valid_providers))}")
+        raise typer.Exit(1)
+
     # Validate edition
     try:
         edition_enum = Edition(edition.lower())
@@ -88,24 +111,46 @@ def build(
     # Generate or use provided run ID
     actual_run_id = run_id or f"run-{uuid.uuid4().hex[:8]}"
 
-    # Get AI Factory config
-    ai_factory_config = get_ai_factory_config() if use_local else None
-    actual_model = model or (ai_factory_config.ollama.default_model if ai_factory_config else "qwen2.5-coder:32b")
+    # Get AI Factory config for local providers
+    ai_factory_config = get_ai_factory_config() if (use_local and provider_lower == "ollama") else None
+
+    # Determine actual model name based on provider
+    if model:
+        actual_model = model
+    elif provider_lower == "ollama" and ai_factory_config:
+        actual_model = ai_factory_config.ollama.default_model
+    elif provider_lower == "claude":
+        actual_model = "claude-sonnet-4-20250514"
+    elif provider_lower in ("openai", "z.ai"):
+        actual_model = "gpt-4o"
+    else:
+        actual_model = "qwen2.5-coder:32b"
+
+    # Determine backend name for display
+    if provider_lower == "ollama":
+        backend_name = "Local AI Factory (Ollama)"
+    elif provider_lower == "claude":
+        backend_name = "Anthropic Claude API"
+    elif provider_lower == "z.ai":
+        backend_name = "z.ai (OpenAI-compatible)"
+    else:
+        backend_name = "OpenAI API"
 
     # Show plan
     console.print(Panel(
         f"[bold]Vision:[/bold] {vision[:200]}{'...' if len(vision) > 200 else ''}\n\n"
         f"[bold]Run ID:[/bold] {actual_run_id}\n"
+        f"[bold]Provider:[/bold] {provider_lower}\n"
         f"[bold]Model:[/bold] {actual_model}\n"
         f"[bold]Edition:[/bold] {edition_enum.value}\n"
         f"[bold]Workspace:[/bold] {workspace or 'auto'}\n"
-        f"[bold]Backend:[/bold] {'Local AI Factory' if use_local else 'Cloud API'}",
+        f"[bold]Backend:[/bold] {backend_name}",
         title="[blue]BLACKICE Build[/blue]",
         border_style="blue",
     ))
 
-    # Verify AI Factory connection if requested
-    if verify and use_local:
+    # Verify AI Factory connection if requested (only for Ollama)
+    if verify and provider_lower == "ollama" and ai_factory_config:
         console.print("\n[dim]Verifying AI Factory connection...[/dim]")
         connection_status = asyncio.run(_verify_connection(ai_factory_config, skip_memory))
 
@@ -128,7 +173,9 @@ def build(
         workspace=workspace,
         edition=edition_enum,
         timeout=timeout,
-        use_local=use_local,
+        provider_type=provider_lower,
+        api_key=api_key,
+        base_url=base_url,
         skip_memory=skip_memory,
         ai_factory_config=ai_factory_config,
     ))
@@ -181,7 +228,9 @@ async def _run_build(
     workspace: Path | None,
     edition: Edition,
     timeout: float,
-    use_local: bool = True,
+    provider_type: str = "ollama",
+    api_key: str | None = None,
+    base_url: str | None = None,
     skip_memory: bool = False,
     ai_factory_config=None,
 ) -> None:
@@ -195,28 +244,31 @@ async def _run_build(
         verify_timeout=300.0,
     )
 
-    # Create providers from AI Factory
+    # Create providers
     model_provider = None
     memory_provider = None
     execution_provider = None
 
-    if use_local and ai_factory_config:
-        # Use local AI Factory providers
-        model_provider = create_model_provider(config=ai_factory_config, model=model)
-        execution_provider = create_execution_provider(
-            working_dir=str(workspace) if workspace else None
-        )
+    # Create model provider based on type
+    model_provider = create_model_provider(
+        config=ai_factory_config,
+        model=model,
+        provider_type=provider_type,
+        api_key=api_key,
+        base_url=base_url,
+    )
 
-        if not skip_memory:
-            try:
-                memory_provider = create_memory_provider(config=ai_factory_config)
-            except Exception as e:
-                logger.warning(f"Failed to create memory provider: {e}, continuing without memory")
-    else:
-        # Use execution provider only (no LLM, will use stubs)
-        execution_provider = create_execution_provider(
-            working_dir=str(workspace) if workspace else None
-        )
+    # Create execution provider
+    execution_provider = create_execution_provider(
+        working_dir=str(workspace) if workspace else None
+    )
+
+    # Create memory provider if not skipped and using Ollama
+    if not skip_memory and provider_type == "ollama" and ai_factory_config:
+        try:
+            memory_provider = create_memory_provider(config=ai_factory_config)
+        except Exception as e:
+            logger.warning(f"Failed to create memory provider: {e}, continuing without memory")
 
     flywheel = UnifiedFlywheel(
         config=config,
