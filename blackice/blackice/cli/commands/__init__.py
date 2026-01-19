@@ -1,6 +1,6 @@
 """CLI Commands for BLACKICE 3.0."""
 
-from blackice.cli.commands import build, doctor, receipt, replay, resume, status, watch
+from blackice.cli.commands import build, doctor, receipt, replay, resume, serve, status, watch
 
 __all__ = [
     "build",
@@ -8,6 +8,7 @@ __all__ = [
     "receipt",
     "replay",
     "resume",
+    "serve",
     "status",
     "watch",
 ]
