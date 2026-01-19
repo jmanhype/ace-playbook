@@ -221,7 +221,8 @@ class EnvSecretsProvider(BaseSecretsProvider):
 
         if required:
             raise SecretsProviderError(
-                f"Secret '{secret_name}' not found in environment (tried {env_name})",
+                operation="get",
+                reason=f"Secret '{secret_name}' not found in environment (tried {env_name})",
                 context={"secret_name": secret_name, "env_var": env_name},
             )
 

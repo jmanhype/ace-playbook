@@ -102,7 +102,7 @@ Per plan.md, this is a single project with 11-layer architecture:
 - [x] T026 [P] [US1] Integration test IT-001: End-to-end vision-to-software in tests/integration/test_end_to_end.py
 - [x] T027 [P] [US1] Unit test for Ralph loop (try-fail-reflect-learn-retry) in tests/unit/test_ralph_loop.py
 - [x] T028 [P] [US1] Unit test for safety pipeline in tests/unit/test_safety_pipeline.py
-- [ ] T028a [P] [US1] Integration test IT-007: Secret handling in tests/integration/test_secrets.py
+- [x] T028a [P] [US1] Integration test IT-007: Secret handling in tests/integration/test_secrets.py
 
 ### Model Provider Adapters (L2)
 
