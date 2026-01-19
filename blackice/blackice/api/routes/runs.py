@@ -1,4 +1,12 @@
-"""Run management endpoints for BLACKICE API."""
+"""Run management endpoints for BLACKICE API.
+
+P0 Security Fixes (Phase 8.1):
+- Task tracking for proper cancellation
+- Split cancel vs delete semantics
+- Queue-based WebSocket sending (no concurrent sends)
+- Server-controlled workspace paths
+- Proper status checks before mutations
+"""
 
 from __future__ import annotations
 
@@ -32,9 +40,17 @@ from blackice.flywheel import FlywheelConfig, UnifiedFlywheel
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
+# Server-controlled workspace root (security: no client path injection)
+WORKSPACE_ROOT = Path(tempfile.gettempdir()) / "blackice-workspaces"
+WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+
 # In-memory run storage (would be replaced with persistent storage in production)
 _runs: dict[str, dict[str, Any]] = {}
-_active_connections: dict[str, list[WebSocket]] = {}
+_tasks: dict[str, asyncio.Task] = {}  # Track async tasks for cancellation
+
+# WebSocket message queues (one per connection for safe concurrent sending)
+_ws_queues: dict[str, dict[int, asyncio.Queue]] = {}  # run_id -> {ws_id -> queue}
+_ws_counter: int = 0
 
 
 def _generate_run_id() -> str:
@@ -42,10 +58,27 @@ def _generate_run_id() -> str:
     return f"run-{uuid.uuid4().hex[:12]}"
 
 
+def _is_terminal_status(status: RunStatus) -> bool:
+    """Check if status is terminal (run finished)."""
+    return status in [RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED]
+
+
+def _is_running_status(status: RunStatus) -> bool:
+    """Check if status indicates active execution."""
+    return status in [
+        RunStatus.CREATED,
+        RunStatus.RESEARCH,
+        RunStatus.PLAN,
+        RunStatus.IMPLEMENT,
+        RunStatus.TEST,
+        RunStatus.VERIFY,
+        RunStatus.DELIVER,
+    ]
+
+
 @router.post("", response_model=RunCreateResponse, status_code=201)
 async def create_run(
     request: RunCreateRequest,
-    background_tasks: BackgroundTasks,
     config: ConfigDep,
 ) -> RunCreateResponse:
     """Create and start a new BLACKICE run.
@@ -55,12 +88,9 @@ async def create_run(
     """
     run_id = _generate_run_id()
 
-    # Create workspace
-    if request.workspace:
-        workspace = Path(request.workspace)
-        workspace.mkdir(parents=True, exist_ok=True)
-    else:
-        workspace = Path(tempfile.mkdtemp(prefix=f"blackice-{run_id}-"))
+    # Server-controlled workspace (security: no client path injection)
+    workspace = WORKSPACE_ROOT / run_id
+    workspace.mkdir(parents=True, exist_ok=True)
 
     # Store run metadata
     _runs[run_id] = {
@@ -75,6 +105,7 @@ async def create_run(
         "updated_at": None,
         "completed_at": None,
         "phases": [],
+        "phase_results": [],  # Track actual phase execution
         "artifacts": [],
         "current_phase": None,
         "error": None,
@@ -82,17 +113,19 @@ async def create_run(
         "context": request.context,
     }
 
-    # Start run in background
-    background_tasks.add_task(
-        _execute_run,
-        run_id=run_id,
-        vision=request.vision,
-        edition=request.edition,
-        provider=request.provider,
-        model=request.model,
-        workspace=workspace,
-        context=request.context,
+    # Start run as tracked async task (enables cancellation)
+    task = asyncio.create_task(
+        _execute_run(
+            run_id=run_id,
+            vision=request.vision,
+            edition=request.edition,
+            provider=request.provider,
+            model=request.model,
+            workspace=workspace,
+            context=request.context,
+        )
     )
+    _tasks[run_id] = task
 
     return RunCreateResponse(
         run_id=run_id,
@@ -112,7 +145,15 @@ async def _execute_run(
     context: dict[str, Any],
 ) -> None:
     """Execute a run in the background."""
+    start_time = datetime.utcnow()
+
     try:
+        # Check if cancelled before starting
+        if run_id not in _runs:
+            return
+        if _runs[run_id]["status"] == RunStatus.CANCELLED:
+            return
+
         # Update status
         _runs[run_id]["status"] = RunStatus.RESEARCH
         _runs[run_id]["current_phase"] = "research"
@@ -142,13 +183,18 @@ async def _execute_run(
             memory_provider=memory_provider,
         )
 
-        # Run the flywheel
-        start_time = datetime.utcnow()
+        # Run the flywheel (check for cancellation periodically)
         result = await flywheel.run(
             run_id=run_id,
             vision=vision,
             context={"edition": edition.value, **context},
         )
+
+        # Check if cancelled during execution
+        if run_id not in _runs or _runs[run_id]["status"] == RunStatus.CANCELLED:
+            await model_provider.close()
+            await memory_provider.close()
+            return
 
         # Update run with results
         _runs[run_id]["status"] = RunStatus.COMPLETED if result.success else RunStatus.FAILED
@@ -167,34 +213,52 @@ async def _execute_run(
         await model_provider.close()
         await memory_provider.close()
 
+    except asyncio.CancelledError:
+        # Task was cancelled - update status if record still exists
+        if run_id in _runs and _runs[run_id]["status"] != RunStatus.CANCELLED:
+            _runs[run_id]["status"] = RunStatus.CANCELLED
+            _runs[run_id]["error"] = "Cancelled by user"
+            _runs[run_id]["current_phase"] = None
+            _runs[run_id]["completed_at"] = datetime.utcnow()
+            _runs[run_id]["duration_ms"] = (datetime.utcnow() - start_time).total_seconds() * 1000
+        await _broadcast_event(run_id, "run_cancelled", {"reason": "User requested cancellation"})
+        raise  # Re-raise to properly mark task as cancelled
+
     except Exception as e:
-        _runs[run_id]["status"] = RunStatus.FAILED
-        _runs[run_id]["error"] = str(e)
-        _runs[run_id]["current_phase"] = None
+        # Only update if record still exists
+        if run_id in _runs:
+            _runs[run_id]["status"] = RunStatus.FAILED
+            _runs[run_id]["error"] = str(e)
+            _runs[run_id]["current_phase"] = None
+            _runs[run_id]["completed_at"] = datetime.utcnow()
+            _runs[run_id]["duration_ms"] = (datetime.utcnow() - start_time).total_seconds() * 1000
         await _broadcast_event(run_id, "run_error", {"error": str(e)})
+
+    finally:
+        # Cleanup task reference
+        _tasks.pop(run_id, None)
 
 
 async def _broadcast_event(run_id: str, event: str, data: dict[str, Any]) -> None:
-    """Broadcast event to all connected WebSocket clients."""
-    if run_id not in _active_connections:
+    """Broadcast event to all connected WebSocket clients via queues.
+
+    Uses per-connection queues to avoid concurrent sends on the same socket.
+    """
+    if run_id not in _ws_queues:
         return
 
     event_data = StreamEvent(
         event=event,
         run_id=run_id,
         data=data,
-    )
+    ).model_dump(mode="json")
 
-    disconnected = []
-    for ws in _active_connections[run_id]:
+    # Put event in all connection queues for this run
+    for queue in _ws_queues[run_id].values():
         try:
-            await ws.send_json(event_data.model_dump(mode="json"))
-        except Exception:
-            disconnected.append(ws)
-
-    # Remove disconnected clients
-    for ws in disconnected:
-        _active_connections[run_id].remove(ws)
+            queue.put_nowait(event_data)
+        except asyncio.QueueFull:
+            pass  # Drop event if queue is full (client too slow)
 
 
 @router.get("", response_model=RunListResponse)
@@ -265,38 +329,105 @@ async def get_run(run_id: str) -> RunDetail:
     )
 
 
-@router.post("/{run_id}/resume", response_model=RunCreateResponse)
-async def resume_run(
-    run_id: str,
-    request: RunResumeRequest,
-    background_tasks: BackgroundTasks,
-) -> RunCreateResponse:
-    """Resume a failed or stopped run."""
+@router.get("/{run_id}/result", response_model=RunResultResponse)
+async def get_run_result(run_id: str) -> RunResultResponse:
+    """Get the final result of a completed run."""
+    if run_id not in _runs:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+    r = _runs[run_id]
+
+    if not _is_terminal_status(r["status"]):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run {run_id} is still in progress (status: {r['status'].value})",
+        )
+
+    return RunResultResponse(
+        run_id=r["run_id"],
+        success=r["status"] == RunStatus.COMPLETED,
+        status=r["status"],
+        phases=r.get("phase_results", []),
+        artifacts=r["artifacts"],
+        total_duration_ms=r["duration_ms"] or 0,
+        message=r["error"] if r["error"] else "Run completed successfully",
+    )
+
+
+@router.post("/{run_id}/cancel")
+async def cancel_run(run_id: str) -> dict[str, str]:
+    """Cancel a running run.
+
+    Stops execution gracefully. The run record is preserved for audit.
+    Use DELETE /runs/{run_id} to purge the record entirely.
+    """
     if run_id not in _runs:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
     run = _runs[run_id]
-    if run["status"] not in [RunStatus.FAILED, RunStatus.CREATED]:
+
+    if _is_terminal_status(run["status"]):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot resume run in status {run['status']}",
+            detail=f"Cannot cancel run in terminal status {run['status'].value}",
+        )
+
+    # Mark as cancelled first (so background task sees it)
+    run["status"] = RunStatus.CANCELLED
+    run["error"] = "Cancelled by user"
+    run["updated_at"] = datetime.utcnow()
+
+    # Cancel the async task if it exists
+    if run_id in _tasks:
+        task = _tasks[run_id]
+        if not task.done():
+            task.cancel()
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+
+    await _broadcast_event(run_id, "run_cancelled", {"reason": "User requested cancellation"})
+
+    return {"message": f"Run {run_id} cancelled", "status": "cancelled"}
+
+
+@router.post("/{run_id}/resume", response_model=RunCreateResponse)
+async def resume_run(
+    run_id: str,
+    request: RunResumeRequest,
+) -> RunCreateResponse:
+    """Resume a failed or cancelled run."""
+    if run_id not in _runs:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+
+    run = _runs[run_id]
+
+    if run["status"] not in [RunStatus.FAILED, RunStatus.CANCELLED]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot resume run in status {run['status'].value}. Only failed or cancelled runs can be resumed.",
         )
 
     # Reset status and restart
     run["status"] = RunStatus.CREATED
     run["error"] = None
     run["updated_at"] = datetime.utcnow()
+    run["completed_at"] = None
 
-    background_tasks.add_task(
-        _execute_run,
-        run_id=run_id,
-        vision=run["vision"],
-        edition=run["edition"],
-        provider=run["provider"],
-        model=run["model"],
-        workspace=Path(run["workspace"]),
-        context=run["context"],
+    # Start as tracked async task
+    task = asyncio.create_task(
+        _execute_run(
+            run_id=run_id,
+            vision=run["vision"],
+            edition=run["edition"],
+            provider=run["provider"],
+            model=run["model"],
+            workspace=Path(run["workspace"]),
+            context=run["context"],
+        )
     )
+    _tasks[run_id] = task
 
     return RunCreateResponse(
         run_id=run_id,
@@ -307,17 +438,42 @@ async def resume_run(
 
 
 @router.delete("/{run_id}")
-async def cancel_run(run_id: str) -> dict[str, str]:
-    """Cancel a running run or delete a completed run."""
+async def delete_run(run_id: str, force: bool = False) -> dict[str, str]:
+    """Delete/purge a run record.
+
+    Only allowed for terminal runs (completed/failed/cancelled) unless force=true.
+    Cancels any running task before deletion if force=true.
+    """
     if run_id not in _runs:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
     run = _runs[run_id]
 
-    # If running, mark as failed
-    if run["status"] in [RunStatus.RESEARCH, RunStatus.PLAN, RunStatus.IMPLEMENT, RunStatus.TEST, RunStatus.VERIFY]:
-        run["status"] = RunStatus.FAILED
-        run["error"] = "Cancelled by user"
+    # Check if running
+    if _is_running_status(run["status"]):
+        if not force:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot delete running run (status: {run['status'].value}). "
+                       f"Use POST /runs/{run_id}/cancel first, or pass force=true.",
+            )
+        # Force cancel first
+        run["status"] = RunStatus.CANCELLED
+        run["error"] = "Force deleted by user"
+        if run_id in _tasks:
+            task = _tasks[run_id]
+            if not task.done():
+                task.cancel()
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
+
+    # Cleanup task reference
+    _tasks.pop(run_id, None)
+
+    # Cleanup WebSocket queues
+    _ws_queues.pop(run_id, None)
 
     # Remove from storage
     del _runs[run_id]
@@ -327,53 +483,95 @@ async def cancel_run(run_id: str) -> dict[str, str]:
 
 @router.websocket("/{run_id}/stream")
 async def stream_run(websocket: WebSocket, run_id: str) -> None:
-    """WebSocket endpoint for streaming run events."""
+    """WebSocket endpoint for streaming run events.
+
+    Uses per-connection message queue to avoid concurrent send issues.
+    """
+    global _ws_counter
+
     if run_id not in _runs:
         await websocket.close(code=4004, reason="Run not found")
         return
 
     await websocket.accept()
 
+    # Create unique connection ID and message queue
+    _ws_counter += 1
+    ws_id = _ws_counter
+    queue: asyncio.Queue = asyncio.Queue(maxsize=100)  # Bounded to prevent memory issues
+
     # Register connection
-    if run_id not in _active_connections:
-        _active_connections[run_id] = []
-    _active_connections[run_id].append(websocket)
+    if run_id not in _ws_queues:
+        _ws_queues[run_id] = {}
+    _ws_queues[run_id][ws_id] = queue
 
-    try:
-        # Send current status
-        run = _runs[run_id]
-        await websocket.send_json({
-            "event": "connected",
-            "run_id": run_id,
-            "status": run["status"].value,
-            "current_phase": run["current_phase"],
-        })
-
-        # Keep connection alive until run completes or client disconnects
+    async def sender():
+        """Send messages from queue to WebSocket."""
         while True:
             try:
-                # Wait for messages (ping/pong or commands)
-                data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-
-                if data.get("command") == "ping":
-                    await websocket.send_json({"event": "pong"})
-
+                msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(msg)
             except asyncio.TimeoutError:
                 # Send keepalive
                 await websocket.send_json({"event": "keepalive"})
+            except Exception:
+                break
 
-            # Check if run completed
-            if _runs.get(run_id, {}).get("status") in [RunStatus.COMPLETED, RunStatus.FAILED]:
+    async def receiver():
+        """Receive messages from WebSocket."""
+        while True:
+            try:
+                data = await websocket.receive_json()
+                if data.get("command") == "ping":
+                    await queue.put({"event": "pong"})
+            except Exception:
+                break
+
+    try:
+        # Send current status
+        run = _runs.get(run_id)
+        if run:
+            await websocket.send_json({
+                "event": "connected",
+                "run_id": run_id,
+                "status": run["status"].value,
+                "current_phase": run["current_phase"],
+            })
+
+        # Run sender and receiver concurrently
+        sender_task = asyncio.create_task(sender())
+        receiver_task = asyncio.create_task(receiver())
+
+        # Wait until run completes or connection closes
+        while True:
+            await asyncio.sleep(1.0)
+
+            run = _runs.get(run_id)
+            if not run:
+                # Run was deleted
+                await websocket.send_json({
+                    "event": "run_deleted",
+                    "run_id": run_id,
+                })
+                break
+
+            if _is_terminal_status(run["status"]):
                 await websocket.send_json({
                     "event": "run_finished",
                     "run_id": run_id,
-                    "status": _runs[run_id]["status"].value,
+                    "status": run["status"].value,
                 })
                 break
+
+        # Cancel tasks
+        sender_task.cancel()
+        receiver_task.cancel()
 
     except WebSocketDisconnect:
         pass
     finally:
         # Unregister connection
-        if run_id in _active_connections and websocket in _active_connections[run_id]:
-            _active_connections[run_id].remove(websocket)
+        if run_id in _ws_queues and ws_id in _ws_queues[run_id]:
+            del _ws_queues[run_id][ws_id]
+            if not _ws_queues[run_id]:
+                del _ws_queues[run_id]

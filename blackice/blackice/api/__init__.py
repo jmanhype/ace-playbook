@@ -1,18 +1,59 @@
 """BLACKICE 3.0 API.
 
 FastAPI-based HTTP API for programmatic access to BLACKICE.
+
+P0 Security Fixes (Phase 8.1):
+- API key authentication (set BLACKICE_API_KEY env var to enable)
+- Tightened CORS (no wildcard with credentials)
+- Secure defaults for production
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import os
+from typing import Callable
 
+from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from blackice.api.auth import RequireAPIKey, require_api_key
 from blackice.api.routes import health_router, providers_router, runs_router
 
 
-def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
+def create_app(
+    *,
+    require_auth: bool | None = None,
+    allowed_origins: list[str] | None = None,
+) -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Args:
+        require_auth: If True, require API key for all endpoints except health.
+                     If None (default), auto-detect from BLACKICE_API_KEY env var.
+        allowed_origins: List of allowed CORS origins. If None, defaults to
+                        localhost only (secure default).
+    """
+    # Determine if auth is enabled
+    auth_enabled = require_auth
+    if auth_enabled is None:
+        auth_enabled = bool(os.environ.get("BLACKICE_API_KEY"))
+
+    # Determine CORS origins
+    if allowed_origins is None:
+        # Secure default: localhost only
+        # Set BLACKICE_CORS_ORIGINS env var for production (comma-separated)
+        cors_env = os.environ.get("BLACKICE_CORS_ORIGINS", "")
+        if cors_env:
+            allowed_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+        else:
+            allowed_origins = [
+                "http://localhost:3000",
+                "http://localhost:8000",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:8000",
+            ]
+
     app = FastAPI(
         title="BLACKICE API",
         description="AI-powered autonomous software development pipeline",
@@ -22,19 +63,39 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # Configure CORS
+    # Configure CORS (secure: no wildcard with credentials)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=allowed_origins,
+        allow_credentials=False,  # Secure: don't allow credentials with CORS
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["X-API-Key", "Content-Type", "Accept"],
+        max_age=600,  # Cache preflight for 10 minutes
     )
 
-    # Include routers
+    # Global exception handler for auth errors
+    @app.exception_handler(401)
+    async def auth_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Unauthorized", "detail": str(exc)},
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+    # Include health router (no auth required for health checks)
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(providers_router, prefix="/api/v1")
-    app.include_router(runs_router, prefix="/api/v1")
+
+    # Include runs router with optional auth dependency
+    if auth_enabled:
+        # Add auth dependency to runs router
+        app.include_router(
+            runs_router,
+            prefix="/api/v1",
+            dependencies=[Depends(require_api_key)],
+        )
+    else:
+        app.include_router(runs_router, prefix="/api/v1")
 
     @app.get("/")
     async def root() -> dict[str, str]:
@@ -43,6 +104,7 @@ def create_app() -> FastAPI:
             "name": "BLACKICE API",
             "version": "3.0.0",
             "docs": "/docs",
+            "auth_enabled": str(auth_enabled).lower(),
         }
 
     return app

@@ -22,6 +22,7 @@ class RunStatus(str, Enum):
     TEST = "test"
     VERIFY = "verify"
     DELIVER = "deliver"
+    CANCELLED = "cancelled"  # Stopped by user request
     FAILED = "failed"
     COMPLETED = "completed"
 
@@ -51,12 +52,20 @@ class Edition(str, Enum):
 class RunCreateRequest(BaseModel):
     """Request to create a new run."""
 
-    vision: str = Field(..., description="Natural language description of what to build")
+    vision: str = Field(
+        ...,
+        description="Natural language description of what to build",
+        min_length=10,
+        max_length=50000,  # Prevent DoS via huge payloads
+    )
     edition: Edition = Field(default=Edition.CORE, description="BLACKICE edition tier")
     provider: ProviderType = Field(default=ProviderType.OLLAMA, description="LLM provider to use")
     model: str | None = Field(default=None, description="Specific model to use (optional)")
-    workspace: str | None = Field(default=None, description="Custom workspace path (optional)")
-    context: dict[str, Any] = Field(default_factory=dict, description="Additional context")
+    # NOTE: workspace is server-controlled for security - not exposed to clients
+    context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional context (non-sensitive only)",
+    )
 
 
 class RunResumeRequest(BaseModel):
