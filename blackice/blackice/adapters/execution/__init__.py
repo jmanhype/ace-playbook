@@ -19,6 +19,11 @@ from blackice.adapters.execution.safety import (
     SafetyPolicy,
 )
 from blackice.adapters.execution.sandbox import SandboxExecutionProvider
+from blackice.adapters.execution.idempotent import (
+    IdempotentExecutionConfig,
+    IdempotentExecutionProvider,
+    wrap_with_idempotency,
+)
 from blackice.adapters.execution.selector import (
     ProviderSelector,
     SelectionRequirements,
@@ -51,4 +56,8 @@ __all__ = [
     "SelectionStrategy",
     "SelectionRequirements",
     "SelectionResult",
+    # Idempotency
+    "IdempotentExecutionProvider",
+    "IdempotentExecutionConfig",
+    "wrap_with_idempotency",
 ]
