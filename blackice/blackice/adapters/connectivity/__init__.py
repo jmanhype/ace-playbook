@@ -10,6 +10,11 @@ from blackice.adapters.connectivity.base import (
     HealthStatus,
     PortForward,
 )
+from blackice.adapters.connectivity.ssh import SSHConnectivityProvider
+from blackice.adapters.connectivity.wireguard import (
+    WireGuardConfig,
+    WireGuardConnectivityProvider,
+)
 
 __all__ = [
     "ConnectivityProvider",
@@ -20,4 +25,7 @@ __all__ = [
     "Connection",
     "PortForward",
     "HealthStatus",
+    "SSHConnectivityProvider",
+    "WireGuardConnectivityProvider",
+    "WireGuardConfig",
 ]

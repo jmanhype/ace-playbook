@@ -64,8 +64,8 @@ Per plan.md, this is a single project with 11-layer architecture:
 
 ### Connectivity Provider Adapters (FR-020)
 
-- [ ] T018a [P] Implement SSHConnectivityProvider in blackice/adapters/connectivity/ssh.py with attach, rescue, port_forward
-- [ ] T018b [P] Implement WireGuardConnectivityProvider in blackice/adapters/connectivity/wireguard.py for secure tunnels
+- [x] T018a [P] Implement SSHConnectivityProvider in blackice/adapters/connectivity/ssh.py with attach, rescue, port_forward
+- [x] T018b [P] Implement WireGuardConnectivityProvider in blackice/adapters/connectivity/wireguard.py for secure tunnels
 
 ### Core Loop Infrastructure
 
