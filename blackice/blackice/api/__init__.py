@@ -6,6 +6,10 @@ P0 Security Fixes (Phase 8.1):
 - API key authentication (set BLACKICE_API_KEY env var to enable)
 - Tightened CORS (no wildcard with credentials)
 - Secure defaults for production
+
+P0 Security Fixes (Phase 8.2):
+- Auth reads env var at runtime (not import time) to prevent fail-open
+- require_api_key fails CLOSED when attached as dependency
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from blackice.api.auth import RequireAPIKey, require_api_key
+from blackice.api.auth import RequireAPIKey, is_auth_configured, require_api_key
 from blackice.api.routes import health_router, providers_router, runs_router
 
 
@@ -35,9 +39,10 @@ def create_app(
                         localhost only (secure default).
     """
     # Determine if auth is enabled
+    # P0 Fix: Use is_auth_configured() to read env var at runtime, not import time
     auth_enabled = require_auth
     if auth_enabled is None:
-        auth_enabled = bool(os.environ.get("BLACKICE_API_KEY"))
+        auth_enabled = is_auth_configured()
 
     # Determine CORS origins
     if allowed_origins is None:

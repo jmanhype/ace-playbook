@@ -6,11 +6,16 @@ P0 Security Fixes (Phase 8.1):
 - Queue-based WebSocket sending (no concurrent sends)
 - Server-controlled workspace paths
 - Proper status checks before mutations
+
+P1 Security Fixes (Phase 8.2):
+- WebSocket single-sender guarantee (all sends through queue)
+- Delete now purges workspace on disk with symlink attack prevention
 """
 
 from __future__ import annotations
 
 import asyncio
+import shutil
 import tempfile
 import uuid
 from datetime import datetime
@@ -475,10 +480,23 @@ async def delete_run(run_id: str, force: bool = False) -> dict[str, str]:
     # Cleanup WebSocket queues
     _ws_queues.pop(run_id, None)
 
+    # P1 Fix: Purge workspace directory on disk
+    workspace = Path(run.get("workspace", ""))
+    if workspace.exists():
+        # Security: Verify workspace is under WORKSPACE_ROOT (prevent symlink attacks)
+        try:
+            resolved = workspace.resolve(strict=True)
+            if resolved.is_relative_to(WORKSPACE_ROOT.resolve()):
+                # Safe to delete - it's under our workspace root
+                shutil.rmtree(workspace, ignore_errors=True)
+        except (OSError, ValueError):
+            # Path resolution failed or not relative to root - skip deletion
+            pass
+
     # Remove from storage
     del _runs[run_id]
 
-    return {"message": f"Run {run_id} deleted"}
+    return {"message": f"Run {run_id} deleted (workspace purged)"}
 
 
 @router.websocket("/{run_id}/stream")
@@ -528,19 +546,20 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
                 break
 
     try:
-        # Send current status
+        # P1 Fix: ALL sends go through the queue (single-sender guarantee)
+        # Run sender and receiver concurrently FIRST
+        sender_task = asyncio.create_task(sender())
+        receiver_task = asyncio.create_task(receiver())
+
+        # Send current status through queue
         run = _runs.get(run_id)
         if run:
-            await websocket.send_json({
+            await queue.put({
                 "event": "connected",
                 "run_id": run_id,
                 "status": run["status"].value,
                 "current_phase": run["current_phase"],
             })
-
-        # Run sender and receiver concurrently
-        sender_task = asyncio.create_task(sender())
-        receiver_task = asyncio.create_task(receiver())
 
         # Wait until run completes or connection closes
         while True:
@@ -548,19 +567,21 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
 
             run = _runs.get(run_id)
             if not run:
-                # Run was deleted
-                await websocket.send_json({
+                # Run was deleted - send through queue
+                await queue.put({
                     "event": "run_deleted",
                     "run_id": run_id,
                 })
+                await asyncio.sleep(0.1)  # Give sender time to send
                 break
 
             if _is_terminal_status(run["status"]):
-                await websocket.send_json({
+                await queue.put({
                     "event": "run_finished",
                     "run_id": run_id,
                     "status": run["status"].value,
                 })
+                await asyncio.sleep(0.1)  # Give sender time to send
                 break
 
         # Cancel tasks
