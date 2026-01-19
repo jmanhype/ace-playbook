@@ -20,7 +20,7 @@ from blackice.infrastructure import AIFactoryConfig, get_ai_factory_config
 
 
 # Type alias for provider selection
-ProviderType = Literal["ollama", "claude", "openai", "z.ai"]
+ProviderType = Literal["ollama", "claude", "claude-max", "openai", "zhipu", "z.ai"]
 
 
 @dataclass
@@ -119,6 +119,29 @@ def create_model_provider(
             timeout=120.0,
         )
 
+    elif provider_type == "claude-max":
+        # Claude Max Router - FREE via Max subscription OAuth
+        # Runs on AI Factory at 192.168.1.143:3000
+        if config is None:
+            config = get_ai_factory_config()
+
+        return ClaudeProvider(
+            api_key="not-needed",  # Router uses OAuth, any value works
+            base_url=base_url or config.claude_router.base_url,
+            model=model or "claude-sonnet-4-20250514",
+            timeout=180.0,
+        )
+
+    elif provider_type == "zhipu":
+        # Zhipu/GLM BigModel China - CodeGeeX models
+        import os
+        return OpenAIProvider(
+            api_key=api_key or os.environ.get("ZHIPU_API_KEY"),
+            base_url=base_url or "https://open.bigmodel.cn/api/coding/paas/v4",
+            model=model or "codegeex-4",
+            timeout=120.0,
+        )
+
     elif provider_type in ("openai", "z.ai"):
         # z.ai is OpenAI-compatible, just needs different base_url
         effective_base_url = base_url
@@ -133,7 +156,7 @@ def create_model_provider(
         )
 
     else:
-        raise ValueError(f"Unknown provider type: {provider_type}. Use 'ollama', 'claude', 'openai', or 'z.ai'")
+        raise ValueError(f"Unknown provider type: {provider_type}. Use 'ollama', 'claude', 'claude-max', 'openai', 'zhipu', or 'z.ai'")
 
 
 def create_memory_provider(

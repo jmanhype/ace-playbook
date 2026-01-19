@@ -93,7 +93,7 @@ def build(
     Uses the local AI Factory by default (Ollama at 192.168.1.143:11434).
     """
     # Validate provider
-    valid_providers = {"ollama", "claude", "openai", "z.ai"}
+    valid_providers = {"ollama", "claude", "claude-max", "openai", "zhipu", "z.ai"}
     provider_lower = provider.lower()
     if provider_lower not in valid_providers:
         console.print(f"[red]Invalid provider:[/red] {provider}")
@@ -111,16 +111,18 @@ def build(
     # Generate or use provided run ID
     actual_run_id = run_id or f"run-{uuid.uuid4().hex[:8]}"
 
-    # Get AI Factory config for local providers
-    ai_factory_config = get_ai_factory_config() if (use_local and provider_lower == "ollama") else None
+    # Get AI Factory config for local providers (ollama, claude-max)
+    ai_factory_config = get_ai_factory_config() if (use_local and provider_lower in ("ollama", "claude-max")) else None
 
     # Determine actual model name based on provider
     if model:
         actual_model = model
     elif provider_lower == "ollama" and ai_factory_config:
         actual_model = ai_factory_config.ollama.default_model
-    elif provider_lower == "claude":
+    elif provider_lower in ("claude", "claude-max"):
         actual_model = "claude-sonnet-4-20250514"
+    elif provider_lower == "zhipu":
+        actual_model = "codegeex-4"
     elif provider_lower in ("openai", "z.ai"):
         actual_model = "gpt-4o"
     else:
@@ -131,6 +133,10 @@ def build(
         backend_name = "Local AI Factory (Ollama)"
     elif provider_lower == "claude":
         backend_name = "Anthropic Claude API"
+    elif provider_lower == "claude-max":
+        backend_name = "Claude Max Router (FREE via AI Factory)"
+    elif provider_lower == "zhipu":
+        backend_name = "Zhipu/GLM BigModel (CodeGeeX)"
     elif provider_lower == "z.ai":
         backend_name = "z.ai (OpenAI-compatible)"
     else:
