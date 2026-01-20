@@ -10,6 +10,11 @@ P0 Security Fixes (Phase 8.1):
 P0 Security Fixes (Phase 8.2):
 - Auth reads env var at runtime (not import time) to prevent fail-open
 - require_api_key fails CLOSED when attached as dependency
+
+P0 Security Fixes (Phase 8.3):
+- Removed import-time app creation to prevent auth fail-open
+- Use create_app() factory explicitly in ASGI entrypoint
+- Example: uvicorn blackice.api:create_app --factory
 """
 
 from __future__ import annotations
@@ -115,7 +120,12 @@ def create_app(
     return app
 
 
-# Create default app instance
-app = create_app()
+# P0 Fix (Phase 8.3): Do NOT create app at import time.
+# This prevents auth fail-open when env vars are set after import.
+# Use the factory pattern:
+#   uvicorn blackice.api:create_app --factory
+# Or in code:
+#   from blackice.api import create_app
+#   app = create_app()
 
-__all__ = ["app", "create_app"]
+__all__ = ["create_app"]

@@ -10,6 +10,11 @@ P0 Security Fixes (Phase 8.1):
 P1 Security Fixes (Phase 8.2):
 - WebSocket single-sender guarantee (all sends through queue)
 - Delete now purges workspace on disk with symlink attack prevention
+
+P1 Security Fixes (Phase 8.3):
+- WebSocket non-blocking queue puts (prevents stuck handlers)
+- Disconnect detection via task completion checks
+- Proper task cleanup with asyncio.gather(..., return_exceptions=True)
 """
 
 from __future__ import annotations
@@ -499,11 +504,24 @@ async def delete_run(run_id: str, force: bool = False) -> dict[str, str]:
     return {"message": f"Run {run_id} deleted (workspace purged)"}
 
 
+def _safe_queue_put(queue: asyncio.Queue, msg: dict) -> bool:
+    """Non-blocking queue put. Returns True if successful, False if full."""
+    try:
+        queue.put_nowait(msg)
+        return True
+    except asyncio.QueueFull:
+        return False
+
+
 @router.websocket("/{run_id}/stream")
 async def stream_run(websocket: WebSocket, run_id: str) -> None:
     """WebSocket endpoint for streaming run events.
 
-    Uses per-connection message queue to avoid concurrent send issues.
+    P1 Fix (Phase 8.3):
+    - Single-sender guarantee: only sender() calls send_json
+    - Non-blocking queue puts to prevent stuck handlers
+    - Disconnect detection via task completion checks
+    - Proper task cleanup in finally block
     """
     global _ws_counter
 
@@ -523,6 +541,9 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
         _ws_queues[run_id] = {}
     _ws_queues[run_id][ws_id] = queue
 
+    sender_task: asyncio.Task | None = None
+    receiver_task: asyncio.Task | None = None
+
     async def sender():
         """Send messages from queue to WebSocket."""
         while True:
@@ -541,20 +562,20 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
             try:
                 data = await websocket.receive_json()
                 if data.get("command") == "ping":
-                    await queue.put({"event": "pong"})
+                    # P1 Fix: Non-blocking put for pong
+                    _safe_queue_put(queue, {"event": "pong"})
             except Exception:
                 break
 
     try:
-        # P1 Fix: ALL sends go through the queue (single-sender guarantee)
-        # Run sender and receiver concurrently FIRST
+        # Run sender and receiver concurrently
         sender_task = asyncio.create_task(sender())
         receiver_task = asyncio.create_task(receiver())
 
-        # Send current status through queue
+        # Send current status through queue (non-blocking)
         run = _runs.get(run_id)
         if run:
-            await queue.put({
+            _safe_queue_put(queue, {
                 "event": "connected",
                 "run_id": run_id,
                 "status": run["status"].value,
@@ -565,10 +586,15 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
         while True:
             await asyncio.sleep(1.0)
 
+            # P1 Fix: Detect disconnect via task completion
+            if sender_task.done() or receiver_task.done():
+                # Client disconnected
+                break
+
             run = _runs.get(run_id)
             if not run:
-                # Run was deleted - send through queue
-                await queue.put({
+                # Run was deleted - send through queue (non-blocking)
+                _safe_queue_put(queue, {
                     "event": "run_deleted",
                     "run_id": run_id,
                 })
@@ -576,7 +602,7 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
                 break
 
             if _is_terminal_status(run["status"]):
-                await queue.put({
+                _safe_queue_put(queue, {
                     "event": "run_finished",
                     "run_id": run_id,
                     "status": run["status"].value,
@@ -584,13 +610,20 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
                 await asyncio.sleep(0.1)  # Give sender time to send
                 break
 
-        # Cancel tasks
-        sender_task.cancel()
-        receiver_task.cancel()
-
     except WebSocketDisconnect:
         pass
     finally:
+        # P1 Fix: Proper task cleanup
+        if sender_task and not sender_task.done():
+            sender_task.cancel()
+        if receiver_task and not receiver_task.done():
+            receiver_task.cancel()
+
+        # Wait for tasks to complete with exception handling
+        tasks = [t for t in [sender_task, receiver_task] if t is not None]
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
         # Unregister connection
         if run_id in _ws_queues and ws_id in _ws_queues[run_id]:
             del _ws_queues[run_id][ws_id]
