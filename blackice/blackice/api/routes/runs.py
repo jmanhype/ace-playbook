@@ -15,6 +15,9 @@ P1 Security Fixes (Phase 8.3):
 - WebSocket non-blocking queue puts (prevents stuck handlers)
 - Disconnect detection via task completion checks
 - Proper task cleanup with asyncio.gather(..., return_exceptions=True)
+
+Phase 9 (Polish):
+- WebSocket browser auth via query param (browsers can't set X-API-Key header)
 """
 
 from __future__ import annotations
@@ -27,8 +30,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, WebSocket, WebSocketDisconnect
 
+from blackice.api.auth import _get_configured_api_key, _verify_api_key
 from blackice.api.deps import ConfigDep
 from blackice.api.schemas import (
     Edition,
@@ -514,7 +518,11 @@ def _safe_queue_put(queue: asyncio.Queue, msg: dict) -> bool:
 
 
 @router.websocket("/{run_id}/stream")
-async def stream_run(websocket: WebSocket, run_id: str) -> None:
+async def stream_run(
+    websocket: WebSocket,
+    run_id: str,
+    api_key: str | None = Query(None, description="API key for browser auth (since WebSocket can't set headers)"),
+) -> None:
     """WebSocket endpoint for streaming run events.
 
     P1 Fix (Phase 8.3):
@@ -522,12 +530,28 @@ async def stream_run(websocket: WebSocket, run_id: str) -> None:
     - Non-blocking queue puts to prevent stuck handlers
     - Disconnect detection via task completion checks
     - Proper task cleanup in finally block
+
+    Phase 9 Fix:
+    - Browser WebSocket auth via query param (browsers can't set X-API-Key header)
+    - Accepts ?api_key=... for authentication when auth is enabled
     """
     global _ws_counter
 
     if run_id not in _runs:
         await websocket.close(code=4004, reason="Run not found")
         return
+
+    # Phase 9 Fix: Browser-compatible auth via query param
+    # Since browser WebSocket API can't set custom headers, we accept ?api_key=...
+    configured_key = _get_configured_api_key()
+    if configured_key:
+        # Auth is enabled - validate query param OR header
+        header_key = websocket.headers.get("X-API-Key")
+        provided_key = api_key or header_key  # Query param takes precedence, then header
+
+        if not _verify_api_key(provided_key, configured_key=configured_key):
+            await websocket.close(code=4001, reason="Unauthorized: invalid or missing API key")
+            return
 
     await websocket.accept()
 

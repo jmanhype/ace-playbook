@@ -17,12 +17,14 @@ BLACKICE is an agentic software factory that transforms natural language visions
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/blackice.git
+git clone https://github.com/hextropian/blackice.git
 cd blackice
 
 # Install dependencies
 pip install -e ".[dev]"
 ```
+
+**Requirements:** Python >= 3.11
 
 ## Quick Start
 
@@ -50,13 +52,21 @@ blackice serve --port 8000
 Start the API server using the factory pattern:
 
 ```bash
-# Development (no auth)
-uvicorn blackice.api:create_app --factory --reload --port 8000
+# Development (localhost only, no auth) - default and secure
+blackice serve --port 8000
 
-# Production (with auth)
+# Development with hot reload
+blackice serve --reload
+
+# Production (with auth, external access)
 export BLACKICE_API_KEY=$(python -c "from blackice.api.auth import generate_api_key; print(generate_api_key())")
-uvicorn blackice.api:create_app --factory --host 0.0.0.0 --port 8000
+blackice serve --host 0.0.0.0 --port 8000
+
+# Direct uvicorn (alternative)
+uvicorn blackice.api:create_app --factory --host 127.0.0.1 --port 8000
 ```
+
+**Security:** The server defaults to localhost (127.0.0.1) and will refuse to bind to external addresses unless `BLACKICE_API_KEY` is set or `--insecure` is passed.
 
 ## API Reference
 
@@ -66,12 +76,21 @@ Set `BLACKICE_API_KEY` environment variable to enable authentication:
 
 ```bash
 export BLACKICE_API_KEY="your-secure-api-key"
+# Or generate a secure key:
+export BLACKICE_API_KEY=$(python -c "from blackice.api.auth import generate_api_key; print(generate_api_key())")
 ```
 
-All `/runs` endpoints require the `X-API-Key` header when auth is enabled:
+All `/runs` endpoints require authentication when enabled:
 
 ```bash
+# HTTP endpoints - use X-API-Key header
 curl -H "X-API-Key: your-secure-api-key" http://localhost:8000/api/v1/runs
+
+# WebSocket (browser) - use query param (browsers can't set headers)
+ws://localhost:8000/api/v1/runs/run-abc123/stream?api_key=your-secure-api-key
+
+# WebSocket (header-capable clients like websocat)
+websocat -H "X-API-Key: your-api-key" ws://localhost:8000/api/v1/runs/run-abc123/stream
 ```
 
 ### Endpoints
@@ -143,12 +162,25 @@ curl -X DELETE "http://localhost:8000/api/v1/runs/run-abc123?force=true" \
 ```
 
 #### WebSocket Streaming
+
+When auth is enabled, browser WebSocket connections must use query param auth (since browsers can't set custom headers):
+
 ```javascript
+// Browser (auth enabled) - use query param
+const ws = new WebSocket('ws://localhost:8000/api/v1/runs/run-abc123/stream?api_key=your-api-key');
+
+// Browser (no auth) or header-capable clients
 const ws = new WebSocket('ws://localhost:8000/api/v1/runs/run-abc123/stream');
+
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   console.log(data.event, data);
 };
+```
+
+Header-capable clients (Python, websocat) can use `X-API-Key` header instead:
+```bash
+websocat -H "X-API-Key: your-api-key" ws://localhost:8000/api/v1/runs/run-abc123/stream
 ```
 
 Events: `connected`, `phase_started`, `phase_completed`, `run_finished`, `run_deleted`, `keepalive`
@@ -178,7 +210,12 @@ Supported providers:
 | `BLACKICE_CORS_ORIGINS` | Comma-separated CORS origins | localhost only |
 | `OLLAMA_BASE_URL` | Ollama API URL | http://localhost:11434 |
 | `ANTHROPIC_API_KEY` | Claude API key | None |
+| `ANTHROPIC_MAX_API_KEY` | Claude Max API key (extended context) | None |
 | `OPENAI_API_KEY` | OpenAI API key | None |
+| `ZHIPU_API_KEY` | Zhipu AI API key (optional, has free tier) | None |
+| `ZAI_API_KEY` | Z.AI API key (optional, has free tier) | None |
+| `LETTA_BASE_URL` | Letta MAS API URL | http://localhost:8283/v1 |
+| `LETTA_API_TOKEN` | Letta API token | None |
 
 ### AI Factory (3090 GPU)
 
@@ -200,6 +237,29 @@ BLACKICE implements multiple security layers:
 - **Server-Controlled Workspaces** - Clients cannot specify filesystem paths
 - **Symlink Attack Prevention** - Workspace paths validated before deletion
 - **WebSocket Safety** - Single-sender queue pattern, disconnect detection
+
+## Troubleshooting
+
+### "401 Unauthorized" with auth enabled
+- Ensure `BLACKICE_API_KEY` is set before starting the server
+- For HTTP: Use `X-API-Key` header
+- For WebSocket in browsers: Use `?api_key=...` query param
+
+### "CORS blocked" errors
+- Check `BLACKICE_CORS_ORIGINS` includes your frontend origin
+- Default allows only localhost:3000 and localhost:8000
+
+### "Ollama not reachable"
+- Verify `OLLAMA_BASE_URL` is correct (default: http://localhost:11434)
+- Run `blackice doctor` to check provider connectivity
+
+### "Cannot bind to external address"
+- Set `BLACKICE_API_KEY` to enable auth, or
+- Use `--insecure` flag (not recommended for production)
+
+### Workspace location
+- Run workspaces are stored in `/tmp/blackice-workspaces/run-{id}/`
+- Workspaces are automatically purged on `DELETE /api/v1/runs/{id}`
 
 ## Development
 
