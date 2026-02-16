@@ -279,6 +279,8 @@ function connect(){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display='none';
           addMsg('[System 2] '+msg.text,'system2');
+          // Speak System 2 response aloud via browser TTS
+          speakSystem2(msg.text);
         }else if(msg.type==='talker_text'){
           addMsg('[System 1] '+msg.text,'system1');
         }else if(msg.type==='state_change'){
@@ -460,6 +462,30 @@ const _origStartMic=startMic;
 startMic=async function(){await _origStartMic();startSpeechRecognition();};
 const _origStopMic=stopMic;
 stopMic=function(){stopSpeechRecognition();_origStopMic();};
+
+// ── Browser TTS for System 2 responses ──
+// Speaks Reasoner output aloud so the user hears System 2's real answer.
+// Pauses PersonaPlex audio while speaking to avoid crosstalk.
+let ttsQueue=[];
+let ttsSpeaking=false;
+function speakSystem2(text){
+  if(!window.speechSynthesis)return;
+  // Cancel any pending PersonaPlex audio during System 2 speech
+  if(moshiWorklet)moshiWorklet.port.postMessage({type:'reset'});
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.rate=1.05;
+  utt.pitch=1.0;
+  utt.volume=1.0;
+  // Try to pick a natural voice
+  const voices=speechSynthesis.getVoices();
+  const preferred=voices.find(v=>v.name.includes('Samantha'))||voices.find(v=>v.lang==='en-US'&&v.localService);
+  if(preferred)utt.voice=preferred;
+  utt.onend=()=>{ttsSpeaking=false;};
+  utt.onerror=()=>{ttsSpeaking=false;};
+  ttsSpeaking=true;
+  speechSynthesis.cancel(); // clear any pending
+  speechSynthesis.speak(utt);
+}
 
 connect();
 </script>
@@ -671,8 +697,10 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   }, 10);
 
   // Memory compressed → update Talker text prompt + push to browser
+  // When System 2 just responded, also reconnect PersonaPlex with new context.
+  let lastReconnectTime = 0;
   bus.on('memory.compressed', (event) => {
-    // Update PersonaPlex's text prompt for next reconnect
+    // Update PersonaPlex's text prompt
     talker.updateTextPrompt(event.prompt);
 
     // Push updated memory blocks to browser
@@ -687,6 +715,18 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
         ledger: memory.currentLedger,
         tokenEstimate: event.tokenEstimate,
       }));
+    }
+
+    // If System 2 just responded, reconnect PersonaPlex so it gets the new context.
+    // Rate-limit: max once per 20s to avoid reconnect spam.
+    const hasSystem2Context = memory.getLastSystem2Response().length > 0;
+    const timeSinceReconnect = Date.now() - lastReconnectTime;
+    if (hasSystem2Context && timeSinceReconnect > 20_000) {
+      lastReconnectTime = Date.now();
+      logger.info('Reconnecting PersonaPlex with System 2 context');
+      talker.reconnectWithNewPrompt().catch(err => {
+        logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'PersonaPlex reconnect failed');
+      });
     }
   }, 10);
 

@@ -88,6 +88,9 @@ export class Memory {
   private blockIds = new Map<string, string>();
   /** Assembled ledger from peer agents + Supabase missions. */
   private ledger = '';
+  /** Last System 2 response — injected into PersonaPlex prompt so it knows what was just said. */
+  private _lastSystem2Response = '';
+  private _lastSystem2Time = 0;
 
   constructor(bus: EventBus, sessionId: string) {
     this.bus = bus;
@@ -130,6 +133,18 @@ export class Memory {
   /** Get the Letta block ID for a label (for direct API writes). */
   getBlockId(label: string): string | null {
     return this.blockIds.get(label) ?? null;
+  }
+
+  /** Record what System 2 just said (for PersonaPlex prompt injection). */
+  setLastSystem2Response(text: string): void {
+    this._lastSystem2Response = text.slice(0, 300);
+    this._lastSystem2Time = Date.now();
+  }
+
+  /** Get last System 2 response (expires after 60s). */
+  getLastSystem2Response(): string {
+    if (Date.now() - this._lastSystem2Time > 60_000) return '';
+    return this._lastSystem2Response;
   }
 
   /** Update the local block cache without writing to Letta. */
@@ -294,13 +309,19 @@ export class Memory {
       parts.push(`Corrections: ${fixes}`);
     }
 
-    // 5. Action queue
+    // 5. Last System 2 response — so PersonaPlex knows what was just said
+    const lastS2 = this.getLastSystem2Response();
+    if (lastS2) {
+      parts.push(`[You just provided this information to the user: "${lastS2.slice(0, 150)}"] Acknowledge it naturally if they refer to it.`);
+    }
+
+    // 6. Action queue
     const actions = this.getBlockJSON<{ running: Array<{ description?: string }> }>('action_queue');
     if (actions?.running?.length) {
       parts.push(`Active: ${actions.running.map(a => a.description ?? 'task').join(', ')}.`);
     }
 
-    // 6. Ledger — DO NOT inject into PersonaPlex text_prompt.
+    // 7. Ledger — DO NOT inject into PersonaPlex text_prompt.
     //    PersonaPlex interprets ANY context as its identity/purpose.
     //    "Products built: vox-radarv5" → it thinks it IS vox-radar.
     //    The ledger is available to the Reasoner (System 2) via this.currentLedger.

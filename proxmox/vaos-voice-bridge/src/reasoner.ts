@@ -157,7 +157,16 @@ export class Reasoner {
 
       if (fastText) {
         logger.info({ reason: event.reason, latencyMs: totalMs, hasSearch: !!searchResults, text: fastText.slice(0, 100) }, 'System 2 fast response');
+
+        // Store in memory so PersonaPlex's compressed prompt includes it
+        this.memory.setLastSystem2Response(fastText);
+
         this.bus.emit(E.reasonerInterjection(this.sessionId, fastText, event.reason));
+
+        // Trigger PersonaPlex reconnect with updated context
+        // so System 1 knows what System 2 just told the user
+        this.memory.emitCompressed();
+
         this.cooldownUntil = Date.now() + 15_000;
       } else {
         logger.warn({ reason: event.reason, latencyMs: totalMs }, 'System 2 fast path produced no response');
