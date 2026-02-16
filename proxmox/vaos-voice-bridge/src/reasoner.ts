@@ -57,6 +57,9 @@ export class Reasoner {
   private pendingTurns: string[] = [];
   /** Cooldown after Letta timeout — skip processing until this time. */
   private cooldownUntil = 0;
+  /** Rate-limit belief updates: minimum seconds between Letta calls. */
+  private lastBeliefUpdate = 0;
+  private static readonly BELIEF_UPDATE_INTERVAL_MS = 45_000; // 45s between belief updates
 
   constructor(bus: EventBus, memory: Memory, trigger: Trigger, sessionId: string) {
     this.bus = bus;
@@ -116,14 +119,19 @@ export class Reasoner {
   // ─── Event Handlers ──────────────────────────────────────────
 
   /**
-   * Handle trigger.activate — full System 2 processing.
-   * The Trigger has determined that PersonaPlex can't handle this.
+   * Handle trigger.activate — fast Ollama response + async Letta memory.
+   *
+   * Architecture: The Letta agentic loop takes 30-45s which is unacceptable
+   * for voice UX. Instead we:
+   *   1. Fast path: Direct Ollama call (~3-4s) for immediate user-facing response
+   *   2. Background: Async Letta call for memory/tool updates (non-blocking)
    */
   private async handleTrigger(event: TriggerActivateEvent): Promise<void> {
-    // Cooldown: periodic/low-confidence triggers respect cooldown.
-    // Deflection and user_request triggers bypass cooldown — the user is
-    // actively asking for something PersonaPlex can't do.
-    const bypassCooldown = event.reason === 'deflection' || event.reason === 'user_request';
+    // After a fast Ollama response, ALL triggers respect cooldown (10s).
+    // Only bypass cooldown for deflection/user_request when cooldown came from
+    // a timeout/error (20s+), not from a successful fast response (10s).
+    const isLongCooldown = (this.cooldownUntil - Date.now()) > 12_000;
+    const bypassCooldown = isLongCooldown && (event.reason === 'deflection' || event.reason === 'user_request');
     if (!bypassCooldown && Date.now() < this.cooldownUntil) {
       logger.debug({ cooldownRemainingSecs: Math.round((this.cooldownUntil - Date.now()) / 1000), reason: event.reason }, 'Skipping trigger (Letta cooldown)');
       return;
@@ -132,36 +140,46 @@ export class Reasoner {
     this.bus.emit(E.reasonerThinking(this.sessionId, true));
 
     try {
-      const prompt = this.buildTriggerPrompt(event);
-      const response = await this.sendToLetta(prompt, 90_000);
+      // ── Fast path: Ollama direct (~2-4s) ──
+      const t0 = Date.now();
+      const fastText = await this.fastOllamaRespond(event);
+      const fastMs = Date.now() - t0;
 
-      // Sync blocks from Letta BEFORE extracting — Letta has already executed
-      // native memory tool calls, so our local cache needs to reflect that.
-      await this.memory.syncFromLetta();
-
-      // Extract user-facing response
-      // For periodic: only send_message tool calls (don't inject unsolicited speech)
-      // For deflection/user_request/semantic: all assistant text (user is waiting)
-      const onlySendMessage = event.reason === 'periodic';
-      const text = this.extractResponse(response, onlySendMessage);
-
-      if (text) {
-        logger.info({ reason: event.reason, text: text.slice(0, 100) }, 'System 2 interjection');
-        this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
+      if (fastText) {
+        logger.info({ reason: event.reason, latencyMs: fastMs, text: fastText.slice(0, 100) }, 'System 2 fast interjection (Ollama)');
+        this.bus.emit(E.reasonerInterjection(this.sessionId, fastText, event.reason));
+        // Short cooldown after fast response to prevent rapid-fire triggers
+        // (PersonaPlex keeps echoing keywords like "search", "results", etc.)
+        this.cooldownUntil = Date.now() + 10_000;
       } else {
-        logger.debug({ reason: event.reason, msgCount: response?.messages?.length ?? 0 }, 'System 2 produced no user-facing output');
+        logger.warn({ reason: event.reason, latencyMs: fastMs }, 'Ollama fast path produced no response');
       }
 
-      // Signal that belief was updated
-      this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
+      // ── Background: Letta memory sync (non-blocking) ──
+      this.asyncLettaMemoryUpdate(event).catch(err => {
+        logger.warn({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Background Letta memory update failed');
+      });
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        logger.warn({ reason: event.reason }, 'System 2 processing timed out');
-        // Short cooldown after timeout — don't block deflection triggers
-        this.cooldownUntil = Date.now() + 20_000;
-      } else {
-        logger.error({ err, reason: event.reason }, 'System 2 processing failed');
-        this.cooldownUntil = Date.now() + 15_000;
+      // Ollama fast path failed — fall back to Letta direct
+      logger.warn({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Ollama fast path failed, trying Letta fallback');
+      try {
+        const prompt = this.buildTriggerPrompt(event);
+        const response = await this.sendToLetta(prompt, 90_000);
+        await this.memory.syncFromLetta();
+        const text = this.extractResponse(response, false);
+        if (text) {
+          logger.info({ reason: event.reason, text: text.slice(0, 100) }, 'System 2 interjection (Letta fallback)');
+          this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
+        }
+        this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
+      } catch (fallbackErr) {
+        if (fallbackErr instanceof Error && fallbackErr.name === 'AbortError') {
+          logger.warn({ reason: event.reason }, 'System 2 Letta fallback timed out');
+          this.cooldownUntil = Date.now() + 20_000;
+        } else {
+          logger.error({ err: fallbackErr, reason: event.reason }, 'System 2 Letta fallback failed');
+          this.cooldownUntil = Date.now() + 15_000;
+        }
       }
     } finally {
       this.bus.emit(E.reasonerThinking(this.sessionId, false));
@@ -171,26 +189,131 @@ export class Reasoner {
   }
 
   /**
+   * Fast-path: Direct Ollama call for immediate user-facing response.
+   * Bypasses Letta's multi-step agentic loop entirely.
+   * Typical latency: 3-5s vs Letta's 30-45s.
+   */
+  private async fastOllamaRespond(event: TriggerActivateEvent): Promise<string> {
+    const env = getEnv();
+    const ollamaUrl = env.OLLAMA_URL;
+    const model = env.OLLAMA_MODEL;
+
+    // Build an acknowledgment prompt — NOT a full answer.
+    // The fast path just tells the user we heard them and are working on it.
+    // The actual answer comes from Letta (with real tools) in the background.
+    const systemContext = 'You are a helpful voice assistant. The main voice model could not handle this request. Your job is to give a BRIEF acknowledgment (1 sentence max) that you understood the request and are working on it. Do NOT try to answer the question yourself. Do NOT suggest the user do it themselves. Just acknowledge.';
+
+    let userPrompt: string;
+    switch (event.reason) {
+      case 'deflection':
+        userPrompt = `The voice assistant said: "${event.context?.slice(0, 200)}"\n\nThe user asked for something requiring tools (search, memory, etc). Give a brief acknowledgment like "Let me look into that for you" or "One moment, I'll check on that." Do NOT try to answer — just acknowledge.`;
+        break;
+      case 'user_request':
+      case 'semantic':
+        userPrompt = `Context: "${event.context?.slice(0, 200)}"\n\nAcknowledge the request briefly. Say something like "Sure, let me look that up" or "On it, give me a moment." Do NOT answer the question.`;
+        break;
+      default:
+        userPrompt = `Context: "${event.context?.slice(0, 200)}"\n\nBriefly acknowledge if appropriate.`;
+    }
+
+    // Include memory context if available
+    const belief = this.memory.getBlock('belief_state');
+    const conv = this.memory.getBlock('conversation_context');
+    let memoryContext = '';
+    if (belief && belief.length > 10) memoryContext += `\nUser context: ${belief.slice(0, 300)}`;
+    if (conv && conv.length > 10) memoryContext += `\nConversation: ${conv.slice(0, 200)}`;
+
+    const fullPrompt = `${systemContext}${memoryContext}\n\n${userPrompt}`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const res = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          prompt: fullPrompt,
+          stream: false,
+          options: { num_predict: 150, temperature: 0.7 },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
+      const data = await res.json() as { response?: string; total_duration?: number };
+      logger.debug({ model, totalDurationMs: Math.round((data.total_duration ?? 0) / 1e6) }, 'Ollama response received');
+      return data.response?.trim() ?? '';
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Background Letta call — runs async after fast Ollama acknowledgment.
+   * This is the REAL System 2: uses tools (web_search, memory, etc.)
+   * and delivers the actual answer when ready.
+   */
+  private async asyncLettaMemoryUpdate(event: TriggerActivateEvent): Promise<void> {
+    if (!this.agentId) return;
+
+    // Use the full trigger prompt — not a belief update.
+    // Letta has real tools and should actually answer the user's question.
+    const prompt = this.buildTriggerPrompt(event);
+
+    try {
+      const t0 = Date.now();
+      const response = await this.sendToLetta(prompt, 90_000);
+      const ms = Date.now() - t0;
+      await this.memory.syncFromLetta();
+
+      // Extract the real answer from Letta (with tool results)
+      const text = this.extractResponse(response, false);
+
+      if (text) {
+        logger.info({ reason: event.reason, latencyMs: ms, text: text.slice(0, 100) }, 'System 2 Letta response (background)');
+        this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
+      } else {
+        logger.debug({ reason: event.reason, latencyMs: ms, msgCount: response.length }, 'Background Letta produced no user-facing output');
+      }
+
+      this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        logger.warn({ reason: event.reason }, 'Background Letta call timed out');
+      } else {
+        logger.error({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Background Letta call failed');
+      }
+    }
+  }
+
+  /**
    * Handle talker.turn — async belief update.
-   * Skipped if System 2 is already processing (trigger fired).
-   * Uses turn-batching to avoid hammering Letta.
+   * Rate-limited: only sends to Letta every BELIEF_UPDATE_INTERVAL_MS.
+   * Between updates, turns are accumulated locally (no Letta call).
    */
   private async handleTalkerTurn(event: TalkerTurnEvent): Promise<void> {
     // Skip if System 2 already handling this turn
     if (this.trigger.system2Active) {
-      logger.debug('System 2 active — skipping async belief update');
-      return;
+      return; // Don't even queue — trigger handler will handle context
     }
     // Skip if in cooldown
     if (Date.now() < this.cooldownUntil) return;
 
-    if (this.processing) {
-      this.pendingTurns.push(event.text);
-      logger.debug({ queued: this.pendingTurns.length }, 'Reasoner busy — turn queued');
-      return;
+    // Always accumulate text locally
+    this.pendingTurns.push(event.text);
+
+    // Rate-limit: only do Letta belief updates every 45s
+    const sinceLastUpdate = Date.now() - this.lastBeliefUpdate;
+    if (sinceLastUpdate < Reasoner.BELIEF_UPDATE_INTERVAL_MS) {
+      return; // Accumulate silently — no Letta call yet
     }
 
-    await this.processBeliefUpdate(event.text);
+    // Skip if already processing a belief update
+    if (this.processing) return;
+
+    await this.processBeliefUpdate('');
   }
 
   /** Handle user.text — text input from browser. */
@@ -209,27 +332,31 @@ export class Reasoner {
 
   // ─── Core Processing ─────────────────────────────────────────
 
-  /** Process a belief update cycle (with turn-batching). */
+  /** Process a belief update cycle — rate-limited, drains accumulated turns. */
   private async processBeliefUpdate(text: string): Promise<void> {
     this.processing = true;
+    this.lastBeliefUpdate = Date.now();
 
     try {
-      const allTurns = [...this.pendingTurns, text];
+      const allTurns = [...this.pendingTurns];
+      if (text) allTurns.push(text);
       this.pendingTurns = [];
       const batchText = allTurns.join(' ').trim().slice(-1000);
+
+      if (!batchText) {
+        logger.debug('No turns to process for belief update');
+        return;
+      }
 
       if (this.agentId) {
         const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
 
         const response = await this.sendToLetta(prompt, 90_000);
-        // Sync blocks from Letta — native tool calls already executed
         await this.memory.syncFromLetta();
-        // Process response to extract and execute text-based tool calls only
         this.extractResponse(response, true);
         this.bus.emit(E.reasonerBelief(this.sessionId, 'belief_update', ['belief_state', 'conversation_context']));
         logger.info({ batchSize: allTurns.length, responseMsgs: response.length }, 'Belief updated');
       } else {
-        // Local fallback: direct conversation_context update
         await this.memory.updateConvState({
           summary: batchText.slice(0, 500),
           turn_count: ((this.memory.getBlockJSON<{ turn_count?: number }>('conversation_context'))?.turn_count ?? 0) + allTurns.length,
@@ -247,17 +374,8 @@ export class Reasoner {
       }
     } finally {
       this.processing = false;
-
-      // Drain queued turns
-      if (this.pendingTurns.length > 0) {
-        logger.info({ queued: this.pendingTurns.length }, 'Draining queued turns');
-        setTimeout(() => {
-          const next = this.pendingTurns.shift() ?? '';
-          this.processBeliefUpdate(next).catch(err => {
-            logger.warn({ err }, 'Queued belief update failed');
-          });
-        }, 500);
-      }
+      // No more drain loop — next belief update happens when the rate-limit
+      // interval expires and a new turn comes in.
     }
   }
 

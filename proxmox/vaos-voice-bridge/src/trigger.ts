@@ -46,6 +46,18 @@ const ACTION_KEYWORDS = [
   'send a message',
 ];
 
+/**
+ * Echo keywords: PersonaPlex echoing back the user's request topic.
+ * When the 7B model says "top results" or "latest news" it's trying
+ * to handle a request it can't actually fulfill (no web access).
+ */
+const ECHO_KEYWORDS = [
+  'top results', 'search results', 'latest news', 'headline',
+  'weather today', 'current weather', 'stock price', 'real-time',
+  'breaking news', 'let me look', 'let me search', 'let me check',
+  'i found', "here's what i found", 'according to',
+];
+
 /** User explicitly requesting System 2 reasoning. */
 const USER_REQUEST_PATTERNS = [
   'can you actually', 'go ahead and', "what's the plan",
@@ -119,25 +131,27 @@ export class Trigger {
       this.recentTurns.shift();
     }
 
+    // Log every 5th turn for debugging (see what PersonaPlex is saying)
+    if (this.turnCounter % 5 === 0) {
+      logger.debug({ turnCounter: this.turnCounter, text: event.text.slice(0, 120) }, 'PersonaPlex turn sample');
+    }
+
     // Skip if System 2 already processing
     if (this._system2Active) {
       logger.debug('System 2 active — skipping trigger evaluation');
       return;
     }
 
-    // 1. Periodic proactive check
-    if (this.turnCounter % this.config.proactiveInterval === 0) {
-      const context = this.recentTurns.join(' ').trim().slice(-1000);
-      logger.info({ turnCounter: this.turnCounter }, 'Periodic proactive trigger');
-      this.bus.emit(E.triggerActivate(this.sessionId, 'periodic', 0.7, context));
-      return;
-    }
+    // 1. Periodic proactive check — DISABLED
+    // Periodic triggers produce ~50% empty responses and each Letta call takes
+    // 30-45s, blocking all real triggers (deflection, user_request) for the
+    // entire duration. The cost/benefit ratio is terrible for voice UX.
 
     // 2. Pattern-based detection
     const result = this.detectPatterns();
     if (result && result.confidence >= this.config.confidenceThreshold) {
       const context = this.recentTurns.join(' ').trim().slice(-1000);
-      logger.info({ reason: result.reason, confidence: result.confidence }, 'Trigger activated');
+      logger.info({ reason: result.reason, confidence: result.confidence, context: context.slice(0, 200) }, 'Trigger activated');
       this.bus.emit(E.triggerActivate(this.sessionId, result.reason, result.confidence, context));
     }
   }
@@ -158,8 +172,11 @@ export class Trigger {
       }
     }
 
-    // Count action keywords
+    // Count action keywords (user intent echoed by PersonaPlex)
     const actionCount = ACTION_KEYWORDS.filter(k => recentText.includes(k)).length;
+
+    // Count echo keywords (PersonaPlex pretending to have web/real-time access)
+    const echoCount = ECHO_KEYWORDS.filter(k => recentText.includes(k)).length;
 
     // Deflection + action keyword → strong trigger
     if (deflectionCount >= 1 && actionCount >= 1) {
@@ -171,8 +188,14 @@ export class Trigger {
       return { reason: 'deflection', confidence: 0.75 };
     }
 
-    // Dense action keywords without deflection
-    if (actionCount >= 2) {
+    // Echo keywords → PersonaPlex hallucinating real-time data
+    if (echoCount >= 1) {
+      return { reason: 'semantic', confidence: 0.75 };
+    }
+
+    // Single action keyword is enough — PersonaPlex is echoing the user's request
+    // (the 7B model doesn't deflect, it confidently hallucinates instead)
+    if (actionCount >= 1) {
       return { reason: 'semantic', confidence: 0.6 };
     }
 

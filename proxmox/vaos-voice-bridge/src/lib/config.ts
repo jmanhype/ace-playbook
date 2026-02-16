@@ -24,6 +24,10 @@ const EnvSchema = z.object({
   REASONER_TIMEOUT_MS: z.coerce.number().default(30_000),
   BELIEF_UPDATE_TIMEOUT_MS: z.coerce.number().default(15_000),
 
+  // Ollama (fast path for System 2 responses)
+  OLLAMA_URL: z.string().url().default('http://192.168.1.143:11434'),
+  OLLAMA_MODEL: z.string().default('qwen2.5:7b'),
+
   // TTS
   VOICE_PROMPT_PATH: z.string().default('/opt/moshi/voices/NATF0.pt'),
   TTS_SAMPLE_RATE: z.coerce.number().default(24000),
