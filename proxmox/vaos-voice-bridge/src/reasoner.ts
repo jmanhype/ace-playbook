@@ -39,10 +39,16 @@ export class Reasoner {
   private agentId: string | null = null;
   private belief: Belief = createDefaultBelief();
   private processing = false;
+  private ledger = '';
 
   /** Get the current belief state (cached in memory, synced from Letta). */
   getBelief(): Belief {
     return this.belief;
+  }
+
+  /** Get the assembled ledger of memory (from other agents + Supabase). */
+  getLedger(): string {
+    return this.ledger;
   }
 
   /** Initialize: find or create the voice-reasoner agent in Letta. */
@@ -85,6 +91,9 @@ export class Reasoner {
 
       // Load current belief from Letta memory
       await this.syncBeliefFromLetta();
+
+      // Build the ledger of memory from peer agents + Supabase
+      await this.buildLedger();
     } catch (err) {
       logger.error({ err }, 'Failed to initialize Reasoner — falling back to local belief');
       // Continue with local belief; Letta may be unavailable
@@ -195,6 +204,148 @@ export class Reasoner {
     } catch (err) {
       logger.error({ err }, 'System 2 processing failed');
       return "I ran into an issue processing that. Let me try a different approach.";
+    }
+  }
+
+  /**
+   * Build the "Ledger of Memory" — aggregate context from peer Letta agents
+   * and Supabase mission history. This gives PersonaPlex deep awareness of
+   * the user's history, what agents have done, and what's been built.
+   */
+  private async buildLedger(): Promise<void> {
+    const parts: string[] = [];
+
+    // 1. Pull key memory blocks from peer Letta agents
+    try {
+      const peerContext = await this.readPeerAgentMemory();
+      if (peerContext) parts.push(peerContext);
+    } catch (err) {
+      logger.warn({ err }, 'Failed to read peer agent memory');
+    }
+
+    // 2. Pull recent mission history from Supabase
+    try {
+      const missionContext = await this.readMissionHistory();
+      if (missionContext) parts.push(missionContext);
+    } catch (err) {
+      logger.warn({ err }, 'Failed to read mission history');
+    }
+
+    this.ledger = parts.join(' ');
+    logger.info({ ledgerLength: this.ledger.length }, 'Ledger of memory assembled');
+  }
+
+  /** Read useful memory blocks from peer Letta agents (Director, Writer). */
+  private async readPeerAgentMemory(): Promise<string | null> {
+    const env = getEnv();
+    const peerAgents: Array<{ name: string; blocks: string[] }> = [
+      { name: 'Director', blocks: ['persona', 'quality_standards', 'lessons_learned', 'user_style'] },
+      { name: 'Writer', blocks: ['persona', 'lessons_learned'] },
+    ];
+
+    const summaries: string[] = [];
+
+    try {
+      const agents = await this.lettaGet<LettaAgent[]>('/v1/agents');
+
+      for (const peer of peerAgents) {
+        const agent = agents.find(a => a.name === peer.name);
+        if (!agent) continue;
+
+        try {
+          const full = await this.lettaGet<{ memory?: { blocks?: LettaMemoryBlock[] } }>(
+            `/v1/agents/${agent.id}`,
+          );
+          const blocks = full.memory?.blocks ?? [];
+
+          for (const wantLabel of peer.blocks) {
+            const block = blocks.find(b => b.label === wantLabel);
+            if (!block?.value) continue;
+
+            // Extract just the useful content, skip incident/hallucination noise
+            const cleaned = this.cleanMemoryBlock(block.value);
+            if (cleaned.length > 20) {
+              summaries.push(`[${peer.name}/${wantLabel}] ${cleaned}`);
+            }
+          }
+        } catch (err) {
+          logger.debug({ agent: peer.name, err }, 'Failed to read peer agent');
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to list Letta agents for peer memory');
+      return null;
+    }
+
+    if (summaries.length === 0) return null;
+
+    // Condense to fit in a URL-safe prompt (target ~800 chars)
+    let result = summaries.join(' | ');
+    if (result.length > 800) result = result.slice(0, 797) + '...';
+    return result;
+  }
+
+  /** Clean a Letta memory block: strip incident/hallucination noise, emoji spam, etc. */
+  private cleanMemoryBlock(text: string): string {
+    return text
+      .split('\n')
+      .filter(line => {
+        const l = line.toLowerCase();
+        // Skip hallucination incident reports and lock spam
+        if (l.includes('hallucination') || l.includes('near-miss')) return false;
+        if (l.includes('quadruple-locked') || l.includes('automated loop')) return false;
+        if (l.includes('🚨') || l.includes('🔒')) return false;
+        if (l.startsWith('---')) return false;
+        if (l.startsWith('**february') || l.startsWith('**last_activity')) return false;
+        return true;
+      })
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 500);
+  }
+
+  /** Read recent mission history from Supabase ops_missions. */
+  private async readMissionHistory(): Promise<string | null> {
+    try {
+      const supabase = getSupabase();
+      const missions = await sb<Array<{
+        id: string;
+        status: string;
+        created_at: string;
+        policy_snapshot: { event_data?: { prompt?: string } } | null;
+      }>>(
+        supabase
+          .from('ops_missions')
+          .select('id,status,created_at,policy_snapshot')
+          .order('created_at', { ascending: false })
+          .limit(10),
+      );
+
+      if (!missions || missions.length === 0) return null;
+
+      const lines = missions.map(m => {
+        const prompt = m.policy_snapshot?.event_data?.prompt ?? 'unknown';
+        // Extract product name from prompt like "Build 'vox-radar' — ..."
+        const nameMatch = prompt.match(/['']([^'']+)['']/);
+        const name = nameMatch?.[1] ?? prompt.slice(0, 40);
+        const date = m.created_at?.slice(0, 10) ?? '?';
+        return `${name} (${m.status}, ${date})`;
+      });
+
+      // Deduplicate same product names (keep latest status)
+      const seen = new Set<string>();
+      const deduped = lines.filter(l => {
+        const key = l.split(' (')[0];
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      return `Products built: ${deduped.join('; ')}`;
+    } catch (err) {
+      logger.warn({ err }, 'Failed to read mission history');
+      return null;
     }
   }
 

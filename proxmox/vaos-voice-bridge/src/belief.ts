@@ -43,10 +43,11 @@ export function createDefaultBelief(): Belief {
 /**
  * Generate a dynamic text_prompt for PersonaPlex from the current belief state.
  * This is how System 2's knowledge enriches System 1's fast responses.
+ * The optional ledger adds deep context from peer agents and mission history.
  */
-export function beliefToPrompt(belief: Belief): string {
+export function beliefToPrompt(belief: Belief, ledger?: string): string {
   const parts: string[] = [
-    'You are a voice assistant. Be natural and conversational.',
+    'You are a voice assistant with persistent memory. Be natural and conversational. You remember the user across sessions.',
   ];
 
   if (belief.user_model.current_project) {
@@ -73,6 +74,11 @@ export function beliefToPrompt(belief: Belief): string {
   }
 
   parts.push(`Keep responses ${belief.user_model.preferences.verbosity}.`);
+
+  // Inject the ledger of memory (deep context from peer agents + mission history)
+  if (ledger) {
+    parts.push(`Memory ledger: ${ledger}`);
+  }
 
   return parts.join(' ');
 }

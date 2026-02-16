@@ -110,6 +110,7 @@ const CLIENT_HTML = `<!DOCTYPE html>
     <span class="belief-label">Topic</span><span class="belief-value" id="b-topic">--</span>
     <span class="belief-label">Actions</span><span class="belief-value" id="b-actions">None</span>
   </div>
+  <div id="b-ledger" style="margin-top:8px;font-size:11px;color:#8888aa;max-height:80px;overflow-y:auto;word-break:break-word;"></div>
 </div>
 
 <div id="text-input">
@@ -143,7 +144,7 @@ function addMsg(text,cls){
   if(convoEl.children.length>50)convoEl.removeChild(convoEl.firstChild);
 }
 
-function updateBelief(b){
+function updateBelief(b,ledger){
   if(!b)return;
   const c=b.conversation||{};
   const u=b.user_model||{};
@@ -152,6 +153,7 @@ function updateBelief(b){
   document.getElementById('b-project').textContent=u.current_project||'--';
   document.getElementById('b-topic').textContent=c.topic||'--';
   document.getElementById('b-actions').textContent=(b.pending_actions||[]).length?b.pending_actions.map(a=>a.description).join(', '):'None';
+  if(ledger){document.getElementById('b-ledger').textContent=ledger;}
 }
 
 // Moshi AudioWorklet processor (plays decoded PCM with jitter buffer)
@@ -258,7 +260,7 @@ function connect(){
             stopMic(); // Stop mic on PersonaPlex disconnect
           }
         }else if(msg.type==='belief_update'){
-          updateBelief(msg.belief);
+          updateBelief(msg.belief,msg.ledger);
         }
       }catch{
         addMsg(e.data);
@@ -478,13 +480,14 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // Initialize Reasoner (connects to Letta, loads belief)
   await reasoner.init();
 
-  // Set initial text prompt from belief
+  // Set initial text prompt from belief + ledger of memory
   const belief = reasoner.getBelief();
-  talker.updateTextPrompt(beliefToPrompt(belief));
+  const ledger = reasoner.getLedger();
+  talker.updateTextPrompt(beliefToPrompt(belief, ledger));
 
-  // Push initial belief to browser UI
+  // Push initial belief + ledger to browser UI
   if (userWs.readyState === WebSocket.OPEN) {
-    userWs.send(JSON.stringify({ type: 'belief_update', belief }));
+    userWs.send(JSON.stringify({ type: 'belief_update', belief, ledger }));
   }
 
   // Connect to PersonaPlex
