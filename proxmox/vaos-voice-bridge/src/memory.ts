@@ -300,18 +300,10 @@ export class Memory {
       parts.push(`Active: ${actions.running.map(a => a.description ?? 'task').join(', ')}.`);
     }
 
-    // 6. Ledger — only mission history, NOT peer agent personas/identities.
-    //    Peer personas (Director, Writer) confuse PersonaPlex into adopting
-    //    their identity ("I am the Director of a video production crew...").
-    //    The ledger is available to the Reasoner via this.currentLedger.
-    if (this.ledger) {
-      // Extract only "Products built: ..." from the ledger (skip [Agent/block] entries)
-      const productsMatch = this.ledger.match(/Products built:\s*(.+?)$/);
-      if (productsMatch?.[1]) {
-        const productsWords = productsMatch[1].split(/\s+/).slice(0, 15);
-        parts.push(`Products built: ${productsWords.join(' ')}`);
-      }
-    }
+    // 6. Ledger — DO NOT inject into PersonaPlex text_prompt.
+    //    PersonaPlex interprets ANY context as its identity/purpose.
+    //    "Products built: vox-radarv5" → it thinks it IS vox-radar.
+    //    The ledger is available to the Reasoner (System 2) via this.currentLedger.
 
     // Enforce ~150 word budget
     let prompt = parts.join(' ');

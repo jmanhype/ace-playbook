@@ -491,7 +491,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   const talker = new Talker();
   const memory = new Memory(bus, sessionId);
   const trigger = new Trigger(bus, sessionId, {
-    proactiveInterval: 6,
+    proactiveInterval: 25,
     confidenceThreshold: 0.5,
   });
   const reasoner = new Reasoner(bus, memory, trigger, sessionId);

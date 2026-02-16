@@ -120,9 +120,12 @@ export class Reasoner {
    * The Trigger has determined that PersonaPlex can't handle this.
    */
   private async handleTrigger(event: TriggerActivateEvent): Promise<void> {
-    // Skip if in cooldown (recent Letta timeout)
-    if (Date.now() < this.cooldownUntil) {
-      logger.debug({ cooldownRemainingSecs: Math.round((this.cooldownUntil - Date.now()) / 1000) }, 'Skipping trigger (Letta cooldown)');
+    // Cooldown: periodic/low-confidence triggers respect cooldown.
+    // Deflection and user_request triggers bypass cooldown — the user is
+    // actively asking for something PersonaPlex can't do.
+    const bypassCooldown = event.reason === 'deflection' || event.reason === 'user_request';
+    if (!bypassCooldown && Date.now() < this.cooldownUntil) {
+      logger.debug({ cooldownRemainingSecs: Math.round((this.cooldownUntil - Date.now()) / 1000), reason: event.reason }, 'Skipping trigger (Letta cooldown)');
       return;
     }
     this.trigger.system2Active = true;
@@ -130,36 +133,35 @@ export class Reasoner {
 
     try {
       const prompt = this.buildTriggerPrompt(event);
-      const response = await this.sendToLetta(prompt, 60_000);
+      const response = await this.sendToLetta(prompt, 45_000);
 
       // Sync blocks from Letta BEFORE extracting — Letta has already executed
       // native memory tool calls, so our local cache needs to reflect that.
       await this.memory.syncFromLetta();
 
-      // Extract user-facing response (only send_message tool calls for proactive/periodic)
+      // Extract user-facing response
+      // For periodic: only send_message tool calls (don't inject unsolicited speech)
+      // For deflection/user_request/semantic: all assistant text (user is waiting)
       const onlySendMessage = event.reason === 'periodic';
       const text = this.extractResponse(response, onlySendMessage);
 
       if (text) {
         logger.info({ reason: event.reason, text: text.slice(0, 100) }, 'System 2 interjection');
         this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
+      } else {
+        logger.debug({ reason: event.reason, msgCount: response?.messages?.length ?? 0 }, 'System 2 produced no user-facing output');
       }
 
       // Signal that belief was updated
       this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
-
-      // NOTE: Post-trigger belief update removed. The main Letta call above
-      // already executes core_memory_replace/append via native tool calls.
-      // The follow-up was redundant and added 15-45s of latency (often timing out).
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn({ reason: event.reason }, 'System 2 processing timed out');
-        // Cooldown: skip Reasoner for 60s after timeout to avoid hammering Letta
-        this.cooldownUntil = Date.now() + 60_000;
-        logger.info('Letta cooldown: 60s');
+        // Short cooldown after timeout — don't block deflection triggers
+        this.cooldownUntil = Date.now() + 20_000;
       } else {
         logger.error({ err, reason: event.reason }, 'System 2 processing failed');
-        this.cooldownUntil = Date.now() + 30_000;
+        this.cooldownUntil = Date.now() + 15_000;
       }
     } finally {
       this.bus.emit(E.reasonerThinking(this.sessionId, false));
@@ -238,10 +240,10 @@ export class Reasoner {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn('Belief update timed out');
-        this.cooldownUntil = Date.now() + 60_000;
+        this.cooldownUntil = Date.now() + 20_000;
       } else {
         logger.error({ err }, 'Belief update failed');
-        this.cooldownUntil = Date.now() + 30_000;
+        this.cooldownUntil = Date.now() + 15_000;
       }
     } finally {
       this.processing = false;
