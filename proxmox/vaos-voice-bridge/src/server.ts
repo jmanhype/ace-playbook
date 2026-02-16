@@ -509,14 +509,51 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   });
 
-  // On each complete turn from PersonaPlex
+  // On each complete turn from PersonaPlex — this is the core Talker→Reasoner feedback loop.
+  // Per the paper (Section 3.2): "the conversation driven by the Talker is processed by the
+  // Reasoner so that the quick impressions and responses of the Talker become sources of
+  // explicit beliefs and choices (plans) of the Reasoner."
   talker.on('onTurnComplete', (talkerText) => {
     session.turnCount++;
-    logger.debug({ turn: session.turnCount, text: talkerText.slice(0, 80) }, 'Talker turn complete');
-    // Send text to client UI
+    logger.info({ turn: session.turnCount, text: talkerText.slice(0, 80) }, 'Talker turn complete');
+
+    // 1. Send text to client UI
     if (userWs.readyState === WebSocket.OPEN) {
       userWs.send(JSON.stringify({ type: 'talker_text', text: talkerText }));
     }
+
+    // 2. Feed Talker output to Reasoner for async belief update.
+    //    PersonaPlex's text reflects the conversation (it paraphrases user input),
+    //    so the Reasoner can extract user intent from the model's utterances.
+    const prevPhase = reasoner.getBelief().conversation.phase;
+
+    reasoner.updateBelief(talkerText, talkerText).then(() => {
+      const updatedBelief = reasoner.getBelief();
+      const newPhase = updatedBelief.conversation.phase;
+
+      // 3. Push updated belief to browser UI
+      if (userWs.readyState === WebSocket.OPEN) {
+        userWs.send(JSON.stringify({ type: 'belief_update', belief: updatedBelief, ledger }));
+      }
+
+      // 4. If belief phase changed, rebuild text_prompt (applied on next reconnect).
+      //    Per the paper: "the Talker can also wait for the Reasoner before generating
+      //    a response; this is equivalent to System 2 taking over."
+      const newPrompt = beliefToPrompt(updatedBelief, ledger);
+      talker.updateTextPrompt(newPrompt);
+
+      if (prevPhase !== newPhase) {
+        logger.info({ prevPhase, newPhase }, 'Belief phase changed — reconnecting PersonaPlex');
+        // Reconnect PersonaPlex so System 1 gets the updated belief/prompt.
+        // Per the paper: "when the coaching phase is 'planning', the Talker
+        // is instructed to wait for the Reasoner to finish."
+        talker.reconnectWithNewPrompt().catch(err => {
+          logger.warn({ err }, 'Reconnect after phase change failed');
+        });
+      }
+    }).catch((err) => {
+      logger.warn({ err }, 'Async belief update from Talker turn failed');
+    });
   });
 
   // ─── User message handler ──────────────────────────
@@ -573,32 +610,17 @@ async function handleUserText(session: VoiceSession, text: string): Promise<void
       }));
     }
 
-    // Update PersonaPlex text prompt with new belief
+    // Update PersonaPlex text prompt with new belief + ledger
     const updatedBelief = reasoner.getBelief();
-    talker.updateTextPrompt(beliefToPrompt(updatedBelief));
+    talker.updateTextPrompt(beliefToPrompt(updatedBelief, reasoner.getLedger()));
   } else {
     // ─── System 1 (Async Reasoner Update) ───────────
-    // Don't block — let PersonaPlex handle the response naturally
-    // Fire-and-forget belief update to Reasoner
-
-    // We'll get the talker's response from the onTurnComplete event
-    const talkerResponsePromise = new Promise<string>((resolve) => {
-      const handler = (turnText: string) => {
-        resolve(turnText);
-      };
-      talker.on('onTurnComplete', handler);
-      // Timeout: if no response in 5s, resolve with empty
-      setTimeout(() => resolve(''), 5000);
-    });
-
-    const talkerResponse = await talkerResponsePromise;
-
-    // Async belief update (non-blocking)
-    reasoner.updateBelief(text, talkerResponse).then(() => {
-      // After belief update, refresh PersonaPlex's prompt
-      const updatedBelief = reasoner.getBelief();
-      talker.updateTextPrompt(beliefToPrompt(updatedBelief));
-    }).catch((err) => {
+    // Don't block — let PersonaPlex handle the response naturally.
+    // The permanent onTurnComplete handler (registered during session setup)
+    // will feed PersonaPlex's reply to the Reasoner when it arrives.
+    // Here we just do an immediate fire-and-forget update with the user's text
+    // so the Reasoner knows what the user said.
+    reasoner.updateBelief(text, '').catch((err) => {
       logger.error({ err }, 'Background belief update failed');
     });
   }

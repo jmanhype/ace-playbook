@@ -121,9 +121,21 @@ export class Talker {
   /** Update the dynamic text prompt (enriched by Reasoner's belief state). */
   updateTextPrompt(prompt: string): void {
     this.textPrompt = prompt;
-    // Note: text_prompt is set via URL query params on connect.
-    // To update mid-session, we'd need to reconnect with new params.
     logger.debug({ promptLength: prompt.length }, 'Text prompt updated (applied on next reconnect)');
+  }
+
+  /**
+   * Reconnect to PersonaPlex with the current text prompt.
+   * Used when the Reasoner updates the belief state and the Talker needs
+   * to incorporate the new context. Per the paper: "System 2 taking over
+   * and overruling the impulses of System 1."
+   */
+  async reconnectWithNewPrompt(): Promise<void> {
+    logger.info('Reconnecting PersonaPlex with updated prompt (System 2 override)');
+    this.disconnect();
+    // Small delay to let PersonaPlex release the session lock
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await this.connect();
   }
 
   private _sendCount = 0;
