@@ -238,15 +238,9 @@ export class Trigger {
       return true;
     }
 
-    // Any non-trivial user text (3+ words, not social) → trigger with lower confidence
-    // This is the fallback for when PersonaPlex ignores the user's request entirely.
-    if (words.length >= 4) {
-      logger.info({ reason: 'non_trivial_text', text: lower.slice(0, 100) }, 'User text trigger: non-trivial input');
-      this.bus.emit(E.triggerActivate(this.sessionId, 'user_request', 0.6, text));
-      return true;
-    }
-
-    logger.debug({ text: lower.slice(0, 80), wordCount: words.length }, 'User text — no trigger');
+    // No catch-all fallback — only explicit action keywords / request patterns
+    // trigger System 2. Regular conversation stays in PersonaPlex (System 1).
+    logger.debug({ text: lower.slice(0, 80), wordCount: words.length }, 'User text — no trigger (normal conversation)');
     return false;
   }
 

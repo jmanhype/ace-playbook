@@ -774,9 +774,26 @@ if (import.meta.main) {
   const env = getEnv();
   const app = createApp();
 
-  logger.info({ port: env.PORT }, 'Starting Voice Bridge server (event bus architecture)');
+  // TLS for SpeechRecognition (Chrome requires secure context)
+  const certDir = new URL('../certs/', import.meta.url).pathname;
+  let tls: { key: string; cert: string } | undefined;
+  try {
+    const keyFile = Bun.file(certDir + 'key.pem');
+    const certFile = Bun.file(certDir + 'cert.pem');
+    if (await keyFile.exists() && await certFile.exists()) {
+      tls = {
+        key: await keyFile.text(),
+        cert: await certFile.text(),
+      };
+      logger.info('TLS enabled (self-signed cert)');
+    }
+  } catch { /* no certs, run plain HTTP */ }
+
+  const proto = tls ? 'https' : 'http';
+  logger.info({ port: env.PORT, proto }, 'Starting Voice Bridge server (event bus architecture)');
 
   const server = Bun.serve({
+    tls,
     fetch(req, server) {
       if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
         const success = server.upgrade(req);
@@ -854,7 +871,7 @@ if (import.meta.main) {
     port: env.PORT,
   });
 
-  logger.info({ port: server.port }, 'Voice Bridge listening (event bus architecture)');
+  logger.info({ port: server.port, proto, url: `${proto}://localhost:${server.port}` }, 'Voice Bridge listening (event bus architecture)');
 }
 
 export { createApp };
