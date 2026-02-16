@@ -122,8 +122,10 @@ export class Reasoner {
         const response = await this.lettaPost<{ messages: LettaMessage[] }>(
           `/v1/agents/${this.agentId}/messages`,
           {
-            role: 'user',
-            text: `[BELIEF_UPDATE] User said: "${userText}"\nAssistant responded: "${talkerResponse}"\n\nUpdate the belief_state memory block based on this exchange. Focus on: user goals, current topic, conversation phase, and any barriers mentioned.`,
+            messages: [{
+              role: 'user',
+              content: `[BELIEF_UPDATE] User said: "${userText}"\nAssistant responded: "${talkerResponse}"\n\nUpdate the belief_state memory block based on this exchange. Focus on: user goals, current topic, conversation phase, and any barriers mentioned.`,
+            }],
           },
           controller.signal,
         );
@@ -173,8 +175,10 @@ export class Reasoner {
         const response = await this.lettaPost<{ messages: LettaMessage[] }>(
           `/v1/agents/${this.agentId}/messages`,
           {
-            role: 'user',
-            text: `[ACTION_REQUEST] The user wants you to act. Their request: "${userText}"\n\nAnalyze this request. If it involves building or creating something, use the execute_ops_mission tool. Provide a clear, spoken response summarizing what you're doing.`,
+            messages: [{
+              role: 'user',
+              content: `[ACTION_REQUEST] The user wants you to act. Their request: "${userText}"\n\nAnalyze this request. If it involves building or creating something, use the execute_ops_mission tool. Provide a clear, spoken response summarizing what you're doing.`,
+            }],
           },
           controller.signal,
         );
