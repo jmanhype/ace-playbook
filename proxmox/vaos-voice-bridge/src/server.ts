@@ -30,6 +30,10 @@ interface VoiceSession {
   userWs: WebSocket | null;
   turnCount: number;
   createdAt: Date;
+  /** Rolling buffer of recent PersonaPlex turns for System 2 context. */
+  recentTurns: string[];
+  /** Whether a System 2 intercept is currently in flight. */
+  system2Active: boolean;
 }
 
 const sessions = new Map<string, VoiceSession>();
@@ -472,6 +476,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     userWs,
     turnCount: 0,
     createdAt: new Date(),
+    recentTurns: [],
+    system2Active: false,
   };
   sessions.set(sessionId, session);
 
@@ -517,12 +523,64 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     session.turnCount++;
     logger.info({ turn: session.turnCount, text: talkerText.slice(0, 80) }, 'Talker turn complete');
 
+    // Track recent turns for System 2 context (rolling buffer of last 10)
+    session.recentTurns.push(talkerText);
+    if (session.recentTurns.length > 10) session.recentTurns.shift();
+
     // 1. Send text to client UI
     if (userWs.readyState === WebSocket.OPEN) {
       userWs.send(JSON.stringify({ type: 'talker_text', text: talkerText }));
     }
 
-    // 2. Feed Talker output to Reasoner for async belief update.
+    // 2. System 2 Intercept — detect when PersonaPlex can't handle the request.
+    //    PersonaPlex is a 7B voice model with NO tool-calling ability.
+    //    When the user asks for actions (web search, memory check, video creation),
+    //    PersonaPlex deflects. We detect this and route to the Reasoner (System 2)
+    //    which has 15 tools including web_search, core_memory, run_code, etc.
+    if (!session.system2Active && needsSystem2Intercept(session.recentTurns)) {
+      session.system2Active = true;
+      const context = session.recentTurns.join(' ').trim().slice(-800);
+      logger.info({ context: context.slice(0, 100) }, 'System 2 intercept triggered (voice path)');
+
+      // Notify browser that System 2 is thinking
+      if (userWs.readyState === WebSocket.OPEN) {
+        userWs.send(JSON.stringify({ type: 'system2_thinking', active: true }));
+      }
+
+      reasoner.processAndRespond(context).then((response) => {
+        logger.info({ response: response.slice(0, 100) }, 'System 2 response ready');
+
+        // Send Reasoner's response to browser
+        if (userWs.readyState === WebSocket.OPEN) {
+          userWs.send(JSON.stringify({
+            type: 'reasoner_response',
+            text: response,
+            system: 2,
+            decision: 'voice_intercept',
+          }));
+          userWs.send(JSON.stringify({ type: 'system2_thinking', active: false }));
+        }
+
+        // Sync belief after System 2 action
+        const updatedBelief = reasoner.getBelief();
+        if (userWs.readyState === WebSocket.OPEN) {
+          userWs.send(JSON.stringify({ type: 'belief_update', belief: updatedBelief, ledger }));
+        }
+        talker.updateTextPrompt(beliefToPrompt(updatedBelief, ledger));
+      }).catch((err) => {
+        logger.warn({ err }, 'System 2 intercept failed');
+        if (userWs.readyState === WebSocket.OPEN) {
+          userWs.send(JSON.stringify({ type: 'system2_thinking', active: false }));
+        }
+      }).finally(() => {
+        session.system2Active = false;
+        session.recentTurns = []; // Clear after System 2 processes
+      });
+
+      return; // Skip normal belief update — System 2 is handling this
+    }
+
+    // 3. Feed Talker output to Reasoner for async belief update.
     //    PersonaPlex's text reflects the conversation (it paraphrases user input),
     //    so the Reasoner can extract user intent from the model's utterances.
     const prevPhase = reasoner.getBelief().conversation.phase;
@@ -531,22 +589,17 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       const updatedBelief = reasoner.getBelief();
       const newPhase = updatedBelief.conversation.phase;
 
-      // 3. Push updated belief to browser UI
+      // 4. Push updated belief to browser UI
       if (userWs.readyState === WebSocket.OPEN) {
         userWs.send(JSON.stringify({ type: 'belief_update', belief: updatedBelief, ledger }));
       }
 
-      // 4. If belief phase changed, rebuild text_prompt (applied on next reconnect).
-      //    Per the paper: "the Talker can also wait for the Reasoner before generating
-      //    a response; this is equivalent to System 2 taking over."
+      // 5. If belief phase changed, rebuild text_prompt (applied on next reconnect).
       const newPrompt = beliefToPrompt(updatedBelief, ledger);
       talker.updateTextPrompt(newPrompt);
 
       if (prevPhase !== newPhase) {
         logger.info({ prevPhase, newPhase }, 'Belief phase changed — reconnecting PersonaPlex');
-        // Reconnect PersonaPlex so System 1 gets the updated belief/prompt.
-        // Per the paper: "when the coaching phase is 'planning', the Talker
-        // is instructed to wait for the Reasoner to finish."
         talker.reconnectWithNewPrompt().catch(err => {
           logger.warn({ err }, 'Reconnect after phase change failed');
         });
@@ -562,6 +615,61 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // We store the session handler so the Bun WS callbacks can dispatch.
   (userWs as any)._voiceSession = session;
   (userWs as any)._handleText = handleUserText;
+}
+
+// ─── System 2 Voice Intercept Detection ────────────────────────
+// PersonaPlex (7B model) has NO tool-calling ability. When the user asks for
+// actions via voice, PersonaPlex deflects. We detect this from its output
+// and escalate to the Reasoner (System 2) which has web_search, core_memory,
+// run_code, send_message_to_agent, etc.
+
+/** Deflection phrases — PersonaPlex admitting it can't do something. */
+const DEFLECTION_PATTERNS = [
+  "i can't do that",
+  "i'm not able to",
+  "i can't search",
+  "i can't access",
+  "i don't have access",
+  "i can't make",
+  "i can't check",
+  "i can only share",
+  "i can't really",
+  "not sure what you mean",
+  "i don't think i follow",
+  "can we stick to",
+  "let's focus on",
+  "i'm not sure what",
+];
+
+/** Action keywords in PersonaPlex's output suggesting user wants a tool-action. */
+const ACTION_KEYWORDS = [
+  'search', 'web search', 'look up', 'look it up',
+  'memory', 'core memory', 'remember', 'what do you remember',
+  'check', 'check on', 'status',
+  'create a video', 'make a video', 'generate',
+  'run code', 'execute',
+  'ask the director', 'ask the writer', 'tell the director',
+  'send a message',
+];
+
+/**
+ * Detect when PersonaPlex is failing to handle a user request that needs tools.
+ * Looks at recent turns for deflection + action keyword combinations.
+ */
+function needsSystem2Intercept(recentTurns: string[]): boolean {
+  if (recentTurns.length < 2) return false;
+
+  const recentText = recentTurns.slice(-5).join(' ').toLowerCase();
+
+  // Check for deflection patterns (PersonaPlex saying "I can't")
+  const hasDeflection = DEFLECTION_PATTERNS.some(p => recentText.includes(p));
+
+  // Check for action keywords (user asking for something tool-able)
+  const hasActionKeyword = ACTION_KEYWORDS.some(k => recentText.includes(k));
+
+  // Trigger if BOTH deflection AND action keyword present
+  // This avoids false positives on normal conversation
+  return hasDeflection && hasActionKeyword;
 }
 
 /**
