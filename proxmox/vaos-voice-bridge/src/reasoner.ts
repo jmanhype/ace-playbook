@@ -125,6 +125,10 @@ export class Reasoner {
       const prompt = this.buildTriggerPrompt(event);
       const response = await this.sendToLetta(prompt, 60_000);
 
+      // Sync blocks from Letta BEFORE extracting — Letta has already executed
+      // native memory tool calls, so our local cache needs to reflect that.
+      await this.memory.syncFromLetta();
+
       // Extract user-facing response (only send_message tool calls for proactive/periodic)
       const onlySendMessage = event.reason === 'periodic';
       const text = this.extractResponse(response, onlySendMessage);
@@ -143,6 +147,7 @@ export class Reasoner {
         try {
           const beliefPrompt = `[BELIEF_UPDATE] Context of what just happened:\n"${event.context}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase, current_project as needed based on this context.`;
           const beliefResponse = await this.sendToLetta(beliefPrompt, 45_000);
+          await this.memory.syncFromLetta();
           this.extractResponse(beliefResponse, true);
           logger.info('Post-trigger belief update completed');
         } catch (err) {
@@ -212,7 +217,9 @@ export class Reasoner {
         const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
 
         const response = await this.sendToLetta(prompt, 45_000);
-        // Process response to extract and execute text-based tool calls
+        // Sync blocks from Letta — native tool calls already executed
+        await this.memory.syncFromLetta();
+        // Process response to extract and execute text-based tool calls only
         this.extractResponse(response, true);
         this.bus.emit(E.reasonerBelief(this.sessionId, 'belief_update', ['belief_state', 'conversation_context']));
         logger.info({ batchSize: allTurns.length, responseMsgs: response.length }, 'Belief updated');
@@ -354,6 +361,10 @@ Rules:
 
     for (const m of messages) {
       // 1. Native tool_call_message (Claude, GPT-4, etc.)
+      //    IMPORTANT: Letta already executed these tool calls internally.
+      //    We extract send_message text and dispatch missions, but DO NOT
+      //    re-execute memory writes — that causes double-write corruption
+      //    where old_content mismatches and the fallback overwrites the block.
       const tc = m.tool_call;
       if (m.message_type === 'tool_call_message' && tc?.name === 'send_message') {
         const parsed = this.parseArgs(tc.arguments);
@@ -366,8 +377,10 @@ Rules:
         if (tc.name === 'execute_ops_mission' || tc.name === 'execute_mission') {
           this.triggerOpsMission(parsed);
         }
+        // NOTE: core_memory_replace/append are NOT re-executed here.
+        // Letta already processed them. We sync blocks after processing.
         if (tc.name === 'core_memory_replace' || tc.name === 'core_memory_append') {
-          this.executeMemoryToolCall(tc.name, parsed);
+          logger.debug({ name: tc.name, label: parsed.label ?? parsed.block_label }, 'Skipping native memory tool call (Letta already executed)');
         }
       }
 
