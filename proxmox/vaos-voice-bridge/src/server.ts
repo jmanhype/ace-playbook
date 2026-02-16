@@ -68,6 +68,8 @@ interface VoiceSession {
   turnCount: number;
   createdAt: Date;
   recentTalkerTurns: Array<{ text: string; timestamp: number }>;
+  /** Accumulates PersonaPlex's streaming text tokens for real-time echo comparison. */
+  talkerStreamingText: string;
 }
 
 const sessions = new Map<string, VoiceSession>();
@@ -180,7 +182,7 @@ let decoderWorker=null,moshiWorklet=null;
 let totalAudioBytes=0;
 let audioSetupPromise=null;
 let lastAudioPlaybackTs=0;
-const ECHO_GATE_MS=2000;
+const ECHO_GATE_MS=4000;
 
 function setStatus(s){
   statusEl.textContent=s.charAt(0).toUpperCase()+s.slice(1);
@@ -617,6 +619,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     turnCount: 0,
     createdAt: new Date(),
     recentTalkerTurns: [],
+    talkerStreamingText: '',
   };
   sessions.set(sessionId, session);
 
@@ -691,6 +694,16 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   }, 10); // Low priority — output layer
 
+  // Accumulate PersonaPlex streaming text for real-time echo comparison.
+  // This fires on every text token, BEFORE turn-complete (which waits 350ms).
+  bus.on('talker.text', (event) => {
+    session.talkerStreamingText += event.text;
+    // Cap at 500 chars to prevent unbounded growth
+    if (session.talkerStreamingText.length > 500) {
+      session.talkerStreamingText = session.talkerStreamingText.slice(-300);
+    }
+  }, 50);
+
   // Forward Talker text to browser (suppressed during System 2)
   // Also record for echo dedup
   bus.on('talker.turn', (event) => {
@@ -700,6 +713,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     session.recentTalkerTurns = session.recentTalkerTurns.filter(
       t => now - t.timestamp <= 15_000,
     );
+    // Clear streaming buffer — this turn's text is now in recentTalkerTurns
+    session.talkerStreamingText = '';
 
     if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
@@ -907,9 +922,14 @@ if (import.meta.main) {
           session.talker.sendAudio(buf);
         } else if (typeof message === 'string') {
           // Text input from browser (Speech Recognition or typed) → emit on event bus
-          // Server-side echo dedup: compare against recent PersonaPlex turns
+          // Layer 2: Content match against PersonaPlex's streaming text buffer
+          if (session.talkerStreamingText && isLikelyEcho(message, [{ text: session.talkerStreamingText, timestamp: Date.now() }])) {
+            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (streaming match) — text overlaps current PersonaPlex speech');
+            return;
+          }
+          // Layer 3: Text dedup against recent completed PersonaPlex turns
           if (isLikelyEcho(message, session.recentTalkerTurns)) {
-            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (server dedup) — text matched recent PersonaPlex turn');
+            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (turn dedup) — text matched recent PersonaPlex turn');
             return;
           }
           logger.info({ text: message.slice(0, 200), len: message.length }, 'User text received from browser');
