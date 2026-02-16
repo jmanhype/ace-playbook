@@ -46,17 +46,13 @@ export class Talker {
   private events: Partial<TalkerEvents> = {};
   private textPrompt = '';
   private _handshakeComplete = false;
+  /** Timestamp when handshake completed — used to detect instant disconnects. */
+  private _handshakeTime = 0;
   /** When true, suppress auto-reconnect on close. Set by disconnect(). */
   private _intentionalDisconnect = false;
-  /**
-   * Ogg header page cache. PersonaPlex's opus decoder needs the Ogg
-   * BOS (OpusHead) and comment (OpusTags) pages before any audio data.
-   * These often arrive from the browser BEFORE the PersonaPlex handshake
-   * completes, so sendAudio() drops them. We cache them here and replay
-   * them right after the handshake.
-   */
-  private oggHeaderCache: Uint8Array[] = [];
-  private oggHeadersSent = false;
+  // NOTE: No Ogg header caching. PersonaPlex's sphn.OpusStreamReader expects
+  // raw Opus packets, NOT Ogg page containers. Sending Ogg pages crashes the
+  // server's recv_loop with "ValueError: sending on a closed channel".
 
   /** Text drought detection — auto-reconnect when PersonaPlex goes silent. */
   private lastTextTime = 0;
@@ -97,8 +93,6 @@ export class Talker {
 
     logger.info({ url }, 'Connecting to PersonaPlex');
     this._handshakeComplete = false;
-    this.oggHeadersSent = false;
-    this.oggHeaderCache = [];
     this._sendCount = 0;
     this.events.onStateChange?.('connecting');
 
@@ -108,7 +102,9 @@ export class Talker {
 
       this.ws.addEventListener('open', () => {
         logger.info('WebSocket open to PersonaPlex (awaiting handshake)');
-        this.reconnectAttempts = 0;
+        // NOTE: Don't reset reconnectAttempts here — PersonaPlex may accept the
+        // WS connection but immediately disconnect after handshake (single-session lock).
+        // Reset only after a SUCCESSFUL handshake (in handleMessage → HANDSHAKE case).
         // Don't emit 'connected' yet — wait for handshake exchange.
         // PersonaPlex loads system prompts before sending handshake (can take seconds).
       });
@@ -158,39 +154,16 @@ export class Talker {
   }
 
   private _sendCount = 0;
+  private _recvCount = 0;
 
-  /**
-   * Check if an ArrayBuffer contains an Ogg page and extract its flags.
-   * Returns the Ogg header_type flags byte, or -1 if not an Ogg page.
-   * Ogg page structure: "OggS" (4 bytes) + version (1) + header_type (1)
-   * header_type: 0x02 = BOS (beginning of stream = OpusHead header)
-   */
-  private static getOggFlags(data: Uint8Array): number {
-    if (data.length >= 6 && data[0] === 0x4f && data[1] === 0x67 &&
-        data[2] === 0x67 && data[3] === 0x53) {
-      return data[5]; // header_type byte
-    }
-    return -1;
-  }
 
-  /** Forward user audio to PersonaPlex (adds 0x01 prefix). Caches Ogg headers pre-handshake. */
+
+  /** Forward user audio to PersonaPlex (adds 0x01 prefix). */
   sendAudio(data: ArrayBuffer): void {
-    const audioBytes = new Uint8Array(data);
-
-    if (!this._handshakeComplete) {
-      // Before handshake: cache Ogg header pages (BOS + comment) for replay after handshake
-      const flags = Talker.getOggFlags(audioBytes);
-      if (flags >= 0 && !this.oggHeadersSent) {
-        // Cache the first 2 Ogg pages (OpusHead BOS page + OpusTags page)
-        if (this.oggHeaderCache.length < 2) {
-          this.oggHeaderCache.push(new Uint8Array(audioBytes));
-          logger.info({ cachedPages: this.oggHeaderCache.length, flags: `0x${flags.toString(16)}`, size: audioBytes.length }, 'Cached Ogg header page (pre-handshake)');
-        }
-      }
-      return; // Drop all audio until handshake done
-    }
+    if (!this._handshakeComplete) return; // Drop audio until handshake done
 
     if (this.ws?.readyState === WebSocket.OPEN) {
+      const audioBytes = new Uint8Array(data);
       const frame = new Uint8Array(1 + audioBytes.length);
       frame[0] = MSG_TYPE.AUDIO;
       frame.set(audioBytes, 1);
@@ -199,31 +172,8 @@ export class Talker {
     }
   }
 
-  /** Replay cached Ogg header pages to PersonaPlex after handshake. */
-  private replayOggHeaders(): void {
-    if (this.oggHeadersSent || this.oggHeaderCache.length === 0) return;
-    if (this.ws?.readyState !== WebSocket.OPEN) return;
-
-    logger.info({ cachedPages: this.oggHeaderCache.length }, 'Replaying cached Ogg headers to PersonaPlex');
-    for (const header of this.oggHeaderCache) {
-      const frame = new Uint8Array(1 + header.length);
-      frame[0] = MSG_TYPE.AUDIO;
-      frame.set(header, 1);
-      this._sendCount++;
-      this.ws.send(frame);
-    }
-    this.oggHeadersSent = true;
-  }
-
-  /** Send the Moshi handshake response (single 0x00 byte, matching native client). */
-  private sendHandshake(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      const msg = new Uint8Array([MSG_TYPE.HANDSHAKE]);
-      this._sendCount++;
-      logger.info('Sent handshake response to PersonaPlex');
-      this.ws.send(msg);
-    }
-  }
+  // NOTE: No handshake response needed. PersonaPlex server only expects audio
+  // frames (kind=1) from the client. Sending 0x00 causes "unknown kind 0" warning.
 
   /** Handle incoming PersonaPlex messages. */
   private async handleMessage(data: unknown): Promise<void> {
@@ -255,16 +205,13 @@ export class Talker {
       try {
         switch (msgType) {
           case MSG_TYPE.HANDSHAKE: {
-            logger.info({ payloadSize: payload.length, cachedOggPages: this.oggHeaderCache.length }, 'Received handshake from PersonaPlex');
-            this.sendHandshake();
+            logger.info({ payloadSize: payload.length }, 'Received handshake from PersonaPlex — ready for audio');
+            // Don't send anything back — server only accepts audio (kind=1).
             this._handshakeComplete = true;
-            // Replay any cached Ogg headers BEFORE signaling connected
-            // (so PersonaPlex's opus decoder is initialized before live audio flows)
-            this.replayOggHeaders();
-            // Start text drought watchdog
+            this._handshakeTime = Date.now();
+            this.reconnectAttempts = 0;
             this.lastTextTime = Date.now();
             this.startDroughtCheck();
-            // Signal that PersonaPlex is truly ready for audio
             try { this.events.onStateChange?.('connected'); } catch (e) { logger.error({ err: e }, 'onStateChange handler error'); }
             break;
           }
@@ -317,13 +264,17 @@ export class Talker {
       return;
     }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      logger.error('Max reconnection attempts reached');
+      logger.error('Max reconnection attempts reached — giving up (restart bridge to retry)');
       return;
     }
 
-    const delay = this.reconnectDelayMs * Math.pow(1.5, this.reconnectAttempts);
+    // Detect instant-disconnect pattern: PersonaPlex closes <500ms after handshake.
+    // This means its single-session lock hasn't cleared. Use longer base delay.
+    const instantDisconnect = this._handshakeTime > 0 && (Date.now() - this._handshakeTime) < 500;
+    const baseDelay = instantDisconnect ? 5000 : this.reconnectDelayMs;
+    const delay = baseDelay * Math.pow(1.5, this.reconnectAttempts);
     this.reconnectAttempts++;
-    logger.info({ attempt: this.reconnectAttempts, delayMs: delay }, 'Scheduling reconnect');
+    logger.info({ attempt: this.reconnectAttempts, delayMs: Math.round(delay), instantDisconnect }, 'Scheduling reconnect');
 
     setTimeout(() => this.connect(), delay);
   }

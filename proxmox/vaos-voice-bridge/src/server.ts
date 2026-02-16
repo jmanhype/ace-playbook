@@ -41,7 +41,7 @@ function isLikelyEcho(
   if (userWords.size === 0) return false;
 
   for (const turn of recentTurns) {
-    if (now - turn.timestamp > 15_000) continue;
+    if (now - turn.timestamp > 30_000) continue;
     const turnWords = new Set(
       turn.text.toLowerCase().split(/\s+/).filter(w => w.length > 2),
     );
@@ -50,9 +50,32 @@ function isLikelyEcho(
       if (turnWords.has(w)) overlap++;
     }
     const ratio = overlap / userWords.size;
-    if (ratio >= 0.6 && overlap >= 3) return true;
+    // Lower threshold: 40% overlap with 2+ matching words (was 60%/3).
+    // SpeechRecognition captures mixed user+speaker audio, so overlap
+    // may be lower than pure echo.
+    if (ratio >= 0.4 && overlap >= 2) return true;
   }
   return false;
+}
+
+/**
+ * Length-based echo heuristic for speech input.
+ * PersonaPlex monologues transcribed by SpeechRecognition are typically 100+ chars.
+ * Genuine user speech that triggers System 2 is typically under 100 chars.
+ * If SpeechRecognition produces a long transcript AND PersonaPlex was speaking recently,
+ * it's almost certainly echo (mixed user + speaker audio in one transcript).
+ */
+function isLikelyEchoByLength(
+  userText: string,
+  recentTurns: Array<{ text: string; timestamp: number }>,
+  streamingText: string,
+): boolean {
+  if (userText.length < 120) return false;
+  const now = Date.now();
+  // PersonaPlex spoke within the last 30 seconds
+  const recentSpeech = recentTurns.some(t => now - t.timestamp <= 30_000);
+  const hasStreamingText = streamingText.length > 20;
+  return recentSpeech || hasStreamingText;
 }
 
 // ─── Session state ──────────────────────────────────────────────
@@ -70,6 +93,8 @@ interface VoiceSession {
   recentTalkerTurns: Array<{ text: string; timestamp: number }>;
   /** Accumulates PersonaPlex's streaming text tokens for real-time echo comparison. */
   talkerStreamingText: string;
+  /** Timestamp of last talker audio frame forwarded to browser (for echo gate). */
+  lastTalkerAudioTs: number;
 }
 
 const sessions = new Map<string, VoiceSession>();
@@ -182,7 +207,8 @@ let decoderWorker=null,moshiWorklet=null;
 let totalAudioBytes=0;
 let audioSetupPromise=null;
 let lastAudioPlaybackTs=0;
-const ECHO_GATE_MS=4000;
+let lastTalkerSpeechTs=0;
+const ECHO_GATE_MS=8000;
 
 function setStatus(s){
   statusEl.textContent=s.charAt(0).toUpperCase()+s.slice(1);
@@ -263,7 +289,11 @@ async function setupAudioPlayback(){
 
 async function playAudio(buf){
   totalAudioBytes+=buf.byteLength;
-  lastAudioPlaybackTs=Date.now();
+  // Track audio activity as secondary echo signal.
+  // PersonaPlex sends audio frames even during silence, but speech frames
+  // are larger (>200 bytes) than silence/comfort-noise frames.
+  // This catches the case where PersonaPlex sends audio without text tokens.
+  if(buf.byteLength>200){lastTalkerSpeechTs=Date.now();}
   if(!decoderWorker){
     if(!audioSetupPromise){
       audioSetupPromise=setupAudioPlayback().catch(e=>{
@@ -314,7 +344,10 @@ function connect(){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display='none';
           addMsg('[System 2 → System 1] '+msg.text,'system2');
+        }else if(msg.type==='talker_speaking'){
+          lastTalkerSpeechTs=Date.now();
         }else if(msg.type==='talker_text'){
+          lastTalkerSpeechTs=Date.now();
           addMsg('[System 1] '+msg.text,'system1');
         }else if(msg.type==='state_change'){
           addMsg('State: '+msg.state+(msg.source==='talker'?' (PersonaPlex)':''),'system1');
@@ -415,7 +448,7 @@ txtInput.addEventListener('keydown',(e)=>{if(e.key==='Enter')sendText();});
 function sendText(){
   const t=txtInput.value.trim();
   if(!t||!ws||ws.readyState!==1)return;
-  ws.send(t);
+  ws.send('text:'+t);
   addMsg('[You] '+t,'user');
   txtInput.value='';
 }
@@ -444,17 +477,17 @@ function startSpeechRecognition(){
     if(final&&final!==lastFinal){
       lastFinal=final;
       const trimmed=final.trim();
-      if(Date.now()-lastAudioPlaybackTs<ECHO_GATE_MS){
+      if(Date.now()-lastTalkerSpeechTs<ECHO_GATE_MS){
         console.log('[SpeechRec] ECHO SUPPRESSED (final):',trimmed);
         return;
       }
       console.log('[SpeechRec] Final:',trimmed);
       addMsg('[You] '+trimmed,'user');
       // Send to bridge as user text for trigger evaluation
-      if(ws&&ws.readyState===1){ws.send(trimmed);}
+      if(ws&&ws.readyState===1){ws.send('speech:'+trimmed);}
     }
     if(interim){
-      if(Date.now()-lastAudioPlaybackTs<ECHO_GATE_MS){return;}
+      if(Date.now()-lastTalkerSpeechTs<ECHO_GATE_MS){return;}
       // Show interim results in a lighter style
       const existing=document.getElementById('interim-speech');
       if(existing){existing.textContent='[...] '+interim;}
@@ -620,6 +653,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     createdAt: new Date(),
     recentTalkerTurns: [],
     talkerStreamingText: '',
+    lastTalkerAudioTs: 0,
   };
   sessions.set(sessionId, session);
 
@@ -696,11 +730,18 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
 
   // Accumulate PersonaPlex streaming text for real-time echo comparison.
   // This fires on every text token, BEFORE turn-complete (which waits 350ms).
+  // Also notifies browser so it can gate SpeechRecognition (speech-based, not audio-frame-based).
   bus.on('talker.text', (event) => {
     session.talkerStreamingText += event.text;
-    // Cap at 500 chars to prevent unbounded growth
-    if (session.talkerStreamingText.length > 500) {
-      session.talkerStreamingText = session.talkerStreamingText.slice(-300);
+    // Cap at 1000 chars to prevent unbounded growth (covers ~30s of speech)
+    if (session.talkerStreamingText.length > 1000) {
+      session.talkerStreamingText = session.talkerStreamingText.slice(-600);
+    }
+    // Notify browser that PersonaPlex is actively speaking (not just sending audio frames).
+    // The browser uses this to gate SpeechRecognition — more reliable than raw audio timing
+    // because Moshi sends continuous audio (including silence) in full-duplex mode.
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({ type: 'talker_speaking' }));
     }
   }, 50);
 
@@ -711,10 +752,10 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     const now = Date.now();
     session.recentTalkerTurns.push({ text: event.text, timestamp: now });
     session.recentTalkerTurns = session.recentTalkerTurns.filter(
-      t => now - t.timestamp <= 15_000,
+      t => now - t.timestamp <= 30_000,
     );
-    // Clear streaming buffer — this turn's text is now in recentTalkerTurns
-    session.talkerStreamingText = '';
+    // Don't clear streaming buffer — SpeechRecognition results arrive delayed,
+    // so we need the text available for echo matching even after turn completes.
 
     if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
@@ -921,19 +962,36 @@ if (import.meta.main) {
           }
           session.talker.sendAudio(buf);
         } else if (typeof message === 'string') {
-          // Text input from browser (Speech Recognition or typed) → emit on event bus
-          // Layer 2: Content match against PersonaPlex's streaming text buffer
-          if (session.talkerStreamingText && isLikelyEcho(message, [{ text: session.talkerStreamingText, timestamp: Date.now() }])) {
-            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (streaming match) — text overlaps current PersonaPlex speech');
-            return;
+          // Parse prefix: "speech:..." = SpeechRecognition, "text:..." = typed input
+          const isSpeech = message.startsWith('speech:');
+          const isTyped = message.startsWith('text:');
+          const text = isSpeech ? message.slice(7) : isTyped ? message.slice(5) : message;
+
+          if (isSpeech) {
+            // === Echo suppression (speech only — never blocks typed text) ===
+
+            // Layer 1: Length heuristic — long transcripts during active PersonaPlex
+            // conversation are almost certainly echo (mixed user + speaker audio).
+            if (isLikelyEchoByLength(text, session.recentTalkerTurns, session.talkerStreamingText)) {
+              logger.info({ text: text.slice(0, 200), len: text.length }, 'Echo suppressed (length heuristic) — long speech during active conversation');
+              return;
+            }
+
+            // Layer 2: Content match against PersonaPlex's streaming text buffer
+            if (session.talkerStreamingText && isLikelyEcho(text, [{ text: session.talkerStreamingText, timestamp: Date.now() }])) {
+              logger.info({ text: text.slice(0, 200) }, 'Echo suppressed (streaming match)');
+              return;
+            }
+
+            // Layer 3: Text dedup against recent completed PersonaPlex turns
+            if (isLikelyEcho(text, session.recentTalkerTurns)) {
+              logger.info({ text: text.slice(0, 200) }, 'Echo suppressed (turn dedup)');
+              return;
+            }
           }
-          // Layer 3: Text dedup against recent completed PersonaPlex turns
-          if (isLikelyEcho(message, session.recentTalkerTurns)) {
-            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (turn dedup) — text matched recent PersonaPlex turn');
-            return;
-          }
-          logger.info({ text: message.slice(0, 200), len: message.length }, 'User text received from browser');
-          session.bus.emit(E.userText(session.id, message));
+
+          logger.info({ text: text.slice(0, 200), len: text.length, source: isSpeech ? 'speech' : isTyped ? 'typed' : 'raw' }, 'User text received from browser');
+          session.bus.emit(E.userText(session.id, text));
         }
       },
       close(ws) {
