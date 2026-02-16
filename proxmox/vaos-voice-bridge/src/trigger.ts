@@ -93,7 +93,7 @@ export class Trigger {
     this.bus = bus;
     this.sessionId = sessionId;
     this.config = {
-      proactiveInterval: config?.proactiveInterval ?? 6,
+      proactiveInterval: config?.proactiveInterval ?? 25,
       confidenceThreshold: config?.confidenceThreshold ?? 0.5,
       windowSize: config?.windowSize ?? 5,
     };

@@ -55,6 +55,8 @@ export class Reasoner {
   private agentId: string | null = null;
   private processing = false;
   private pendingTurns: string[] = [];
+  /** Cooldown after Letta timeout — skip processing until this time. */
+  private cooldownUntil = 0;
 
   constructor(bus: EventBus, memory: Memory, trigger: Trigger, sessionId: string) {
     this.bus = bus;
@@ -118,6 +120,11 @@ export class Reasoner {
    * The Trigger has determined that PersonaPlex can't handle this.
    */
   private async handleTrigger(event: TriggerActivateEvent): Promise<void> {
+    // Skip if in cooldown (recent Letta timeout)
+    if (Date.now() < this.cooldownUntil) {
+      logger.debug({ cooldownRemainingSecs: Math.round((this.cooldownUntil - Date.now()) / 1000) }, 'Skipping trigger (Letta cooldown)');
+      return;
+    }
     this.trigger.system2Active = true;
     this.bus.emit(E.reasonerThinking(this.sessionId, true));
 
@@ -141,24 +148,18 @@ export class Reasoner {
       // Signal that belief was updated
       this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
 
-      // Follow-up belief update — models without native tool calling won't update
-      // memory from action prompts, so we run a dedicated belief update afterward
-      if (this.agentId) {
-        try {
-          const beliefPrompt = `[BELIEF_UPDATE] Context of what just happened:\n"${event.context}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase, current_project as needed based on this context.`;
-          const beliefResponse = await this.sendToLetta(beliefPrompt, 45_000);
-          await this.memory.syncFromLetta();
-          this.extractResponse(beliefResponse, true);
-          logger.info('Post-trigger belief update completed');
-        } catch (err) {
-          logger.warn({ err }, 'Post-trigger belief update failed');
-        }
-      }
+      // NOTE: Post-trigger belief update removed. The main Letta call above
+      // already executes core_memory_replace/append via native tool calls.
+      // The follow-up was redundant and added 15-45s of latency (often timing out).
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn({ reason: event.reason }, 'System 2 processing timed out');
+        // Cooldown: skip Reasoner for 60s after timeout to avoid hammering Letta
+        this.cooldownUntil = Date.now() + 60_000;
+        logger.info('Letta cooldown: 60s');
       } else {
         logger.error({ err, reason: event.reason }, 'System 2 processing failed');
+        this.cooldownUntil = Date.now() + 30_000;
       }
     } finally {
       this.bus.emit(E.reasonerThinking(this.sessionId, false));
@@ -178,6 +179,8 @@ export class Reasoner {
       logger.debug('System 2 active — skipping async belief update');
       return;
     }
+    // Skip if in cooldown
+    if (Date.now() < this.cooldownUntil) return;
 
     if (this.processing) {
       this.pendingTurns.push(event.text);
@@ -235,8 +238,10 @@ export class Reasoner {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn('Belief update timed out');
+        this.cooldownUntil = Date.now() + 60_000;
       } else {
         logger.error({ err }, 'Belief update failed');
+        this.cooldownUntil = Date.now() + 30_000;
       }
     } finally {
       this.processing = false;
