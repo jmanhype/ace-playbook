@@ -58,6 +58,12 @@ export class Talker {
   private oggHeaderCache: Uint8Array[] = [];
   private oggHeadersSent = false;
 
+  /** Text drought detection — auto-reconnect when PersonaPlex goes silent. */
+  private lastTextTime = 0;
+  private droughtCheckTimer: ReturnType<typeof setInterval> | null = null;
+  /** Seconds without text before triggering reconnect (while audio still flows). */
+  private static readonly TEXT_DROUGHT_SECS = 45;
+
   /** True once PersonaPlex handshake is complete and audio can flow. */
   get handshakeComplete(): boolean {
     return this._handshakeComplete;
@@ -80,6 +86,8 @@ export class Talker {
       logger.warn('Connect called while already connected/connecting — skipping');
       return;
     }
+    // Stop any existing drought timer from previous connection
+    this.stopDroughtCheck();
 
     const env = getEnv();
     // PersonaPlex requires text_prompt and voice_prompt as query params
@@ -251,6 +259,9 @@ export class Talker {
             // Replay any cached Ogg headers BEFORE signaling connected
             // (so PersonaPlex's opus decoder is initialized before live audio flows)
             this.replayOggHeaders();
+            // Start text drought watchdog
+            this.lastTextTime = Date.now();
+            this.startDroughtCheck();
             // Signal that PersonaPlex is truly ready for audio
             try { this.events.onStateChange?.('connected'); } catch (e) { logger.error({ err: e }, 'onStateChange handler error'); }
             break;
@@ -258,6 +269,7 @@ export class Talker {
           case MSG_TYPE.TEXT: {
             const text = new TextDecoder().decode(payload);
             this.currentTurnText += text;
+            this.lastTextTime = Date.now();
             try { this.events.onText?.(text); } catch (e) { logger.error({ err: e }, 'onText handler error'); }
 
             // Reset turn-complete timer (350ms of silence = turn complete)
@@ -317,10 +329,43 @@ export class Talker {
   /** Disconnect from PersonaPlex. Suppresses auto-reconnect. */
   disconnect(): void {
     this._intentionalDisconnect = true;
+    this.stopDroughtCheck();
     if (this.turnTimer) clearTimeout(this.turnTimer);
     if (this.ws) {
       this.ws.close(1000, 'Voice bridge shutting down');
       this.ws = null;
+    }
+  }
+
+  // ─── Text Drought Detection ─────────────────────────────────
+
+  /** Start periodic check for PersonaPlex text silence. */
+  private startDroughtCheck(): void {
+    this.stopDroughtCheck();
+    this.droughtCheckTimer = setInterval(() => {
+      if (!this._handshakeComplete || !this.connected) return;
+      const silenceSecs = (Date.now() - this.lastTextTime) / 1000;
+      if (silenceSecs >= Talker.TEXT_DROUGHT_SECS) {
+        logger.warn({ silenceSecs: Math.round(silenceSecs) }, 'PersonaPlex text drought detected — auto-reconnecting');
+        this.stopDroughtCheck();
+        // Reconnect with current prompt (non-intentional, so scheduleReconnect would work,
+        // but we do an explicit reconnect to use the latest text_prompt)
+        this._intentionalDisconnect = false;
+        if (this.ws) {
+          this.ws.close(1000, 'Text drought auto-reconnect');
+          this.ws = null;
+        }
+        // Small delay then reconnect
+        setTimeout(() => this.connect(), 1000);
+      }
+    }, 10_000); // Check every 10 seconds
+  }
+
+  /** Stop the drought check timer. */
+  private stopDroughtCheck(): void {
+    if (this.droughtCheckTimer) {
+      clearInterval(this.droughtCheckTimer);
+      this.droughtCheckTimer = null;
     }
   }
 
