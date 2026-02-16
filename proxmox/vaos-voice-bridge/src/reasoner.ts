@@ -133,7 +133,7 @@ export class Reasoner {
 
     try {
       const prompt = this.buildTriggerPrompt(event);
-      const response = await this.sendToLetta(prompt, 45_000);
+      const response = await this.sendToLetta(prompt, 90_000);
 
       // Sync blocks from Letta BEFORE extracting — Letta has already executed
       // native memory tool calls, so our local cache needs to reflect that.
@@ -221,7 +221,7 @@ export class Reasoner {
       if (this.agentId) {
         const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
 
-        const response = await this.sendToLetta(prompt, 45_000);
+        const response = await this.sendToLetta(prompt, 90_000);
         // Sync blocks from Letta — native tool calls already executed
         await this.memory.syncFromLetta();
         // Process response to extract and execute text-based tool calls only
