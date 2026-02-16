@@ -45,6 +45,13 @@ export class Reasoner {
   private ledger = '';
   /** Queued turn texts accumulated while Reasoner is busy. */
   private pendingTurns: string[] = [];
+  /** Callback for proactive interjections (System 2 → browser). */
+  private interjectionHandler: ((text: string) => void) | null = null;
+
+  /** Register handler for System 2 proactive interjections. */
+  onInterjection(handler: (text: string) => void): void {
+    this.interjectionHandler = handler;
+  }
 
   /** Get the current belief state (cached in memory, synced from Letta). */
   getBelief(): Belief {
@@ -111,16 +118,32 @@ export class Reasoner {
    * Uses turn-batching: if the Reasoner is busy, queues the turn
    * and processes the batch when the current call finishes.
    */
-  async updateBelief(userText: string, talkerResponse: string): Promise<void> {
+  /** Tracks total turns processed for proactive check cadence. */
+  private turnCounter = 0;
+  /** How often (in Letta cycles) to run a proactive System 2 evaluation.
+   *  Each Letta cycle ≈ 15-25s, so 4 cycles ≈ 60-100s between checks. */
+  private proactiveInterval = 4;
+
+  /**
+   * Async belief update (non-blocking, System 1 path).
+   * Called after each turn to keep the Reasoner informed.
+   * Uses turn-batching: if the Reasoner is busy, queues the turn
+   * and processes the batch when the current call finishes.
+   *
+   * Returns any interjection text the Reasoner wants to send to the user,
+   * or null if it just silently updated beliefs.
+   */
+  async updateBelief(userText: string, talkerResponse: string): Promise<string | null> {
     if (this.processing) {
       // Queue the turn for batch processing
       this.pendingTurns.push(talkerResponse || userText);
       logger.debug({ queued: this.pendingTurns.length }, 'Reasoner busy — turn queued');
-      return;
+      return null;
     }
 
     this.processing = true;
-    const env = getEnv();
+    this.turnCounter++;
+    let interjection: string | null = null;
 
     try {
       // Drain any queued turns + current turn into a single batch
@@ -134,19 +157,44 @@ export class Reasoner {
       const timeout = setTimeout(() => controller.abort(), 60_000);
 
       if (this.agentId) {
-        // Send to Letta agent for processing
+        // Every N turns, run a proactive evaluation instead of a silent update.
+        // This lets the Reasoner interject when PersonaPlex is hallucinating,
+        // off-topic, or when the user could benefit from tool-augmented answers.
+        const isProactiveCheck = this.turnCounter % this.proactiveInterval === 0;
+
+        const prompt = isProactiveCheck
+          ? `[OBSERVATION] The voice model (PersonaPlex, a small 7B model) just said:\n"${batchText}"\n\nEvaluate what PersonaPlex said. It is a 7B voice model with NO tools — it often hallucinates facts confidently. You have web_search, core_memory, and other real tools.\n\nInstructions:\n1. Update your belief_state memory block as needed (use core_memory_replace).\n2. If PersonaPlex said something factually wrong, confused, or if the user would benefit from a real answer — you MUST call the send_message tool with a natural spoken correction or helpful addition. Use web_search first if you need real facts.\n3. If PersonaPlex is doing fine (social chat, greetings, nothing wrong) — just update belief silently. Do NOT call send_message unless you have something genuinely useful to add.\n\nIMPORTANT: To speak to the user, you MUST use the send_message tool. Do NOT put your response in assistant_message content — that is only visible internally. Only send_message reaches the user.`
+          : `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state memory block using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
+
+        if (isProactiveCheck) {
+          logger.info({ turnCounter: this.turnCounter, batchSize: allTurns.length }, 'Proactive System 2 evaluation');
+        }
+
         const response = await this.lettaPost<{ messages: LettaMessage[] }>(
           `/v1/agents/${this.agentId}/messages`,
           {
             messages: [{
               role: 'user',
-              content: `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state memory block using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`,
+              content: prompt,
             }],
           },
           controller.signal,
         );
 
         clearTimeout(timeout);
+
+        // Extract interjection — for proactive checks, ONLY accept send_message tool calls.
+        // assistant_message.content is Letta's internal monologue (often JSON/belief data),
+        // not user-facing speech. The agent must explicitly call send_message to interject.
+        if (isProactiveCheck) {
+          interjection = await this.extractResponse(response.messages ?? [], true) || null;
+          if (interjection) {
+            logger.info({ interjection: interjection.slice(0, 100) }, 'System 2 proactive interjection');
+            // Emit via callback so the bridge can forward to browser
+            // (handles both direct calls and queued turn drains)
+            this.interjectionHandler?.(interjection);
+          }
+        }
 
         // Sync updated belief from Letta
         await this.syncBeliefFromLetta();
@@ -184,6 +232,8 @@ export class Reasoner {
         }, 500);
       }
     }
+
+    return interjection;
   }
 
   /**
@@ -215,32 +265,7 @@ export class Reasoner {
 
         clearTimeout(timeout);
 
-        // Extract text response from Letta messages.
-        // Letta v0.16.1 message types:
-        //   assistant_message → { content: "..." } (direct text response)
-        //   tool_call_message → { tool_call: { name, arguments } } (send_message has text)
-        //   reasoning_message → { reasoning: "..." } (internal CoT, skip)
-        //   tool_return_message → { tool_return, status } (tool results, skip)
-        const responseTexts: string[] = [];
-        const allMessages = response.messages ?? [];
-
-        for (const m of allMessages) {
-          // Direct text response
-          if (m.message_type === 'assistant_message' && m.content) {
-            responseTexts.push(m.content);
-          }
-          // send_message tool — Letta agents often "speak" through this tool
-          const tc = (m as any).tool_call as { name?: string; arguments?: Record<string, unknown> } | undefined;
-          if (m.message_type === 'tool_call_message' && tc?.name === 'send_message' && tc.arguments?.message) {
-            responseTexts.push(String(tc.arguments.message));
-          }
-          // Check for ops-loop triggers
-          if (m.message_type === 'tool_call_message' && tc?.name === 'execute_ops_mission' && tc.arguments) {
-            await this.triggerOpsMission(tc.arguments);
-          }
-        }
-
-        const responseText = responseTexts.join(' ').trim();
+        const responseText = await this.extractResponse(response.messages ?? []);
 
         // Sync belief after processing
         await this.syncBeliefFromLetta();
@@ -254,6 +279,44 @@ export class Reasoner {
       logger.error({ err }, 'System 2 processing failed');
       return "I ran into an issue processing that. Let me try a different approach.";
     }
+  }
+
+  /**
+   * Extract text response from Letta message array.
+   *
+   * In Letta's architecture:
+   *   - `assistant_message.content` = internal reasoning / monologue (NOT user-facing)
+   *   - `send_message` tool call = actual speech to the user
+   *
+   * For System 2 overrides (processAndRespond), we accept both paths since
+   * we want any text the agent produces.
+   * For proactive checks, we ONLY want send_message tool calls — if the agent
+   * doesn't explicitly speak via send_message, it's a silent belief update.
+   *
+   * @param onlySendMessage - When true, only extract send_message tool calls (for proactive checks)
+   */
+  private async extractResponse(messages: LettaMessage[], onlySendMessage = false): Promise<string> {
+    const responseTexts: string[] = [];
+
+    for (const m of messages) {
+      // assistant_message.content = Letta agent's inner monologue or reasoning.
+      // Only include for explicit overrides, not proactive checks.
+      if (!onlySendMessage && m.message_type === 'assistant_message' && m.content) {
+        responseTexts.push(m.content);
+      }
+      // send_message tool — this is how Letta agents intentionally "speak" to users.
+      // Always extract this — it's the canonical user-facing output.
+      const tc = (m as any).tool_call as { name?: string; arguments?: Record<string, unknown> } | undefined;
+      if (m.message_type === 'tool_call_message' && tc?.name === 'send_message' && tc.arguments?.message) {
+        responseTexts.push(String(tc.arguments.message));
+      }
+      // Check for ops-loop triggers
+      if (m.message_type === 'tool_call_message' && tc?.name === 'execute_ops_mission' && tc.arguments) {
+        await this.triggerOpsMission(tc.arguments);
+      }
+    }
+
+    return responseTexts.join(' ').trim();
   }
 
   /**

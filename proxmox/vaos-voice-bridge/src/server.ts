@@ -506,6 +506,24 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // Connect to PersonaPlex
   await talker.connect();
 
+  // ─── Reasoner event handlers ─────────────────────────
+
+  // System 2 proactive interjection callback — fires when the Reasoner
+  // detects something worth contributing (hallucination correction, tool results, etc.)
+  // This bridges the paper's "Reasoner writes to memory → Talker reads" pattern:
+  // since PersonaPlex can't dynamically read memory, we deliver interjections directly.
+  reasoner.onInterjection((text) => {
+    logger.info({ text: text.slice(0, 100) }, 'System 2 proactive interjection → browser');
+    if (userWs.readyState === WebSocket.OPEN) {
+      userWs.send(JSON.stringify({
+        type: 'reasoner_response',
+        text,
+        system: 2,
+        decision: 'proactive_evaluation',
+      }));
+    }
+  });
+
   // ─── Talker event handlers ──────────────────────────
 
   // Forward PersonaPlex audio to user
@@ -603,6 +621,9 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       if (userWs.readyState === WebSocket.OPEN) {
         userWs.send(JSON.stringify({ type: 'belief_update', belief: updatedBelief, ledger }));
       }
+
+      // Note: proactive interjections are handled by reasoner.onInterjection() callback
+      // (registered above), which fires from both direct and queued turn paths.
 
       // 5. If belief phase changed, rebuild text_prompt (applied on next reconnect).
       const newPrompt = beliefToPrompt(updatedBelief, ledger);
