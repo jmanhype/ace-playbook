@@ -119,17 +119,16 @@ export class Reasoner {
   // ─── Event Handlers ──────────────────────────────────────────
 
   /**
-   * Handle trigger.activate — fast Ollama response + async Letta memory.
+   * Handle trigger.activate — bridge-side search + Ollama summarize.
    *
-   * Architecture: The Letta agentic loop takes 30-45s which is unacceptable
-   * for voice UX. Instead we:
-   *   1. Fast path: Direct Ollama call (~3-4s) for immediate user-facing response
-   *   2. Background: Async Letta call for memory/tool updates (non-blocking)
+   * Architecture v3: Letta takes 30-90s (serialized). Unusable for voice.
+   * Instead the bridge owns the real-time path:
+   *   1. Bridge does DuckDuckGo search (~1-2s)
+   *   2. Ollama summarizes results (~3-5s)
+   *   3. Total: ~5-8s with REAL answers
+   *   4. Background: Letta persists memory (non-blocking, no user output)
    */
   private async handleTrigger(event: TriggerActivateEvent): Promise<void> {
-    // After a fast Ollama response, ALL triggers respect cooldown (10s).
-    // Only bypass cooldown for deflection/user_request when cooldown came from
-    // a timeout/error (20s+), not from a successful fast response (10s).
     const isLongCooldown = (this.cooldownUntil - Date.now()) > 12_000;
     const bypassCooldown = isLongCooldown && (event.reason === 'deflection' || event.reason === 'user_request');
     if (!bypassCooldown && Date.now() < this.cooldownUntil) {
@@ -140,47 +139,37 @@ export class Reasoner {
     this.bus.emit(E.reasonerThinking(this.sessionId, true));
 
     try {
-      // ── Fast path: Ollama direct (~2-4s) ──
       const t0 = Date.now();
-      const fastText = await this.fastOllamaRespond(event);
-      const fastMs = Date.now() - t0;
+
+      // ── Infer what the user wants from the context ──
+      const query = this.inferSearchQuery(event);
+
+      // ── Phase 1: Bridge-side DuckDuckGo search (~1-2s) ──
+      let searchResults = '';
+      if (query) {
+        searchResults = await this.bridgeWebSearch(query);
+        logger.info({ query, resultLength: searchResults.length, ms: Date.now() - t0 }, 'Bridge web search completed');
+      }
+
+      // ── Phase 2: Ollama summarizes with search context (~3-5s) ──
+      const fastText = await this.fastOllamaRespond(event, searchResults);
+      const totalMs = Date.now() - t0;
 
       if (fastText) {
-        logger.info({ reason: event.reason, latencyMs: fastMs, text: fastText.slice(0, 100) }, 'System 2 fast interjection (Ollama)');
+        logger.info({ reason: event.reason, latencyMs: totalMs, hasSearch: !!searchResults, text: fastText.slice(0, 100) }, 'System 2 fast response');
         this.bus.emit(E.reasonerInterjection(this.sessionId, fastText, event.reason));
-        // Short cooldown after fast response to prevent rapid-fire triggers
-        // (PersonaPlex keeps echoing keywords like "search", "results", etc.)
-        this.cooldownUntil = Date.now() + 10_000;
+        this.cooldownUntil = Date.now() + 15_000;
       } else {
-        logger.warn({ reason: event.reason, latencyMs: fastMs }, 'Ollama fast path produced no response');
+        logger.warn({ reason: event.reason, latencyMs: totalMs }, 'System 2 fast path produced no response');
       }
 
-      // ── Background: Letta memory sync (non-blocking) ──
-      this.asyncLettaMemoryUpdate(event).catch(err => {
-        logger.warn({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Background Letta memory update failed');
+      // ── Background: Letta memory persistence only (no user output) ──
+      this.asyncLettaPersist(event, fastText ?? '').catch(err => {
+        logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'Background Letta persist failed');
       });
     } catch (err) {
-      // Ollama fast path failed — fall back to Letta direct
-      logger.warn({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Ollama fast path failed, trying Letta fallback');
-      try {
-        const prompt = this.buildTriggerPrompt(event);
-        const response = await this.sendToLetta(prompt, 90_000);
-        await this.memory.syncFromLetta();
-        const text = this.extractResponse(response, false);
-        if (text) {
-          logger.info({ reason: event.reason, text: text.slice(0, 100) }, 'System 2 interjection (Letta fallback)');
-          this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
-        }
-        this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
-      } catch (fallbackErr) {
-        if (fallbackErr instanceof Error && fallbackErr.name === 'AbortError') {
-          logger.warn({ reason: event.reason }, 'System 2 Letta fallback timed out');
-          this.cooldownUntil = Date.now() + 20_000;
-        } else {
-          logger.error({ err: fallbackErr, reason: event.reason }, 'System 2 Letta fallback failed');
-          this.cooldownUntil = Date.now() + 15_000;
-        }
-      }
+      logger.error({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'System 2 fast path failed');
+      this.cooldownUntil = Date.now() + 15_000;
     } finally {
       this.bus.emit(E.reasonerThinking(this.sessionId, false));
       this.trigger.system2Active = false;
@@ -189,41 +178,117 @@ export class Reasoner {
   }
 
   /**
-   * Fast-path: Direct Ollama call for immediate user-facing response.
-   * Bypasses Letta's multi-step agentic loop entirely.
-   * Typical latency: 3-5s vs Letta's 30-45s.
+   * Infer a search query from the trigger context.
+   * Returns empty string if no search seems needed.
    */
-  private async fastOllamaRespond(event: TriggerActivateEvent): Promise<string> {
+  private inferSearchQuery(event: TriggerActivateEvent): string {
+    const ctx = (event.context ?? '').toLowerCase();
+
+    // Look for explicit search-related keywords
+    const searchPatterns = [
+      /(?:search|look up|find|check)\s+(?:for\s+)?(?:the\s+)?(?:latest\s+)?(.{5,60})/i,
+      /(?:latest|newest|recent)\s+(.{5,40})\s+(?:news|updates|info)/i,
+      /(?:what(?:'s| is)\s+(?:the\s+)?)((?:latest|current|new).{5,50})/i,
+      /(?:tell me about|what about|how about)\s+(.{5,60})/i,
+    ];
+
+    for (const pattern of searchPatterns) {
+      const match = ctx.match(pattern);
+      if (match?.[1]) return match[1].trim().replace(/[?.!,]+$/, '');
+    }
+
+    // If context mentions search/web but no clear query, use the whole context
+    if (/\b(search|web|look up|news|latest|weather|stock|price)\b/.test(ctx)) {
+      // Extract the most relevant part (last 60 chars before action keywords)
+      return ctx.slice(0, 80).trim();
+    }
+
+    return '';
+  }
+
+  /**
+   * Bridge-side DuckDuckGo web search. Runs directly in the bridge process.
+   * No API key needed. ~1-2s latency.
+   */
+  private async bridgeWebSearch(query: string): Promise<string> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+
+    try {
+      const encoded = encodeURIComponent(query);
+      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encoded}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VAOSBridge/1.0)' },
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return '';
+      const html = await res.text();
+
+      // Parse search results from DuckDuckGo HTML
+      const results: string[] = [];
+      const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gs;
+      const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/gs;
+
+      const links: Array<{ url: string; title: string }> = [];
+      let match;
+      while ((match = linkRegex.exec(html)) && links.length < 5) {
+        const rawUrl = match[1];
+        const title = match[2].replace(/<[^>]+>/g, '').trim();
+        // Extract actual URL from DuckDuckGo redirect
+        const uddg = rawUrl.match(/uddg=([^&]+)/);
+        const url = uddg ? decodeURIComponent(uddg[1]) : rawUrl;
+        links.push({ url, title });
+      }
+
+      const snippets: string[] = [];
+      while ((match = snippetRegex.exec(html)) && snippets.length < 5) {
+        snippets.push(match[1].replace(/<[^>]+>/g, '').trim());
+      }
+
+      for (let i = 0; i < links.length; i++) {
+        const snippet = i < snippets.length ? snippets[i] : '';
+        results.push(`${i + 1}. ${links[i].title}\n   ${snippet}\n   ${links[i].url}`);
+      }
+
+      return results.join('\n\n');
+    } catch (err) {
+      logger.warn({ err: err instanceof Error ? err.message : String(err), query }, 'Bridge web search failed');
+      return '';
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Fast Ollama response with optional search context.
+   * If search results are provided, Ollama summarizes them.
+   * If not, Ollama gives a direct conversational response.
+   * Typical latency: 3-5s.
+   */
+  private async fastOllamaRespond(event: TriggerActivateEvent, searchResults: string): Promise<string> {
     const env = getEnv();
     const ollamaUrl = env.OLLAMA_URL;
     const model = env.OLLAMA_MODEL;
 
-    // Build an acknowledgment prompt — NOT a full answer.
-    // The fast path just tells the user we heard them and are working on it.
-    // The actual answer comes from Letta (with real tools) in the background.
-    const systemContext = 'You are a helpful voice assistant. The main voice model could not handle this request. Your job is to give a BRIEF acknowledgment (1 sentence max) that you understood the request and are working on it. Do NOT try to answer the question yourself. Do NOT suggest the user do it themselves. Just acknowledge.';
-
-    let userPrompt: string;
-    switch (event.reason) {
-      case 'deflection':
-        userPrompt = `The voice assistant said: "${event.context?.slice(0, 200)}"\n\nThe user asked for something requiring tools (search, memory, etc). Give a brief acknowledgment like "Let me look into that for you" or "One moment, I'll check on that." Do NOT try to answer — just acknowledge.`;
-        break;
-      case 'user_request':
-      case 'semantic':
-        userPrompt = `Context: "${event.context?.slice(0, 200)}"\n\nAcknowledge the request briefly. Say something like "Sure, let me look that up" or "On it, give me a moment." Do NOT answer the question.`;
-        break;
-      default:
-        userPrompt = `Context: "${event.context?.slice(0, 200)}"\n\nBriefly acknowledge if appropriate.`;
-    }
-
-    // Include memory context if available
+    // Include memory context
     const belief = this.memory.getBlock('belief_state');
     const conv = this.memory.getBlock('conversation_context');
-    let memoryContext = '';
-    if (belief && belief.length > 10) memoryContext += `\nUser context: ${belief.slice(0, 300)}`;
-    if (conv && conv.length > 10) memoryContext += `\nConversation: ${conv.slice(0, 200)}`;
+    let memoryCtx = '';
+    if (belief && belief.length > 10) memoryCtx += `User context: ${belief.slice(0, 300)}\n`;
+    if (conv && conv.length > 10) memoryCtx += `Conversation: ${conv.slice(0, 200)}\n`;
 
-    const fullPrompt = `${systemContext}${memoryContext}\n\n${userPrompt}`;
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (searchResults) {
+      // Search + summarize mode
+      systemPrompt = 'You are a helpful voice assistant. Summarize the search results below in 2-3 natural spoken sentences. Be conversational and concise — this will be read aloud. Focus on the most relevant/interesting findings.';
+      userPrompt = `${memoryCtx}The user asked about: "${event.context?.slice(0, 200)}"\n\nSearch results:\n${searchResults.slice(0, 2000)}\n\nGive a natural spoken summary (2-3 sentences max).`;
+    } else {
+      // Direct response mode (no search needed)
+      systemPrompt = 'You are a helpful voice assistant. The main voice model could not handle this request adequately. Give a brief, helpful response (2-3 sentences max). Be conversational — this will be read aloud.';
+      userPrompt = `${memoryCtx}Context: "${event.context?.slice(0, 300)}"\n\nProvide a helpful response.`;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
@@ -234,9 +299,10 @@ export class Reasoner {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
-          prompt: fullPrompt,
+          system: systemPrompt,
+          prompt: userPrompt,
           stream: false,
-          options: { num_predict: 150, temperature: 0.7 },
+          options: { num_predict: 300, temperature: 0.7 },
         }),
         signal: controller.signal,
       });
@@ -251,39 +317,31 @@ export class Reasoner {
   }
 
   /**
-   * Background Letta call — runs async after fast Ollama acknowledgment.
-   * This is the REAL System 2: uses tools (web_search, memory, etc.)
-   * and delivers the actual answer when ready.
+   * Background Letta persistence — memory updates only, no user output.
+   * Letta takes 30-90s so it NEVER produces user-facing responses.
+   * It only persists what happened into memory blocks.
    */
-  private async asyncLettaMemoryUpdate(event: TriggerActivateEvent): Promise<void> {
+  private async asyncLettaPersist(event: TriggerActivateEvent, bridgeResponse: string): Promise<void> {
     if (!this.agentId) return;
 
-    // Use the full trigger prompt — not a belief update.
-    // Letta has real tools and should actually answer the user's question.
-    const prompt = this.buildTriggerPrompt(event);
+    // Tell Letta what happened so it can update memory
+    const prompt = `[MEMORY_PERSIST] The voice bridge handled a trigger (reason: ${event.reason}).
+Context: "${(event.context ?? '').slice(0, 300)}"
+Bridge response to user: "${bridgeResponse.slice(0, 500)}"
+
+Update belief_state and conversation_context memory blocks to reflect this interaction. Use core_memory_replace to update relevant fields. Do NOT call send_message — the user already received a response.`;
 
     try {
       const t0 = Date.now();
       const response = await this.sendToLetta(prompt, 90_000);
-      const ms = Date.now() - t0;
       await this.memory.syncFromLetta();
-
-      // Extract the real answer from Letta (with tool results)
-      const text = this.extractResponse(response, false);
-
-      if (text) {
-        logger.info({ reason: event.reason, latencyMs: ms, text: text.slice(0, 100) }, 'System 2 Letta response (background)');
-        this.bus.emit(E.reasonerInterjection(this.sessionId, text, event.reason));
-      } else {
-        logger.debug({ reason: event.reason, latencyMs: ms, msgCount: response.length }, 'Background Letta produced no user-facing output');
-      }
-
+      logger.info({ reason: event.reason, latencyMs: Date.now() - t0, msgCount: response.length }, 'Letta memory persisted (background)');
       this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        logger.warn({ reason: event.reason }, 'Background Letta call timed out');
+        logger.warn({ reason: event.reason }, 'Background Letta persist timed out');
       } else {
-        logger.error({ err: err instanceof Error ? err.message : String(err), reason: event.reason }, 'Background Letta call failed');
+        logger.error({ err: err instanceof Error ? err.message : String(err) }, 'Background Letta persist failed');
       }
     }
   }
