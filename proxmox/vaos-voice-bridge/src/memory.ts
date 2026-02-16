@@ -154,17 +154,19 @@ export class Memory {
     const truncated = value.slice(0, spec.limit);
     this.blocks.set(label, truncated);
 
-    const blockId = this.blockIds.get(label);
-    if (blockId) {
+    // Use the agent-specific core-memory endpoint so the agent's in-memory
+    // copy is updated (global /v1/blocks/{id} only updates the DB, not the
+    // agent's cached memory, causing stale reads from /v1/agents/{id}).
+    if (this.agentId) {
       try {
         const env = getEnv();
-        const res = await fetch(`${env.LETTA_BASE_URL}/v1/blocks/${blockId}`, {
+        const res = await fetch(`${env.LETTA_BASE_URL}/v1/agents/${this.agentId}/core-memory/blocks/${label}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ value: truncated }),
         });
-        if (!res.ok) throw new Error(`PATCH block: ${res.status}`);
-        logger.debug({ label, size: truncated.length }, 'Block written via direct API');
+        if (!res.ok) throw new Error(`PATCH agent block: ${res.status}`);
+        logger.debug({ label, size: truncated.length }, 'Block written via agent core-memory API');
       } catch (err) {
         logger.warn({ err, label }, 'Direct block write failed — cached locally');
       }
