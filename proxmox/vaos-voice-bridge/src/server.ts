@@ -385,6 +385,58 @@ function sendText(){
   txtInput.value='';
 }
 
+// ── Web Speech API: live transcription of user's voice ──
+// Runs in parallel with the Opus stream to PersonaPlex.
+// Sends transcribed text as user.text events to the bridge.
+let speechRec=null;
+let speechActive=false;
+function startSpeechRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){console.warn('SpeechRecognition not supported');return;}
+  speechRec=new SR();
+  speechRec.continuous=true;
+  speechRec.interimResults=true;
+  speechRec.lang='en-US';
+  speechRec.maxAlternatives=1;
+  let lastFinal='';
+  speechRec.onresult=(e)=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal){final+=t;}
+      else{interim+=t;}
+    }
+    if(final&&final!==lastFinal){
+      lastFinal=final;
+      addMsg('[You] '+final.trim(),'user');
+      // Send to bridge as user text for trigger evaluation
+      if(ws&&ws.readyState===1){ws.send(final.trim());}
+    }
+  };
+  speechRec.onerror=(e)=>{
+    if(e.error!=='no-speech'&&e.error!=='aborted'){
+      console.warn('Speech recognition error:',e.error);
+    }
+  };
+  speechRec.onend=()=>{
+    // Auto-restart if mic is still active
+    if(speechActive&&recording){
+      try{speechRec.start();}catch(e){}
+    }
+  };
+  try{speechRec.start();speechActive=true;}catch(e){console.warn('Speech start failed:',e);}
+}
+function stopSpeechRecognition(){
+  speechActive=false;
+  if(speechRec){try{speechRec.stop();}catch(e){}}
+}
+
+// Patch startMic/stopMic to also start/stop speech recognition
+const _origStartMic=startMic;
+startMic=async function(){await _origStartMic();startSpeechRecognition();};
+const _origStopMic=stopMic;
+stopMic=function(){stopSpeechRecognition();_origStopMic();};
+
 connect();
 </script>
 </body>
