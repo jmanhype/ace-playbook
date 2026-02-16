@@ -300,10 +300,17 @@ export class Memory {
       parts.push(`Active: ${actions.running.map(a => a.description ?? 'task').join(', ')}.`);
     }
 
-    // 6. Ledger summary (peer agents + missions, condensed)
+    // 6. Ledger — only mission history, NOT peer agent personas/identities.
+    //    Peer personas (Director, Writer) confuse PersonaPlex into adopting
+    //    their identity ("I am the Director of a video production crew...").
+    //    The ledger is available to the Reasoner via this.currentLedger.
     if (this.ledger) {
-      const ledgerWords = this.ledger.split(/\s+/).slice(0, 20);
-      parts.push(ledgerWords.join(' '));
+      // Extract only "Products built: ..." from the ledger (skip [Agent/block] entries)
+      const productsMatch = this.ledger.match(/Products built:\s*(.+?)$/);
+      if (productsMatch?.[1]) {
+        const productsWords = productsMatch[1].split(/\s+/).slice(0, 15);
+        parts.push(`Products built: ${productsWords.join(' ')}`);
+      }
     }
 
     // Enforce ~150 word budget
@@ -353,9 +360,12 @@ export class Memory {
   /** Read memory blocks from peer Letta agents (Director, Writer). */
   private async readPeerAgentMemory(): Promise<string | null> {
     const env = getEnv();
+    // NOTE: Do NOT include 'persona' — peer agent identities leak into
+    // PersonaPlex's text_prompt and cause it to adopt their identity
+    // ("I am the Director of a video production crew").
     const peers = [
-      { name: 'Director', blocks: ['persona', 'quality_standards', 'lessons_learned', 'user_style'] },
-      { name: 'Writer', blocks: ['persona', 'lessons_learned'] },
+      { name: 'Director', blocks: ['quality_standards', 'lessons_learned', 'user_style'] },
+      { name: 'Writer', blocks: ['lessons_learned'] },
     ];
 
     const summaries: string[] = [];
