@@ -147,11 +147,13 @@ export class Talker {
    * and overruling the impulses of System 1."
    */
   async reconnectWithNewPrompt(): Promise<void> {
-    logger.info('Reconnecting PersonaPlex with updated prompt (System 2 override)');
-    this.disconnect();
-    this._intentionalDisconnect = false; // Allow this intentional reconnect
-    // Small delay to let PersonaPlex release the session lock
-    await new Promise(resolve => setTimeout(resolve, 500));
+    logger.info({ promptLength: this.textPrompt.length }, 'Reconnecting PersonaPlex with updated prompt');
+    this.disconnect(); // sets _intentionalDisconnect = true, ws.close()
+    // Wait for PersonaPlex to fully release its single-session lock.
+    // 500ms is too fast — PersonaPlex closes the new connection immediately
+    // (code 1000) if the old session hasn't fully cleaned up.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    this._intentionalDisconnect = false;
     await this.connect();
   }
 

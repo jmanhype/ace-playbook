@@ -147,6 +147,12 @@ export class Memory {
     return this._lastSystem2Response;
   }
 
+  /** Clear last System 2 response (call after answer reconnect to prevent loops). */
+  clearLastSystem2Response(): void {
+    this._lastSystem2Response = '';
+    this._lastSystem2Time = 0;
+  }
+
   /** Update the local block cache without writing to Letta. */
   setBlockLocal(label: string, value: string): void {
     const spec = Object.values(BLOCK_SPECS).find(s => s.label === label);
@@ -309,10 +315,12 @@ export class Memory {
       parts.push(`Corrections: ${fixes}`);
     }
 
-    // 5. Last System 2 response — so PersonaPlex knows what was just said
+    // 5. System 2 result — PersonaPlex should deliver this as its own knowledge.
+    //    After reconnect, PersonaPlex is starting a fresh conversation turn.
+    //    It should naturally incorporate the information as if it looked it up.
     const lastS2 = this.getLastSystem2Response();
     if (lastS2) {
-      parts.push(`[You just provided this information to the user: "${lastS2.slice(0, 150)}"] Acknowledge it naturally if they refer to it.`);
+      parts.push(`[New information available to share with the user: "${lastS2.slice(0, 150)}"] Naturally incorporate this into your next response.`);
     }
 
     // 6. Action queue

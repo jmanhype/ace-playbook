@@ -158,13 +158,15 @@ export class Reasoner {
       if (fastText) {
         logger.info({ reason: event.reason, latencyMs: totalMs, hasSearch: !!searchResults, text: fastText.slice(0, 100) }, 'System 2 fast response');
 
-        // Store in memory so PersonaPlex's compressed prompt includes it
+        // Store in memory → compress includes it → PersonaPlex reconnects
+        // with the answer in its prompt. System 2 never speaks to the user
+        // directly. PersonaPlex (System 1) delivers the answer in its own voice.
         this.memory.setLastSystem2Response(fastText);
 
+        // Emit interjection (browser debug panel only — NOT spoken aloud)
         this.bus.emit(E.reasonerInterjection(this.sessionId, fastText, event.reason));
 
-        // Trigger PersonaPlex reconnect with updated context
-        // so System 1 knows what System 2 just told the user
+        // Trigger memory.compressed → answer reconnect → PersonaPlex speaks it
         this.memory.emitCompressed();
 
         this.cooldownUntil = Date.now() + 15_000;

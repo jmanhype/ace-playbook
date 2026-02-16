@@ -275,12 +275,12 @@ function connect(){
         if(msg.type==='system2_thinking'){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display=msg.active?'block':'none';
+          // Reset Moshi audio buffer to cut off hallucinated speech mid-sentence
+          if(msg.resetAudio&&moshiWorklet){moshiWorklet.port.postMessage({type:'reset'});}
         }else if(msg.type==='reasoner_response'){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display='none';
-          addMsg('[System 2] '+msg.text,'system2');
-          // Speak System 2 response aloud via browser TTS
-          speakSystem2(msg.text);
+          addMsg('[System 2 → System 1] '+msg.text,'system2');
         }else if(msg.type==='talker_text'){
           addMsg('[System 1] '+msg.text,'system1');
         }else if(msg.type==='state_change'){
@@ -463,30 +463,6 @@ startMic=async function(){await _origStartMic();startSpeechRecognition();};
 const _origStopMic=stopMic;
 stopMic=function(){stopSpeechRecognition();_origStopMic();};
 
-// ── Browser TTS for System 2 responses ──
-// Speaks Reasoner output aloud so the user hears System 2's real answer.
-// Pauses PersonaPlex audio while speaking to avoid crosstalk.
-let ttsQueue=[];
-let ttsSpeaking=false;
-function speakSystem2(text){
-  if(!window.speechSynthesis)return;
-  // Cancel any pending PersonaPlex audio during System 2 speech
-  if(moshiWorklet)moshiWorklet.port.postMessage({type:'reset'});
-  const utt=new SpeechSynthesisUtterance(text);
-  utt.rate=1.05;
-  utt.pitch=1.0;
-  utt.volume=1.0;
-  // Try to pick a natural voice
-  const voices=speechSynthesis.getVoices();
-  const preferred=voices.find(v=>v.name.includes('Samantha'))||voices.find(v=>v.lang==='en-US'&&v.localService);
-  if(preferred)utt.voice=preferred;
-  utt.onend=()=>{ttsSpeaking=false;};
-  utt.onerror=()=>{ttsSpeaking=false;};
-  ttsSpeaking=true;
-  speechSynthesis.cancel(); // clear any pending
-  speechSynthesis.speak(utt);
-}
-
 connect();
 </script>
 </body>
@@ -640,20 +616,37 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   //    NOTE: All handlers read session.userWs (not the closure variable)
   //    so that browser WS swaps (reconnects) are picked up automatically.
 
-  // Track System 2 muting — suppress PersonaPlex audio/text while Reasoner is working
-  // to prevent the 7B model's hallucinated "results" from reaching the user.
+  // ── System 2 flow ──────────────────────────────────────────────
+  //
+  // When trigger fires:
+  //   1. Mute PersonaPlex audio/text to browser (stop hallucination delivery)
+  //   2. Tell browser to reset Moshi audio buffer (cut off mid-sentence hallucination)
+  //   3. Show thinking indicator in browser
+  //   4. PersonaPlex stays connected (no disconnect — avoids handshake latency)
+  //
+  // When System 2 finishes:
+  //   5. Unmute
+  //   6. Single reconnect with answer prompt
+  //   7. PersonaPlex delivers the result in its own voice
+  //
+  // One audio disruption (the answer reconnect), not two.
+
   let system2Muted = false;
 
   bus.on('reasoner.thinking', (event) => {
     system2Muted = event.active;
     if (event.active) {
-      logger.info('System 2 active — muting PersonaPlex audio/text to browser');
+      logger.info('System 2 active — muting PersonaPlex + resetting browser audio buffer');
+      // Tell browser to clear buffered hallucinated audio and show thinking indicator
+      if (session.userWs?.readyState === WebSocket.OPEN) {
+        session.userWs.send(JSON.stringify({ type: 'system2_thinking', active: true, resetAudio: true }));
+      }
     } else {
-      logger.info('System 2 done — unmuting PersonaPlex');
+      logger.info('System 2 done — unmuting, answer reconnect follows');
     }
   }, 90); // High priority — runs before the audio forwarder
 
-  // Forward PersonaPlex audio to browser (muted during System 2)
+  // Forward PersonaPlex audio to browser (suppressed during System 2)
   bus.on('talker.audio', (event) => {
     if (system2Muted) return; // Suppress hallucinated audio
     if (session.userWs?.readyState === WebSocket.OPEN) {
@@ -661,7 +654,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   }, 10); // Low priority — output layer
 
-  // Forward Talker text to browser (muted during System 2)
+  // Forward Talker text to browser (suppressed during System 2)
   bus.on('talker.turn', (event) => {
     if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
@@ -689,18 +682,12 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   }, 10);
 
-  // Forward Reasoner thinking state to browser
-  bus.on('reasoner.thinking', (event) => {
-    if (session.userWs?.readyState === WebSocket.OPEN) {
-      session.userWs.send(JSON.stringify({ type: 'system2_thinking', active: event.active }));
-    }
-  }, 10);
-
-  // Memory compressed → update Talker text prompt + push to browser
-  // When System 2 just responded, also reconnect PersonaPlex with new context.
-  let lastReconnectTime = 0;
+  // Memory compressed → update Talker text prompt + push to browser.
+  // When System 2 has an answer, do the SINGLE reconnect with the answer prompt.
+  // This is the only audio disruption — PersonaPlex reconnects and delivers the result.
+  let lastAnswerReconnect = 0;
   bus.on('memory.compressed', (event) => {
-    // Update PersonaPlex's text prompt
+    // Update PersonaPlex's text prompt (stored for next connect)
     talker.updateTextPrompt(event.prompt);
 
     // Push updated memory blocks to browser
@@ -717,15 +704,17 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       }));
     }
 
-    // If System 2 just responded, reconnect PersonaPlex so it gets the new context.
-    // Rate-limit: max once per 20s to avoid reconnect spam.
+    // If System 2 just responded, do the answer reconnect.
+    // This fires ONCE — we clear the System 2 response after triggering
+    // the reconnect to prevent re-triggering on subsequent compressed events.
     const hasSystem2Context = memory.getLastSystem2Response().length > 0;
-    const timeSinceReconnect = Date.now() - lastReconnectTime;
-    if (hasSystem2Context && timeSinceReconnect > 20_000) {
-      lastReconnectTime = Date.now();
-      logger.info('Reconnecting PersonaPlex with System 2 context');
+    if (hasSystem2Context) {
+      // Clear immediately — one shot only.
+      memory.clearLastSystem2Response();
+      lastAnswerReconnect = Date.now();
+      logger.info({ promptLength: event.prompt.length }, 'Answer reconnect — PersonaPlex will deliver System 2 result');
       talker.reconnectWithNewPrompt().catch(err => {
-        logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'PersonaPlex reconnect failed');
+        logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'Answer reconnect failed');
       });
     }
   }, 10);
