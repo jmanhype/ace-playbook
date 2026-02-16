@@ -136,24 +136,14 @@ export class Trigger {
       logger.debug({ turnCounter: this.turnCounter, text: event.text.slice(0, 120) }, 'PersonaPlex turn sample');
     }
 
-    // Skip if System 2 already processing
-    if (this._system2Active) {
-      logger.debug('System 2 active — skipping trigger evaluation');
-      return;
-    }
-
-    // 1. Periodic proactive check — DISABLED
-    // Periodic triggers produce ~50% empty responses and each Letta call takes
-    // 30-45s, blocking all real triggers (deflection, user_request) for the
-    // entire duration. The cost/benefit ratio is terrible for voice UX.
-
-    // 2. Pattern-based detection
-    const result = this.detectPatterns();
-    if (result && result.confidence >= this.config.confidenceThreshold) {
-      const context = this.recentTurns.join(' ').trim().slice(-1000);
-      logger.info({ reason: result.reason, confidence: result.confidence, context: context.slice(0, 200) }, 'Trigger activated');
-      this.bus.emit(E.triggerActivate(this.sessionId, result.reason, result.confidence, context));
-    }
+    // PersonaPlex-output triggers DISABLED.
+    // The 7B model hallucinates search terms ("Ars Technica", "Hacker News") in
+    // normal conversation, causing false triggers with garbage context. Without
+    // Speech Recognition providing the user's actual words, PersonaPlex output
+    // is unreliable for trigger detection. Only user.text triggers are used.
+    //
+    // TODO: Re-enable once we have reliable user speech transcription (Whisper
+    // on the 3090 or working Web Speech API).
   }
 
   /** Pattern matching across the recent turn window. */
@@ -209,23 +199,30 @@ export class Trigger {
    * Returns true if trigger.activate was emitted.
    */
   evaluateUserText(text: string): boolean {
-    if (this._system2Active) return false;
+    logger.info({ text: text.slice(0, 200), system2Active: this._system2Active }, 'Evaluating user text');
+
+    if (this._system2Active) {
+      logger.debug('User text skipped — System 2 active');
+      return false;
+    }
 
     const lower = text.toLowerCase().trim();
     const words = lower.split(/\s+/);
 
-    // Social / short — no trigger
-    if (words.length <= 2) return false;
+    // Social / short — no trigger (but allow 2-word commands like "search news")
+    if (words.length <= 1) return false;
     if (SOCIAL_PATTERNS.some(p => p.test(lower))) return false;
 
     // Frustration — highest priority
     if (FRUSTRATION_PATTERNS.some(p => lower.includes(p))) {
+      logger.info({ reason: 'frustration', text: lower.slice(0, 100) }, 'User text trigger: frustration');
       this.bus.emit(E.triggerActivate(this.sessionId, 'user_request', 0.95, text));
       return true;
     }
 
     // User explicitly requesting action
     if (USER_REQUEST_PATTERNS.some(p => lower.includes(p))) {
+      logger.info({ reason: 'user_request', text: lower.slice(0, 100) }, 'User text trigger: explicit request');
       this.bus.emit(E.triggerActivate(this.sessionId, 'user_request', 0.9, text));
       return true;
     }
@@ -236,10 +233,20 @@ export class Trigger {
       if (/\b(i\s+\w+ed|i\s+built|already\s+\w+ed|have\s+\w+ed)\b/.test(lower)) {
         return false;
       }
+      logger.info({ reason: 'action_keyword', text: lower.slice(0, 100) }, 'User text trigger: action keyword');
       this.bus.emit(E.triggerActivate(this.sessionId, 'semantic', 0.7, text));
       return true;
     }
 
+    // Any non-trivial user text (3+ words, not social) → trigger with lower confidence
+    // This is the fallback for when PersonaPlex ignores the user's request entirely.
+    if (words.length >= 4) {
+      logger.info({ reason: 'non_trivial_text', text: lower.slice(0, 100) }, 'User text trigger: non-trivial input');
+      this.bus.emit(E.triggerActivate(this.sessionId, 'user_request', 0.6, text));
+      return true;
+    }
+
+    logger.debug({ text: lower.slice(0, 80), wordCount: words.length }, 'User text — no trigger');
     return false;
   }
 

@@ -392,7 +392,7 @@ let speechRec=null;
 let speechActive=false;
 function startSpeechRecognition(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){console.warn('SpeechRecognition not supported');return;}
+  if(!SR){console.warn('SpeechRecognition not supported');addMsg('[Speech API not supported in this browser]','error');return;}
   speechRec=new SR();
   speechRec.continuous=true;
   speechRec.interimResults=true;
@@ -408,23 +408,47 @@ function startSpeechRecognition(){
     }
     if(final&&final!==lastFinal){
       lastFinal=final;
-      addMsg('[You] '+final.trim(),'user');
+      const trimmed=final.trim();
+      console.log('[SpeechRec] Final:',trimmed);
+      addMsg('[You] '+trimmed,'user');
       // Send to bridge as user text for trigger evaluation
-      if(ws&&ws.readyState===1){ws.send(final.trim());}
+      if(ws&&ws.readyState===1){ws.send(trimmed);}
+    }
+    if(interim){
+      // Show interim results in a lighter style
+      const existing=document.getElementById('interim-speech');
+      if(existing){existing.textContent='[...] '+interim;}
+      else{
+        const el=document.createElement('div');
+        el.id='interim-speech';
+        el.style.cssText='color:#888;font-style:italic;padding:2px 6px;';
+        el.textContent='[...] '+interim;
+        msgContainer.appendChild(el);
+        msgContainer.scrollTop=msgContainer.scrollHeight;
+      }
     }
   };
   speechRec.onerror=(e)=>{
+    console.warn('Speech recognition error:',e.error);
     if(e.error!=='no-speech'&&e.error!=='aborted'){
-      console.warn('Speech recognition error:',e.error);
+      addMsg('[Speech error: '+e.error+']','error');
     }
+  };
+  speechRec.onstart=()=>{
+    console.log('[SpeechRec] Started');
+    addMsg('[Speech recognition active]','system1');
   };
   speechRec.onend=()=>{
+    console.log('[SpeechRec] Ended, speechActive='+speechActive+' recording='+recording);
+    // Remove interim display
+    const interim=document.getElementById('interim-speech');
+    if(interim)interim.remove();
     // Auto-restart if mic is still active
     if(speechActive&&recording){
-      try{speechRec.start();}catch(e){}
+      setTimeout(()=>{try{speechRec.start();}catch(e){console.warn('Speech restart failed:',e);}},200);
     }
   };
-  try{speechRec.start();speechActive=true;}catch(e){console.warn('Speech start failed:',e);}
+  try{speechRec.start();speechActive=true;console.log('[SpeechRec] Initiating...');}catch(e){console.warn('Speech start failed:',e);addMsg('[Speech start failed: '+e.message+']','error');}
 }
 function stopSpeechRecognition(){
   speechActive=false;
@@ -590,15 +614,30 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   //    NOTE: All handlers read session.userWs (not the closure variable)
   //    so that browser WS swaps (reconnects) are picked up automatically.
 
-  // Forward PersonaPlex audio to browser
+  // Track System 2 muting — suppress PersonaPlex audio/text while Reasoner is working
+  // to prevent the 7B model's hallucinated "results" from reaching the user.
+  let system2Muted = false;
+
+  bus.on('reasoner.thinking', (event) => {
+    system2Muted = event.active;
+    if (event.active) {
+      logger.info('System 2 active — muting PersonaPlex audio/text to browser');
+    } else {
+      logger.info('System 2 done — unmuting PersonaPlex');
+    }
+  }, 90); // High priority — runs before the audio forwarder
+
+  // Forward PersonaPlex audio to browser (muted during System 2)
   bus.on('talker.audio', (event) => {
+    if (system2Muted) return; // Suppress hallucinated audio
     if (session.userWs?.readyState === WebSocket.OPEN) {
       session.userWs.send(event.data);
     }
   }, 10); // Low priority — output layer
 
-  // Forward Talker text to browser
+  // Forward Talker text to browser (muted during System 2)
   bus.on('talker.turn', (event) => {
+    if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
       session.userWs.send(JSON.stringify({ type: 'talker_text', text: event.text }));
     }
@@ -776,7 +815,8 @@ if (import.meta.main) {
           }
           session.talker.sendAudio(buf);
         } else if (typeof message === 'string') {
-          // Text input → emit on event bus (Trigger + Reasoner will handle)
+          // Text input from browser (Speech Recognition) → emit on event bus
+          logger.info({ text: message.slice(0, 200), len: message.length }, 'User text received from browser');
           session.bus.emit(E.userText(session.id, message));
         }
       },

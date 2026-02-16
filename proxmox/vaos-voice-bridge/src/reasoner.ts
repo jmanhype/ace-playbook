@@ -179,31 +179,50 @@ export class Reasoner {
 
   /**
    * Infer a search query from the trigger context.
-   * Returns empty string if no search seems needed.
+   *
+   * Now that PersonaPlex-output triggers are disabled, the context is the
+   * user's actual text (from Speech Recognition or typed input). Much simpler
+   * extraction — just strip the command prefix and use the rest as the query.
    */
   private inferSearchQuery(event: TriggerActivateEvent): string {
-    const ctx = (event.context ?? '').toLowerCase();
+    const ctx = (event.context ?? '').trim();
+    if (!ctx || ctx.length < 3) return '';
 
-    // Look for explicit search-related keywords
-    const searchPatterns = [
-      /(?:search|look up|find|check)\s+(?:for\s+)?(?:the\s+)?(?:latest\s+)?(.{5,60})/i,
-      /(?:latest|newest|recent)\s+(.{5,40})\s+(?:news|updates|info)/i,
-      /(?:what(?:'s| is)\s+(?:the\s+)?)((?:latest|current|new).{5,50})/i,
-      /(?:tell me about|what about|how about)\s+(.{5,60})/i,
+    const lower = ctx.toLowerCase();
+
+    // Strip command prefixes to get the actual topic
+    const prefixPatterns = [
+      /^(?:can you |please |could you |hey |okay )?(?:search|look up|find|check|google)\s+(?:for\s+)?(?:the\s+)?/i,
+      /^(?:what(?:'s| is| are)\s+(?:the\s+)?)/i,
+      /^(?:tell me about|what about|how about|look into)\s+/i,
+      /^(?:i need|i want|get me|show me)\s+(?:info(?:rmation)?\s+(?:on|about)\s+)?/i,
     ];
 
-    for (const pattern of searchPatterns) {
-      const match = ctx.match(pattern);
-      if (match?.[1]) return match[1].trim().replace(/[?.!,]+$/, '');
+    for (const pattern of prefixPatterns) {
+      const stripped = ctx.replace(pattern, '').trim();
+      if (stripped.length >= 3 && stripped.length < ctx.length) {
+        logger.debug({ original: ctx.slice(0, 80), query: stripped.slice(0, 60) }, 'Search query extracted');
+        return stripped.slice(0, 80);
+      }
     }
 
-    // If context mentions search/web but no clear query, use the whole context
-    if (/\b(search|web|look up|news|latest|weather|stock|price)\b/.test(ctx)) {
-      // Extract the most relevant part (last 60 chars before action keywords)
-      return ctx.slice(0, 80).trim();
+    // If the text mentions search-related keywords, use the whole thing
+    if (/\b(news|latest|weather|stock|price|score|update|who is|what happened)\b/i.test(lower)) {
+      logger.debug({ query: ctx.slice(0, 60) }, 'Search query: full text');
+      return ctx.slice(0, 80);
     }
 
-    return '';
+    // For non-search triggers (user_request with 4+ words), still try to search
+    // if the text looks like a question or request
+    if (lower.startsWith('what') || lower.startsWith('who') || lower.startsWith('how') ||
+        lower.startsWith('when') || lower.startsWith('where') || lower.startsWith('why')) {
+      logger.debug({ query: ctx.slice(0, 60) }, 'Search query: question');
+      return ctx.slice(0, 80);
+    }
+
+    // Default: use the raw text as the query
+    logger.debug({ query: ctx.slice(0, 60) }, 'Search query: raw fallback');
+    return ctx.slice(0, 80);
   }
 
   /**
