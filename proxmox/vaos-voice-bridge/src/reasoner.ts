@@ -135,7 +135,20 @@ export class Reasoner {
       }
 
       // Signal that belief was updated
-      this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conv_state']));
+      this.bus.emit(E.reasonerBelief(this.sessionId, event.reason, ['belief_state', 'conversation_context']));
+
+      // Follow-up belief update — models without native tool calling won't update
+      // memory from action prompts, so we run a dedicated belief update afterward
+      if (this.agentId) {
+        try {
+          const beliefPrompt = `[BELIEF_UPDATE] Context of what just happened:\n"${event.context}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase, current_project as needed based on this context.`;
+          const beliefResponse = await this.sendToLetta(beliefPrompt, 60_000);
+          this.extractResponse(beliefResponse, true);
+          logger.info('Post-trigger belief update completed');
+        } catch (err) {
+          logger.warn({ err }, 'Post-trigger belief update failed');
+        }
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn({ reason: event.reason }, 'System 2 processing timed out');
@@ -196,16 +209,18 @@ export class Reasoner {
       const batchText = allTurns.join(' ').trim().slice(-1000);
 
       if (this.agentId) {
-        const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conv_state memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
+        const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
 
-        await this.sendToLetta(prompt, 60_000);
-        this.bus.emit(E.reasonerBelief(this.sessionId, 'belief_update', ['conv_state']));
-        logger.info({ batchSize: allTurns.length }, 'Belief updated');
+        const response = await this.sendToLetta(prompt, 60_000);
+        // Process response to extract and execute text-based tool calls
+        this.extractResponse(response, true);
+        this.bus.emit(E.reasonerBelief(this.sessionId, 'belief_update', ['belief_state', 'conversation_context']));
+        logger.info({ batchSize: allTurns.length, responseMsgs: response.length }, 'Belief updated');
       } else {
-        // Local fallback: direct conv_state update
+        // Local fallback: direct conversation_context update
         await this.memory.updateConvState({
           summary: batchText.slice(0, 500),
-          turn_count: ((this.memory.getBlockJSON<{ turn_count?: number }>('conv_state'))?.turn_count ?? 0) + allTurns.length,
+          turn_count: ((this.memory.getBlockJSON<{ turn_count?: number }>('conversation_context'))?.turn_count ?? 0) + allTurns.length,
         });
         this.memory.emitCompressed();
         logger.info('Belief updated (local fallback)');
@@ -257,7 +272,7 @@ export class Reasoner {
   private buildTriggerPrompt(event: TriggerActivateEvent): string {
     switch (event.reason) {
       case 'periodic':
-        return `[OBSERVATION] The voice model (PersonaPlex, a small 7B model) just said:\n"${event.context}"\n\nEvaluate what PersonaPlex said. It is a 7B voice model with NO tools — it often hallucinates facts confidently. You have web_search, core_memory, and other real tools.\n\nInstructions:\n1. Update your belief_state and conv_state memory blocks as needed (use core_memory_replace).\n2. If PersonaPlex said something factually wrong, confused, or if the user would benefit from a real answer — you MUST call the send_message tool with a natural spoken correction or helpful addition. Use web_search first if you need real facts.\n3. If PersonaPlex is doing fine (social chat, greetings, nothing wrong) — just update beliefs silently. Do NOT call send_message unless you have something genuinely useful to add.\n\nIMPORTANT: To speak to the user, you MUST use the send_message tool. Do NOT put your response in assistant_message content — that is only visible internally. Only send_message reaches the user.`;
+        return `[OBSERVATION] The voice model (PersonaPlex, a small 7B model) just said:\n"${event.context}"\n\nEvaluate what PersonaPlex said. It is a 7B voice model with NO tools — it often hallucinates facts confidently. You have web_search, core_memory, and other real tools.\n\nInstructions:\n1. Update your belief_state and conversation_context memory blocks as needed (use core_memory_replace).\n2. If PersonaPlex said something factually wrong, confused, or if the user would benefit from a real answer — you MUST call the send_message tool with a natural spoken correction or helpful addition. Use web_search first if you need real facts.\n3. If PersonaPlex is doing fine (social chat, greetings, nothing wrong) — just update beliefs silently. Do NOT call send_message unless you have something genuinely useful to add.\n\nIMPORTANT: To speak to the user, you MUST use the send_message tool. Do NOT put your response in assistant_message content — that is only visible internally. Only send_message reaches the user.`;
 
       case 'deflection':
         return `[VOICE_INTERCEPT] The voice model (PersonaPlex) could not handle the user's spoken request. PersonaPlex's recent output: "${event.context}"\n\nThe user likely asked for something that requires tools. Infer what they need from the voice model's deflection/response, then act on it. Use your tools (web_search, core_memory, run_code, etc.) as needed.\n\nYou MUST call send_message with a natural spoken response. Do NOT just update beliefs — the user is waiting for a real answer.`;
@@ -278,14 +293,14 @@ export class Reasoner {
 Your role:
 - Receive conversation transcripts from the Talker (PersonaPlex, a fast 7B voice model)
 - Maintain belief state about the user across 5 memory blocks:
-  persona (read-only), user_model, conv_state, action_queue, fact_check
+  persona (read-only), belief_state, conversation_context, action_queue, fact_check
 - When triggered, call tools and respond via send_message
-- Keep conv_state updated after every interaction
+- Keep conversation_context updated after every interaction
 
 Memory blocks:
 - persona: Your identity and capabilities (read-only)
-- user_model: Goals, preferences, expertise level, barriers
-- conv_state: Current topic, summary, phase, turn count
+- belief_state: User goals, preferences, expertise level, barriers, current project
+- conversation_context: Current topic, summary, phase, turn count
 - action_queue: Pending/running/completed tasks
 - fact_check: Corrections for PersonaPlex hallucinations
 
@@ -293,7 +308,7 @@ Rules:
 - For [BELIEF_UPDATE]: silently update memory blocks, no send_message needed
 - For [OBSERVATION]: evaluate PersonaPlex output, only send_message if you have something useful
 - For [VOICE_INTERCEPT] and [ACTION_REQUEST]: you MUST call send_message
-- Keep conv_state.summary under 500 chars (rolling window)
+- Keep conversation_context.summary under 500 chars (rolling window)
 - Be concise — your responses will be spoken aloud`;
   }
 
@@ -302,36 +317,196 @@ Rules:
   /**
    * Extract user-facing text from Letta response messages.
    *
-   * In Letta's architecture:
-   *   assistant_message.content = internal reasoning (NOT user-facing)
-   *   send_message tool call = actual speech to the user
+   * Handles TWO response formats:
+   *   1. Native tool calls: message_type='tool_call_message' with tool_call object
+   *   2. Text tool calls: message_type='assistant_message' with JSON in content
+   *      (used by models like qwen2.5-coder, GLM-4.7 that don't emit native tool_use)
+   *
+   * For text tool calls, memory operations (core_memory_replace/append) are
+   * executed directly via the Letta blocks API.
    *
    * @param onlySendMessage - When true, only extract send_message tool calls
    */
   private extractResponse(messages: LettaMessage[], onlySendMessage = false): string {
     const texts: string[] = [];
+    logger.debug({ msgCount: messages.length, onlySendMessage }, 'Extracting response from Letta messages');
 
     for (const m of messages) {
-      // assistant_message — only for explicit overrides, not proactive checks
-      if (!onlySendMessage && m.message_type === 'assistant_message' && m.content) {
-        texts.push(m.content);
-      }
-
-      // send_message tool call — canonical user-facing output
+      // 1. Native tool_call_message (Claude, GPT-4, etc.)
       const tc = m.tool_call;
       if (m.message_type === 'tool_call_message' && tc?.name === 'send_message' && tc.arguments?.message) {
         texts.push(String(tc.arguments.message));
       }
-
-      // execute_ops_mission / execute_mission — trigger ops-loop
       if (m.message_type === 'tool_call_message' && tc?.arguments) {
         if (tc.name === 'execute_ops_mission' || tc.name === 'execute_mission') {
           this.triggerOpsMission(tc.arguments);
+        }
+        if (tc.name === 'core_memory_replace' || tc.name === 'core_memory_append') {
+          this.executeMemoryToolCall(tc.name, tc.arguments);
+        }
+      }
+
+      // 2. Text-based tool calls in assistant_message content (qwen, GLM-4.7, etc.)
+      if (m.message_type === 'assistant_message' && m.content) {
+        const calls = this.parseTextToolCalls(m.content);
+        if (calls.length > 0) {
+          for (const call of calls) {
+            if (call.name === 'send_message' && call.arguments?.message) {
+              texts.push(String(call.arguments.message));
+            } else if (call.name === 'core_memory_replace' || call.name === 'core_memory_append') {
+              this.executeMemoryToolCall(call.name, call.arguments);
+            } else if (call.name === 'execute_ops_mission' || call.name === 'execute_mission') {
+              this.triggerOpsMission(call.arguments);
+            }
+          }
+        } else if (!onlySendMessage) {
+          texts.push(m.content);
         }
       }
     }
 
     return texts.join(' ').trim();
+  }
+
+  /**
+   * Parse one or more JSON tool calls from assistant_message text content.
+   * Models that don't support native tool calling concatenate JSON objects like:
+   *   {"name": "core_memory_replace", "arguments": {...}}
+   *   {"name": "send_message", "arguments": {"message": "Hello"}}
+   *
+   * Uses brace-depth parsing to extract individual JSON objects.
+   */
+  private parseTextToolCalls(content: string): Array<{ name: string; arguments: Record<string, unknown> }> {
+    const results: Array<{ name: string; arguments: Record<string, unknown> }> = [];
+
+    // Brace-depth extraction: find all top-level JSON objects
+    const objects = this.extractJsonObjects(content);
+    for (const obj of objects) {
+      try {
+        const parsed = JSON.parse(obj);
+        if (parsed?.name && typeof parsed.name === 'string' && parsed.arguments) {
+          results.push({ name: parsed.name, arguments: parsed.arguments });
+        }
+      } catch { /* skip malformed */ }
+    }
+
+    // Fallback: try code blocks
+    if (results.length === 0) {
+      const codeBlockMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/g);
+      if (codeBlockMatch) {
+        for (const block of codeBlockMatch) {
+          const inner = block.replace(/```(?:json)?\s*\n?/, '').replace(/\n?\s*```/, '');
+          for (const obj of this.extractJsonObjects(inner)) {
+            try {
+              const parsed = JSON.parse(obj);
+              if (parsed?.name && typeof parsed.name === 'string' && parsed.arguments) {
+                results.push({ name: parsed.name, arguments: parsed.arguments });
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+    }
+
+    if (results.length > 0) {
+      logger.debug({ count: results.length, names: results.map(r => r.name) }, 'Parsed text tool calls');
+    }
+
+    return results;
+  }
+
+  /** Extract top-level JSON objects from a string using brace-depth counting. */
+  private extractJsonObjects(text: string): string[] {
+    const objects: string[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escape = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"' && !escape) { inString = !inString; continue; }
+      if (inString) continue;
+
+      if (ch === '{') {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start >= 0) {
+          objects.push(text.slice(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+
+    return objects;
+  }
+
+  /**
+   * Execute core_memory_replace or core_memory_append via direct block writes.
+   * Bypasses Letta inference — writes directly to the block via PATCH API.
+   */
+  private executeMemoryToolCall(name: string, args: Record<string, unknown>): void {
+    const label = String(args.label ?? args.block_label ?? '');
+    const content = String(args.content ?? args.new_content ?? '');
+    const oldContent = String(args.old_content ?? '');
+
+    if (!label) {
+      logger.warn({ name, args }, 'Memory tool call missing label');
+      return;
+    }
+
+    (async () => {
+      try {
+        // Get the block ID from memory
+        const blockId = this.memory.getBlockId(label);
+        if (!blockId) {
+          logger.warn({ label }, 'No block ID found for label');
+          return;
+        }
+
+        const env = getEnv();
+        let newValue: string;
+
+        if (name === 'core_memory_append') {
+          // Append: get current value, add content
+          const current = this.memory.getBlock(label) ?? '';
+          newValue = current + '\n' + content;
+        } else {
+          // Replace: try substring replace first, fall back to full replace
+          const current = this.memory.getBlock(label) ?? '';
+          if (oldContent && current.includes(oldContent)) {
+            newValue = current.replace(oldContent, content);
+          } else {
+            // Model's old_content doesn't match (common with non-native tool callers)
+            // Use new_content as the full block value
+            newValue = content;
+            logger.debug({ label, oldContentLen: oldContent.length, matched: false }, 'old_content not found, using full replace');
+          }
+        }
+
+        // Write directly to Letta block API
+        const res = await fetch(`${env.LETTA_BASE_URL}/v1/blocks/${blockId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: newValue }),
+        });
+
+        if (res.ok) {
+          // Update local cache
+          this.memory.setBlockLocal(label, newValue);
+          logger.info({ name, label }, 'Memory tool call executed via direct write');
+        } else {
+          logger.error({ status: res.status, label }, 'Direct block write failed');
+        }
+      } catch (err) {
+        logger.error({ err, name, label }, 'Memory tool call execution failed');
+      }
+    })();
   }
 
   /** Trigger an ops-loop mission via Supabase event. */

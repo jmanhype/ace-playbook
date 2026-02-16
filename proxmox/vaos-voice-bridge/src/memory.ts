@@ -30,6 +30,11 @@ export interface BlockSpec {
   defaultValue: string;
 }
 
+/**
+ * Block specs matching the existing voice-reasoner Letta agent.
+ * Labels MUST match what Letta has — the agent uses 'belief_state' and
+ * 'conversation_context' (not 'user_model'/'conv_state').
+ */
 export const BLOCK_SPECS: Record<string, BlockSpec> = {
   persona: {
     label: 'persona',
@@ -37,19 +42,19 @@ export const BLOCK_SPECS: Record<string, BlockSpec> = {
     readOnly: true,
     defaultValue: 'You are the Reasoner (System 2) in a Talker-Reasoner voice architecture. You maintain beliefs about the user and provide tool-augmented responses when the fast voice model (PersonaPlex, System 1) cannot handle a request. You have web_search, core_memory tools, and can dispatch build missions.',
   },
-  user_model: {
-    label: 'user_model',
+  belief_state: {
+    label: 'belief_state',
     limit: 2000,
     defaultValue: JSON.stringify({
-      goals: [],
+      user_goals: [],
       expertise_level: 'advanced',
       preferences: { voice: 'NATF0', verbosity: 'concise' },
       barriers: [],
       current_project: null,
     }),
   },
-  conv_state: {
-    label: 'conv_state',
+  conversation_context: {
+    label: 'conversation_context',
     limit: 2000,
     defaultValue: JSON.stringify({
       phase: 'understanding',
@@ -122,6 +127,19 @@ export class Memory {
     return new Map(this.blocks);
   }
 
+  /** Get the Letta block ID for a label (for direct API writes). */
+  getBlockId(label: string): string | null {
+    return this.blockIds.get(label) ?? null;
+  }
+
+  /** Update the local block cache without writing to Letta. */
+  setBlockLocal(label: string, value: string): void {
+    const spec = Object.values(BLOCK_SPECS).find(s => s.label === label);
+    if (spec) {
+      this.blocks.set(label, value.slice(0, spec.limit));
+    }
+  }
+
   // ─── Direct API Writes (bypass inference) ────────────────────
 
   /**
@@ -155,11 +173,11 @@ export class Memory {
     this.bus.emit(E.memoryUpdate(this.sessionId, label, 'api'));
   }
 
-  /** Merge partial JSON update into conv_state. */
+  /** Merge partial JSON update into conversation_context. */
   async updateConvState(patch: Record<string, unknown>): Promise<void> {
-    const current = this.getBlockJSON<Record<string, unknown>>('conv_state') ?? {};
+    const current = this.getBlockJSON<Record<string, unknown>>('conversation_context') ?? {};
     const merged = { ...current, ...patch, last_update: new Date().toISOString() };
-    await this.writeBlock('conv_state', JSON.stringify(merged));
+    await this.writeBlock('conversation_context', JSON.stringify(merged));
   }
 
   /** Append a fact correction (PersonaPlex hallucination detected by Reasoner). */
@@ -224,8 +242,8 @@ export class Memory {
     // 1. Persona (fixed, short)
     parts.push('You are a voice assistant with persistent memory. Be natural and conversational.');
 
-    // 2. Conversation state
-    const conv = this.getBlockJSON<Record<string, unknown>>('conv_state');
+    // 2. Conversation state (Letta label: conversation_context)
+    const conv = this.getBlockJSON<Record<string, unknown>>('conversation_context');
     if (conv) {
       if (conv.topic) parts.push(`Topic: ${conv.topic}.`);
       if (conv.summary) {
@@ -234,14 +252,23 @@ export class Memory {
       }
     }
 
-    // 3. User model
-    const user = this.getBlockJSON<Record<string, unknown>>('user_model');
+    // 3. Belief state / user model (Letta label: belief_state)
+    //    Handles both JSON format and legacy plaintext (key: value lines)
+    const userRaw = this.getBlock('belief_state');
+    const user = this.getBlockJSON<Record<string, unknown>>('belief_state');
     if (user) {
-      if (user.current_project) parts.push(`User project: ${user.current_project}.`);
-      const goals = user.goals as string[] | undefined;
+      const project = user.current_project ?? user.currentProject;
+      if (project) parts.push(`User project: ${project}.`);
+      const goals = (user.user_goals ?? user.goals) as string[] | undefined;
       if (goals?.length) parts.push(`Goals: ${goals.slice(0, 3).join(', ')}.`);
       const prefs = user.preferences as Record<string, string> | undefined;
       if (prefs?.verbosity) parts.push(`Be ${prefs.verbosity}.`);
+    } else if (userRaw) {
+      // Legacy plaintext format: "current_project: foo\nuser_goals: [bar]"
+      const projectMatch = userRaw.match(/current_project:\s*(.+)/);
+      if (projectMatch?.[1]) parts.push(`User project: ${projectMatch[1].trim()}.`);
+      const goalsMatch = userRaw.match(/user_goals:\s*\[(.+?)\]/);
+      if (goalsMatch?.[1]) parts.push(`Goals: ${goalsMatch[1].trim()}.`);
     }
 
     // 4. Fact corrections (prevent hallucination loops)

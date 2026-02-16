@@ -160,8 +160,8 @@ function addMsg(text,cls){
 function updateMemory(blocks,ledger){
   if(!blocks)return;
   try{
-    const conv=typeof blocks.conv_state==='string'?JSON.parse(blocks.conv_state):blocks.conv_state;
-    const user=typeof blocks.user_model==='string'?JSON.parse(blocks.user_model):blocks.user_model;
+    const conv=typeof blocks.conversation_context==='string'?JSON.parse(blocks.conversation_context):blocks.conversation_context;
+    const user=typeof blocks.belief_state==='string'?JSON.parse(blocks.belief_state):blocks.belief_state;
     const actions=typeof blocks.action_queue==='string'?JSON.parse(blocks.action_queue):blocks.action_queue;
     const facts=typeof blocks.fact_check==='string'?JSON.parse(blocks.fact_check):blocks.fact_check;
     if(conv){
@@ -169,8 +169,8 @@ function updateMemory(blocks,ledger){
       document.getElementById('b-topic').textContent=conv.topic||'--';
     }
     if(user){
-      document.getElementById('b-goals').textContent=(user.goals||[]).join(', ')||'--';
-      document.getElementById('b-project').textContent=user.current_project||'--';
+      document.getElementById('b-goals').textContent=(user.user_goals||user.goals||[]).join(', ')||'--';
+      document.getElementById('b-project').textContent=user.current_project||user.currentProject||'--';
     }
     if(actions){
       const running=(actions.running||[]);
