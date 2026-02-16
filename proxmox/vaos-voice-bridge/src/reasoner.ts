@@ -481,7 +481,8 @@ Rules:
    * @param onlySendMessage - When true, only extract send_message tool calls
    */
   private extractResponse(messages: LettaMessage[], onlySendMessage = false): string {
-    const texts: string[] = [];
+    const sendMessageTexts: string[] = [];
+    const fallbackTexts: string[] = [];
     logger.debug({ msgCount: messages.length, onlySendMessage }, 'Extracting response from Letta messages');
 
     for (const m of messages) {
@@ -494,7 +495,7 @@ Rules:
       if (m.message_type === 'tool_call_message' && tc?.name === 'send_message') {
         const parsed = this.parseArgs(tc.arguments);
         if (parsed.message) {
-          texts.push(String(parsed.message));
+          sendMessageTexts.push(String(parsed.message));
         }
       }
       if (m.message_type === 'tool_call_message' && tc?.arguments) {
@@ -515,7 +516,7 @@ Rules:
         if (calls.length > 0) {
           for (const call of calls) {
             if (call.name === 'send_message' && call.arguments?.message) {
-              texts.push(String(call.arguments.message));
+              sendMessageTexts.push(String(call.arguments.message));
             } else if (call.name === 'core_memory_replace' || call.name === 'core_memory_append') {
               this.executeMemoryToolCall(call.name, call.arguments);
             } else if (call.name === 'execute_ops_mission' || call.name === 'execute_mission') {
@@ -523,12 +524,19 @@ Rules:
             }
           }
         } else if (!onlySendMessage) {
-          texts.push(m.content);
+          // Only use raw assistant_message as fallback — these are internal
+          // thoughts and should NOT be shown if send_message calls exist.
+          fallbackTexts.push(m.content);
         }
       }
     }
 
-    return texts.join(' ').trim();
+    // Prefer send_message text (explicit user-facing output).
+    // Only fall back to raw assistant_message if no send_message was found.
+    if (sendMessageTexts.length > 0) {
+      return sendMessageTexts.join(' ').trim();
+    }
+    return fallbackTexts.join(' ').trim();
   }
 
   /**
