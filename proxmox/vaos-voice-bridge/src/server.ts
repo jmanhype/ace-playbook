@@ -146,10 +146,11 @@ function addMsg(text,cls){
 function updateBelief(b){
   if(!b)return;
   const c=b.conversation||{};
+  const u=b.user_model||{};
   document.getElementById('b-phase').innerHTML='<span class="badge">'+(c.phase||'--')+'</span>';
-  document.getElementById('b-goals').textContent=(c.goals||[]).join(', ')||'--';
-  document.getElementById('b-project').textContent=c.project_context||'--';
-  document.getElementById('b-topic').textContent=c.current_topic||'--';
+  document.getElementById('b-goals').textContent=(u.goals||[]).join(', ')||'--';
+  document.getElementById('b-project').textContent=u.current_project||'--';
+  document.getElementById('b-topic').textContent=c.topic||'--';
   document.getElementById('b-actions').textContent=(b.pending_actions||[]).length?b.pending_actions.map(a=>a.description).join(', '):'None';
 }
 
@@ -480,6 +481,11 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // Set initial text prompt from belief
   const belief = reasoner.getBelief();
   talker.updateTextPrompt(beliefToPrompt(belief));
+
+  // Push initial belief to browser UI
+  if (userWs.readyState === WebSocket.OPEN) {
+    userWs.send(JSON.stringify({ type: 'belief_update', belief }));
+  }
 
   // Connect to PersonaPlex
   await talker.connect();
