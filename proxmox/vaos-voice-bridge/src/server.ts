@@ -67,6 +67,7 @@ const CLIENT_HTML = `<!DOCTYPE html>
   #mic-btn svg{width:40px;height:40px;fill:#8b8b9e}
   #mic-btn.active svg{fill:#f87171}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.4)}50%{box-shadow:0 0 0 15px rgba(248,113,113,0)}}
+  @keyframes s2pulse{0%,100%{opacity:1}50%{opacity:.5}}
   .panel{background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:1.25rem;
     width:100%;max-width:600px;margin:.5rem 0}
   .panel-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;
@@ -103,6 +104,7 @@ const CLIENT_HTML = `<!DOCTYPE html>
 <div class="panel">
   <div class="panel-title">Conversation</div>
   <div id="convo"><div class="msg">Waiting for connection...</div></div>
+  <div id="s2thinking" style="display:none;padding:8px 12px;background:#2d1b69;border-radius:6px;margin-top:6px;color:#a78bfa;font-size:.85rem;animation:s2pulse 1.5s infinite">System 2 thinking...</div>
 </div>
 
 <div class="panel">
@@ -247,7 +249,12 @@ function connect(){
     }else{
       try{
         const msg=JSON.parse(e.data);
-        if(msg.type==='reasoner_response'){
+        if(msg.type==='system2_thinking'){
+          const el=document.getElementById('s2thinking');
+          if(el)el.style.display=msg.active?'block':'none';
+        }else if(msg.type==='reasoner_response'){
+          const el=document.getElementById('s2thinking');
+          if(el)el.style.display='none';
           addMsg('[System 2] '+msg.text,'system2');
         }else if(msg.type==='talker_text'){
           addMsg('[System 1] '+msg.text,'system1');
@@ -539,8 +546,11 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     //    which has 15 tools including web_search, core_memory, run_code, etc.
     if (!session.system2Active && needsSystem2Intercept(session.recentTurns)) {
       session.system2Active = true;
-      const context = session.recentTurns.join(' ').trim().slice(-800);
-      logger.info({ context: context.slice(0, 100) }, 'System 2 intercept triggered (voice path)');
+      const rawContext = session.recentTurns.join(' ').trim().slice(-800);
+      // Frame the context for the Reasoner: PersonaPlex's output is the ONLY signal
+      // we have (Moshi protocol doesn't expose user transcripts).
+      const context = `[VOICE_INTERCEPT] The voice model (PersonaPlex) could not handle the user's spoken request. PersonaPlex's recent output: "${rawContext}"\n\nThe user likely asked for something that requires tools. Infer what they need from the voice model's deflection/response, then act on it. Use your tools (web_search, core_memory, run_code, etc.) as needed. Respond naturally as if speaking.`;
+      logger.info({ rawContext: rawContext.slice(0, 100) }, 'System 2 intercept triggered (voice path)');
 
       // Notify browser that System 2 is thinking
       if (userWs.readyState === WebSocket.OPEN) {
@@ -625,20 +635,18 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
 
 /** Deflection phrases — PersonaPlex admitting it can't do something. */
 const DEFLECTION_PATTERNS = [
-  "i can't do that",
-  "i'm not able to",
-  "i can't search",
-  "i can't access",
-  "i don't have access",
-  "i can't make",
-  "i can't check",
-  "i can only share",
-  "i can't really",
-  "not sure what you mean",
-  "i don't think i follow",
-  "can we stick to",
-  "let's focus on",
-  "i'm not sure what",
+  // Explicit inability
+  "i can't do that", "i'm not able to", "i can't search", "i can't access",
+  "i don't have access", "i can't make", "i can't check", "i can only share",
+  "i can't really", "i'm unable to", "that's not something i can",
+  "i don't have the ability", "beyond my capabilities",
+  // Confusion / not understanding
+  "not sure what you mean", "i don't think i follow", "i'm not sure what",
+  "i don't understand", "could you clarify", "what do you mean by",
+  "i'm confused", "i didn't catch that",
+  // Redirecting / deflecting
+  "can we stick to", "let's focus on", "let's talk about something",
+  "i'd rather", "let me change the subject",
 ];
 
 /** Action keywords in PersonaPlex's output suggesting user wants a tool-action. */
@@ -654,22 +662,39 @@ const ACTION_KEYWORDS = [
 
 /**
  * Detect when PersonaPlex is failing to handle a user request that needs tools.
- * Looks at recent turns for deflection + action keyword combinations.
+ *
+ * PersonaPlex is a 7B voice model — the user's spoken text is never available
+ * to the bridge (Moshi only sends the model's output, not the user transcript).
+ * So we detect from PersonaPlex's output only.
+ *
+ * Two trigger modes:
+ * 1. Deflection + action keyword (PersonaPlex echoes the request it can't handle)
+ * 2. Repeated deflection (3+ deflection patterns in last 5 turns = confusion spiral)
  */
 function needsSystem2Intercept(recentTurns: string[]): boolean {
   if (recentTurns.length < 2) return false;
 
-  const recentText = recentTurns.slice(-5).join(' ').toLowerCase();
+  const last5 = recentTurns.slice(-5);
+  const recentText = last5.join(' ').toLowerCase();
 
-  // Check for deflection patterns (PersonaPlex saying "I can't")
-  const hasDeflection = DEFLECTION_PATTERNS.some(p => recentText.includes(p));
+  // Count deflection patterns in recent turns
+  let deflectionCount = 0;
+  for (const turn of last5) {
+    const lower = turn.toLowerCase();
+    if (DEFLECTION_PATTERNS.some(p => lower.includes(p))) {
+      deflectionCount++;
+    }
+  }
 
-  // Check for action keywords (user asking for something tool-able)
+  // Mode 1: deflection + action keyword in same window
   const hasActionKeyword = ACTION_KEYWORDS.some(k => recentText.includes(k));
+  if (deflectionCount >= 1 && hasActionKeyword) return true;
 
-  // Trigger if BOTH deflection AND action keyword present
-  // This avoids false positives on normal conversation
-  return hasDeflection && hasActionKeyword;
+  // Mode 2: repeated deflection without keywords (confusion spiral)
+  // PersonaPlex doesn't echo the keyword but keeps deflecting
+  if (deflectionCount >= 2) return true;
+
+  return false;
 }
 
 /**

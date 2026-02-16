@@ -30,7 +30,10 @@ interface LettaMemoryBlock {
 }
 
 interface LettaMessage {
-  role: string;
+  role?: string;
+  message_type?: string;
+  /** Letta assistant_message uses 'content', older format may use 'text'. */
+  content?: string;
   text?: string;
   tool_calls?: Array<{ name: string; arguments: Record<string, unknown> }>;
 }
@@ -195,7 +198,9 @@ export class Reasoner {
     try {
       if (this.agentId) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), env.REASONER_TIMEOUT_MS);
+        // Letta multi-step tool chains: LLM→tool→LLM→tool→respond = 15-25s warm, 30-40s cold.
+        // For complex chains (web_search → process → respond), allow 90s.
+        const timeout = setTimeout(() => controller.abort(), 90_000);
 
         const response = await this.lettaPost<{ messages: LettaMessage[] }>(
           `/v1/agents/${this.agentId}/messages`,
@@ -210,17 +215,32 @@ export class Reasoner {
 
         clearTimeout(timeout);
 
-        // Extract text response from Letta messages
-        const textMessages = response.messages?.filter(m => m.text) ?? [];
-        const responseText = textMessages.map(m => m.text).join(' ').trim();
+        // Extract text response from Letta messages.
+        // Letta v0.16.1 message types:
+        //   assistant_message → { content: "..." } (direct text response)
+        //   tool_call_message → { tool_call: { name, arguments } } (send_message has text)
+        //   reasoning_message → { reasoning: "..." } (internal CoT, skip)
+        //   tool_return_message → { tool_return, status } (tool results, skip)
+        const responseTexts: string[] = [];
+        const allMessages = response.messages ?? [];
 
-        // Check for tool calls that trigger ops-loop
-        const toolCalls = response.messages?.flatMap(m => m.tool_calls ?? []) ?? [];
-        for (const call of toolCalls) {
-          if (call.name === 'execute_ops_mission') {
-            await this.triggerOpsMission(call.arguments);
+        for (const m of allMessages) {
+          // Direct text response
+          if (m.message_type === 'assistant_message' && m.content) {
+            responseTexts.push(m.content);
+          }
+          // send_message tool — Letta agents often "speak" through this tool
+          const tc = (m as any).tool_call as { name?: string; arguments?: Record<string, unknown> } | undefined;
+          if (m.message_type === 'tool_call_message' && tc?.name === 'send_message' && tc.arguments?.message) {
+            responseTexts.push(String(tc.arguments.message));
+          }
+          // Check for ops-loop triggers
+          if (m.message_type === 'tool_call_message' && tc?.name === 'execute_ops_mission' && tc.arguments) {
+            await this.triggerOpsMission(tc.arguments);
           }
         }
+
+        const responseText = responseTexts.join(' ').trim();
 
         // Sync belief after processing
         await this.syncBeliefFromLetta();
