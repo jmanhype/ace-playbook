@@ -28,6 +28,33 @@ import { synthesize, readWavPcm } from './tts.js';
 
 const logger = createLogger('bridge');
 
+// ─── Echo detection (server-side dedup) ─────────────────────────
+
+function isLikelyEcho(
+  userText: string,
+  recentTurns: Array<{ text: string; timestamp: number }>,
+): boolean {
+  const now = Date.now();
+  const userWords = new Set(
+    userText.toLowerCase().split(/\s+/).filter(w => w.length > 2),
+  );
+  if (userWords.size === 0) return false;
+
+  for (const turn of recentTurns) {
+    if (now - turn.timestamp > 15_000) continue;
+    const turnWords = new Set(
+      turn.text.toLowerCase().split(/\s+/).filter(w => w.length > 2),
+    );
+    let overlap = 0;
+    for (const w of userWords) {
+      if (turnWords.has(w)) overlap++;
+    }
+    const ratio = overlap / userWords.size;
+    if (ratio >= 0.6 && overlap >= 3) return true;
+  }
+  return false;
+}
+
 // ─── Session state ──────────────────────────────────────────────
 
 interface VoiceSession {
@@ -40,6 +67,7 @@ interface VoiceSession {
   userWs: WebSocket | null;
   turnCount: number;
   createdAt: Date;
+  recentTalkerTurns: Array<{ text: string; timestamp: number }>;
 }
 
 const sessions = new Map<string, VoiceSession>();
@@ -151,6 +179,8 @@ let audioCtx=null,encoderBlobUrl=null;
 let decoderWorker=null,moshiWorklet=null;
 let totalAudioBytes=0;
 let audioSetupPromise=null;
+let lastAudioPlaybackTs=0;
+const ECHO_GATE_MS=2000;
 
 function setStatus(s){
   statusEl.textContent=s.charAt(0).toUpperCase()+s.slice(1);
@@ -231,6 +261,7 @@ async function setupAudioPlayback(){
 
 async function playAudio(buf){
   totalAudioBytes+=buf.byteLength;
+  lastAudioPlaybackTs=Date.now();
   if(!decoderWorker){
     if(!audioSetupPromise){
       audioSetupPromise=setupAudioPlayback().catch(e=>{
@@ -411,12 +442,17 @@ function startSpeechRecognition(){
     if(final&&final!==lastFinal){
       lastFinal=final;
       const trimmed=final.trim();
+      if(Date.now()-lastAudioPlaybackTs<ECHO_GATE_MS){
+        console.log('[SpeechRec] ECHO SUPPRESSED (final):',trimmed);
+        return;
+      }
       console.log('[SpeechRec] Final:',trimmed);
       addMsg('[You] '+trimmed,'user');
       // Send to bridge as user text for trigger evaluation
       if(ws&&ws.readyState===1){ws.send(trimmed);}
     }
     if(interim){
+      if(Date.now()-lastAudioPlaybackTs<ECHO_GATE_MS){return;}
       // Show interim results in a lighter style
       const existing=document.getElementById('interim-speech');
       if(existing){existing.textContent='[...] '+interim;}
@@ -580,6 +616,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     userWs,
     turnCount: 0,
     createdAt: new Date(),
+    recentTalkerTurns: [],
   };
   sessions.set(sessionId, session);
 
@@ -655,7 +692,15 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   }, 10); // Low priority — output layer
 
   // Forward Talker text to browser (suppressed during System 2)
+  // Also record for echo dedup
   bus.on('talker.turn', (event) => {
+    // Record for server-side echo detection (prune >15s)
+    const now = Date.now();
+    session.recentTalkerTurns.push({ text: event.text, timestamp: now });
+    session.recentTalkerTurns = session.recentTalkerTurns.filter(
+      t => now - t.timestamp <= 15_000,
+    );
+
     if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
       session.userWs.send(JSON.stringify({ type: 'talker_text', text: event.text }));
@@ -861,7 +906,12 @@ if (import.meta.main) {
           }
           session.talker.sendAudio(buf);
         } else if (typeof message === 'string') {
-          // Text input from browser (Speech Recognition) → emit on event bus
+          // Text input from browser (Speech Recognition or typed) → emit on event bus
+          // Server-side echo dedup: compare against recent PersonaPlex turns
+          if (isLikelyEcho(message, session.recentTalkerTurns)) {
+            logger.info({ text: message.slice(0, 200) }, 'Echo suppressed (server dedup) — text matched recent PersonaPlex turn');
+            return;
+          }
           logger.info({ text: message.slice(0, 200), len: message.length }, 'User text received from browser');
           session.bus.emit(E.userText(session.id, message));
         }
