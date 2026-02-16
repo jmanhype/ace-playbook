@@ -239,36 +239,49 @@ export class Memory {
   compress(): string {
     const parts: string[] = [];
 
-    // 1. Persona (fixed, short)
-    parts.push('You are a voice assistant with persistent memory. Be natural and conversational.');
+    // 1. Persona (fixed, agnostic — no project identity)
+    parts.push('You are a helpful voice assistant. Be natural, conversational, and concise. Adapt to whatever the user wants to discuss.');
 
     // 2. Conversation state (Letta label: conversation_context)
+    //    Only inject if there's actual content (not "none" / empty)
     const conv = this.getBlockJSON<Record<string, unknown>>('conversation_context');
     if (conv) {
-      if (conv.topic) parts.push(`Topic: ${conv.topic}.`);
-      if (conv.summary) {
-        const words = String(conv.summary).split(/\s+/).slice(0, 40);
+      const topic = String(conv.topic ?? '');
+      if (topic && topic !== 'none' && topic !== 'null') parts.push(`Topic: ${topic}.`);
+      const summary = String(conv.summary ?? '');
+      if (summary && summary !== 'New session started.' && summary.length > 10) {
+        const words = summary.split(/\s+/).slice(0, 40);
         parts.push(`Context: ${words.join(' ')}`);
+      }
+    } else {
+      // Legacy plaintext format
+      const convRaw = this.getBlock('conversation_context');
+      const topicMatch = convRaw.match(/conversation_topic:\s*(.+)/);
+      if (topicMatch?.[1] && topicMatch[1].trim() !== 'none') {
+        parts.push(`Topic: ${topicMatch[1].trim()}.`);
       }
     }
 
-    // 3. Belief state / user model (Letta label: belief_state)
-    //    Handles both JSON format and legacy plaintext (key: value lines)
+    // 3. Belief state / user model — dynamic, only inject real values
     const userRaw = this.getBlock('belief_state');
     const user = this.getBlockJSON<Record<string, unknown>>('belief_state');
     if (user) {
       const project = user.current_project ?? user.currentProject;
-      if (project) parts.push(`User project: ${project}.`);
+      if (project && project !== 'none' && project !== null) parts.push(`User project: ${project}.`);
       const goals = (user.user_goals ?? user.goals) as string[] | undefined;
       if (goals?.length) parts.push(`Goals: ${goals.slice(0, 3).join(', ')}.`);
-      const prefs = user.preferences as Record<string, string> | undefined;
-      if (prefs?.verbosity) parts.push(`Be ${prefs.verbosity}.`);
     } else if (userRaw) {
-      // Legacy plaintext format: "current_project: foo\nuser_goals: [bar]"
+      // Legacy plaintext: only inject if value is real (not "none", "[]", etc.)
       const projectMatch = userRaw.match(/current_project:\s*(.+)/);
-      if (projectMatch?.[1]) parts.push(`User project: ${projectMatch[1].trim()}.`);
-      const goalsMatch = userRaw.match(/user_goals:\s*\[(.+?)\]/);
-      if (goalsMatch?.[1]) parts.push(`Goals: ${goalsMatch[1].trim()}.`);
+      const projectVal = projectMatch?.[1]?.trim();
+      if (projectVal && projectVal !== 'none' && projectVal !== 'null') {
+        parts.push(`User project: ${projectVal}.`);
+      }
+      const goalsMatch = userRaw.match(/user_goals:\s*\[([^\]]+)\]/);
+      const goalsVal = goalsMatch?.[1]?.trim();
+      if (goalsVal && goalsVal !== '') {
+        parts.push(`Goals: ${goalsVal}.`);
+      }
     }
 
     // 4. Fact corrections (prevent hallucination loops)
