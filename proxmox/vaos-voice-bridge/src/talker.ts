@@ -46,6 +46,8 @@ export class Talker {
   private events: Partial<TalkerEvents> = {};
   private textPrompt = '';
   private _handshakeComplete = false;
+  /** When true, suppress auto-reconnect on close. Set by disconnect(). */
+  private _intentionalDisconnect = false;
   /**
    * Ogg header page cache. PersonaPlex's opus decoder needs the Ogg
    * BOS (OpusHead) and comment (OpusTags) pages before any audio data.
@@ -73,6 +75,12 @@ export class Talker {
 
   /** Connect to PersonaPlex WebSocket. */
   async connect(): Promise<void> {
+    // Guard against duplicate connects (e.g., reconnect races)
+    if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+      logger.warn('Connect called while already connected/connecting — skipping');
+      return;
+    }
+
     const env = getEnv();
     // PersonaPlex requires text_prompt and voice_prompt as query params
     const prompt = encodeURIComponent(this.textPrompt || 'You are a helpful voice assistant. Be concise and natural.');
@@ -133,6 +141,7 @@ export class Talker {
   async reconnectWithNewPrompt(): Promise<void> {
     logger.info('Reconnecting PersonaPlex with updated prompt (System 2 override)');
     this.disconnect();
+    this._intentionalDisconnect = false; // Allow this intentional reconnect
     // Small delay to let PersonaPlex release the session lock
     await new Promise(resolve => setTimeout(resolve, 500));
     await this.connect();
@@ -276,6 +285,10 @@ export class Talker {
 
   /** Schedule reconnection with exponential backoff. */
   private scheduleReconnect(): void {
+    if (this._intentionalDisconnect) {
+      logger.debug('Skipping reconnect (intentional disconnect)');
+      return;
+    }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       logger.error('Max reconnection attempts reached');
       return;
@@ -288,8 +301,9 @@ export class Talker {
     setTimeout(() => this.connect(), delay);
   }
 
-  /** Disconnect from PersonaPlex. */
+  /** Disconnect from PersonaPlex. Suppresses auto-reconnect. */
   disconnect(): void {
+    this._intentionalDisconnect = true;
     if (this.turnTimer) clearTimeout(this.turnTimer);
     if (this.ws) {
       this.ws.close(1000, 'Voice bridge shutting down');
