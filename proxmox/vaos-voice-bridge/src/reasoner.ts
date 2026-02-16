@@ -224,22 +224,66 @@ export class Reasoner {
     if (!this.agentId) return;
 
     try {
-      const blocks = await this.lettaGet<LettaMemoryBlock[]>(
-        `/v1/agents/${this.agentId}/memory/blocks`,
+      // Letta returns memory blocks nested in the agent response at .memory.blocks
+      // (the /memory/blocks sub-endpoint doesn't exist in all Letta versions)
+      const agent = await this.lettaGet<{ memory?: { blocks?: LettaMemoryBlock[] } }>(
+        `/v1/agents/${this.agentId}`,
       );
+      const blocks = agent.memory?.blocks ?? [];
 
       const beliefBlock = blocks.find(b => b.label === 'belief_state');
       if (beliefBlock?.value) {
+        // Belief may be stored as JSON or as key: value text
         try {
           const parsed = JSON.parse(beliefBlock.value);
           this.belief = BeliefSchema.parse(parsed);
-          logger.debug({ phase: this.belief.conversation.phase }, 'Belief synced from Letta');
-        } catch (parseErr) {
-          logger.warn({ err: parseErr }, 'Failed to parse belief from Letta — using current');
+          logger.info({ phase: this.belief.conversation.phase }, 'Belief synced from Letta (JSON)');
+        } catch {
+          // Parse key: value text format (e.g., "user_goals: [build X]\ncurrent_project: Y")
+          const kv = this.parseBeliefText(beliefBlock.value);
+          if (kv) {
+            this.belief = kv;
+            logger.info({ phase: this.belief.conversation.phase }, 'Belief synced from Letta (text)');
+          } else {
+            logger.warn('Failed to parse belief — using default');
+          }
         }
       }
     } catch (err) {
       logger.warn({ err }, 'Failed to sync belief from Letta');
+    }
+  }
+
+  /** Parse key: value text format from Letta belief block into Belief. */
+  private parseBeliefText(text: string): Belief | null {
+    try {
+      const lines = text.split('\n').filter(l => l.includes(':'));
+      const kv: Record<string, string> = {};
+      for (const line of lines) {
+        const idx = line.indexOf(':');
+        if (idx > 0) kv[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+      }
+      const parseList = (v?: string) => v ? v.replace(/[\[\]]/g, '').split(',').map(s => s.trim()).filter(Boolean) : [];
+      return BeliefSchema.parse({
+        user_model: {
+          goals: parseList(kv.user_goals),
+          current_project: kv.current_project || null,
+          barriers: parseList(kv.barriers),
+          expertise_level: kv.expertise_level || 'advanced',
+          preferences: {
+            voice: kv.preferred_voice || 'NATF0',
+            verbosity: kv.preferred_verbosity || 'concise',
+          },
+        },
+        conversation: {
+          phase: kv.coaching_phase || kv.conversation_phase || 'understanding',
+          topic: kv.conversation_topic || null,
+          summary: kv.conversation_summary || '',
+        },
+        pending_actions: [],
+      });
+    } catch {
+      return null;
     }
   }
 
