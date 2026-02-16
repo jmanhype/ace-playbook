@@ -40,6 +40,8 @@ export class Reasoner {
   private belief: Belief = createDefaultBelief();
   private processing = false;
   private ledger = '';
+  /** Queued turn texts accumulated while Reasoner is busy. */
+  private pendingTurns: string[] = [];
 
   /** Get the current belief state (cached in memory, synced from Letta). */
   getBelief(): Belief {
@@ -103,10 +105,14 @@ export class Reasoner {
   /**
    * Async belief update (non-blocking, System 1 path).
    * Called after each turn to keep the Reasoner informed.
+   * Uses turn-batching: if the Reasoner is busy, queues the turn
+   * and processes the batch when the current call finishes.
    */
   async updateBelief(userText: string, talkerResponse: string): Promise<void> {
     if (this.processing) {
-      logger.debug('Reasoner busy, skipping belief update');
+      // Queue the turn for batch processing
+      this.pendingTurns.push(talkerResponse || userText);
+      logger.debug({ queued: this.pendingTurns.length }, 'Reasoner busy — turn queued');
       return;
     }
 
@@ -114,8 +120,15 @@ export class Reasoner {
     const env = getEnv();
 
     try {
+      // Drain any queued turns + current turn into a single batch
+      const allTurns = [...this.pendingTurns, talkerResponse || userText];
+      this.pendingTurns = [];
+      const batchText = allTurns.join(' ').trim().slice(-1000); // Cap at 1000 chars
+
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), env.BELIEF_UPDATE_TIMEOUT_MS);
+      // Letta→Claude→tool_call round-trips chain (15-25s typical, 40s cold start)
+      // Use 60s to avoid premature timeouts
+      const timeout = setTimeout(() => controller.abort(), 60_000);
 
       if (this.agentId) {
         // Send to Letta agent for processing
@@ -124,7 +137,7 @@ export class Reasoner {
           {
             messages: [{
               role: 'user',
-              content: `[BELIEF_UPDATE] User said: "${userText}"\nAssistant responded: "${talkerResponse}"\n\nUpdate the belief_state memory block based on this exchange. Focus on: user goals, current topic, conversation phase, and any barriers mentioned.`,
+              content: `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state memory block using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`,
             }],
           },
           controller.signal,
@@ -134,6 +147,7 @@ export class Reasoner {
 
         // Sync updated belief from Letta
         await this.syncBeliefFromLetta();
+        logger.info({ phase: this.belief.conversation.phase, batchSize: allTurns.length }, 'Belief updated from batch');
       } else {
         clearTimeout(timeout);
         // Local fallback: basic heuristic belief update
@@ -141,12 +155,11 @@ export class Reasoner {
           conversation: {
             ...this.belief.conversation,
             turns_in_phase: this.belief.conversation.turns_in_phase + 1,
-            summary: `${this.belief.conversation.summary} User: ${userText.slice(0, 100)}`.trim().slice(-500),
+            summary: `${this.belief.conversation.summary} ${batchText.slice(0, 200)}`.trim().slice(-500),
           },
         });
+        logger.info({ phase: this.belief.conversation.phase }, 'Belief updated (local)');
       }
-
-      logger.debug({ phase: this.belief.conversation.phase }, 'Belief updated');
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         logger.warn('Belief update timed out');
@@ -155,6 +168,18 @@ export class Reasoner {
       }
     } finally {
       this.processing = false;
+
+      // If turns accumulated while we were processing, schedule another batch
+      if (this.pendingTurns.length > 0) {
+        logger.info({ queued: this.pendingTurns.length }, 'Processing queued turns');
+        // Small delay to avoid hammering Letta
+        setTimeout(() => {
+          const next = this.pendingTurns.shift() || '';
+          this.updateBelief(next, next).catch(err => {
+            logger.warn({ err }, 'Queued belief update failed');
+          });
+        }, 500);
+      }
     }
   }
 
