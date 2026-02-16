@@ -123,7 +123,7 @@ export class Reasoner {
 
     try {
       const prompt = this.buildTriggerPrompt(event);
-      const response = await this.sendToLetta(prompt, 90_000);
+      const response = await this.sendToLetta(prompt, 60_000);
 
       // Extract user-facing response (only send_message tool calls for proactive/periodic)
       const onlySendMessage = event.reason === 'periodic';
@@ -142,7 +142,7 @@ export class Reasoner {
       if (this.agentId) {
         try {
           const beliefPrompt = `[BELIEF_UPDATE] Context of what just happened:\n"${event.context}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase, current_project as needed based on this context.`;
-          const beliefResponse = await this.sendToLetta(beliefPrompt, 60_000);
+          const beliefResponse = await this.sendToLetta(beliefPrompt, 45_000);
           this.extractResponse(beliefResponse, true);
           logger.info('Post-trigger belief update completed');
         } catch (err) {
@@ -211,7 +211,7 @@ export class Reasoner {
       if (this.agentId) {
         const prompt = `[BELIEF_UPDATE] Recent conversation:\n"${batchText}"\n\nUpdate the belief_state and conversation_context memory blocks using core_memory_replace. Update: conversation_topic, conversation_summary, coaching_phase as needed.`;
 
-        const response = await this.sendToLetta(prompt, 60_000);
+        const response = await this.sendToLetta(prompt, 45_000);
         // Process response to extract and execute text-based tool calls
         this.extractResponse(response, true);
         this.bus.emit(E.reasonerBelief(this.sessionId, 'belief_update', ['belief_state', 'conversation_context']));
@@ -252,17 +252,26 @@ export class Reasoner {
     if (!this.agentId) return [];
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const abortTimer = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Use Promise.race as belt-and-suspenders — Bun's AbortController
+    // may not reliably abort hung fetch connections.
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new DOMException('Letta timeout', 'AbortError')), timeoutMs + 1000),
+    );
 
     try {
-      const response = await this.lettaPost<{ messages: LettaMessage[] }>(
-        `/v1/agents/${this.agentId}/messages`,
-        { messages: [{ role: 'user', content: prompt }] },
-        controller.signal,
-      );
+      const response = await Promise.race([
+        this.lettaPost<{ messages: LettaMessage[] }>(
+          `/v1/agents/${this.agentId}/messages`,
+          { messages: [{ role: 'user', content: prompt }] },
+          controller.signal,
+        ),
+        timeoutPromise,
+      ]);
       return response.messages ?? [];
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(abortTimer);
     }
   }
 
@@ -315,6 +324,18 @@ Rules:
   // ─── Response Extraction ─────────────────────────────────────
 
   /**
+   * Parse tool_call arguments — Letta API returns them as a JSON string,
+   * not a parsed object.
+   */
+  private parseArgs(args: unknown): Record<string, unknown> {
+    if (typeof args === 'string') {
+      try { return JSON.parse(args); } catch { return {}; }
+    }
+    if (args && typeof args === 'object') return args as Record<string, unknown>;
+    return {};
+  }
+
+  /**
    * Extract user-facing text from Letta response messages.
    *
    * Handles TWO response formats:
@@ -334,15 +355,19 @@ Rules:
     for (const m of messages) {
       // 1. Native tool_call_message (Claude, GPT-4, etc.)
       const tc = m.tool_call;
-      if (m.message_type === 'tool_call_message' && tc?.name === 'send_message' && tc.arguments?.message) {
-        texts.push(String(tc.arguments.message));
+      if (m.message_type === 'tool_call_message' && tc?.name === 'send_message') {
+        const parsed = this.parseArgs(tc.arguments);
+        if (parsed.message) {
+          texts.push(String(parsed.message));
+        }
       }
       if (m.message_type === 'tool_call_message' && tc?.arguments) {
+        const parsed = this.parseArgs(tc.arguments);
         if (tc.name === 'execute_ops_mission' || tc.name === 'execute_mission') {
-          this.triggerOpsMission(tc.arguments);
+          this.triggerOpsMission(parsed);
         }
         if (tc.name === 'core_memory_replace' || tc.name === 'core_memory_append') {
-          this.executeMemoryToolCall(tc.name, tc.arguments);
+          this.executeMemoryToolCall(tc.name, parsed);
         }
       }
 

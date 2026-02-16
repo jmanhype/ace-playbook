@@ -217,10 +217,18 @@ export class Talker {
 
   /** Handle incoming PersonaPlex messages. */
   private async handleMessage(data: unknown): Promise<void> {
+    this._recvCount = (this._recvCount ?? 0) + 1;
+    if (this._recvCount <= 5 || this._recvCount % 100 === 0) {
+      logger.debug({ recvCount: this._recvCount, dataType: typeof data, isBlob: data instanceof Blob, isAB: data instanceof ArrayBuffer, isBuffer: Buffer.isBuffer(data) }, 'handleMessage received');
+    }
 
     // Bun may deliver as Blob — convert to ArrayBuffer
     if (data instanceof Blob) {
       data = await data.arrayBuffer();
+    }
+    // Bun may also deliver as Buffer
+    if (Buffer.isBuffer(data)) {
+      data = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     }
     if (data instanceof ArrayBuffer) {
       const view = new Uint8Array(data);
@@ -228,6 +236,11 @@ export class Talker {
 
       const msgType = view[0];
       const payload = view.slice(1);
+
+      // Log non-audio message types (text=0x02, handshake=0x01, control=0x04+)
+      if (msgType !== MSG_TYPE.AUDIO) {
+        logger.debug({ msgType, payloadSize: payload.length }, 'Non-audio PersonaPlex message');
+      }
 
       try {
         switch (msgType) {

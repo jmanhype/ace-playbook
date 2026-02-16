@@ -44,6 +44,15 @@ interface VoiceSession {
 
 const sessions = new Map<string, VoiceSession>();
 
+/**
+ * Singleton active session.  PersonaPlex only allows ONE WebSocket session at
+ * a time (async lock).  When a new browser tab connects we reuse the existing
+ * Talker / PersonaPlex connection instead of creating a second one that would
+ * deadlock on PersonaPlex's session lock.
+ */
+let activeSession: VoiceSession | null = null;
+let teardownTimer: ReturnType<typeof setTimeout> | null = null;
+
 // ─── Client HTML ────────────────────────────────────────────────
 
 const CLIENT_HTML = `<!DOCTYPE html>
@@ -496,6 +505,12 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   };
   sessions.set(sessionId, session);
 
+  // CRITICAL: Set activeSession + WS tag immediately (before any awaits) so that
+  // a second browser WS open (which fires synchronously) sees it and
+  // adopts into this session instead of creating a duplicate Talker.
+  activeSession = session;
+  (userWs as any)._voiceSession = session;
+
   logger.info({ sessionId }, 'New voice session (event bus architecture)');
 
   // 3. Initialize Reasoner (connects to Letta, syncs memory blocks)
@@ -520,32 +535,35 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   });
 
   // 5. Wire event bus → browser WebSocket (the Bridge subscriber)
+  //    NOTE: All handlers read session.userWs (not the closure variable)
+  //    so that browser WS swaps (reconnects) are picked up automatically.
 
   // Forward PersonaPlex audio to browser
   bus.on('talker.audio', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(event.data);
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(event.data);
     }
   }, 10); // Low priority — output layer
 
   // Forward Talker text to browser
   bus.on('talker.turn', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(JSON.stringify({ type: 'talker_text', text: event.text }));
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({ type: 'talker_text', text: event.text }));
     }
   }, 10);
 
   // Forward Talker state changes to browser
   bus.on('talker.state', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(JSON.stringify({ type: 'state_change', state: event.state, source: 'talker' }));
+    logger.info({ state: event.state, hasUserWs: !!session.userWs, wsReady: session.userWs?.readyState }, 'Talker state → browser');
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({ type: 'state_change', state: event.state, source: 'talker' }));
     }
   }, 10);
 
   // Forward Reasoner interjections to browser
   bus.on('reasoner.interjection', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(JSON.stringify({
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({
         type: 'reasoner_response',
         text: event.text,
         system: 2,
@@ -556,8 +574,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
 
   // Forward Reasoner thinking state to browser
   bus.on('reasoner.thinking', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(JSON.stringify({ type: 'system2_thinking', active: event.active }));
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({ type: 'system2_thinking', active: event.active }));
     }
   }, 10);
 
@@ -567,12 +585,12 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     talker.updateTextPrompt(event.prompt);
 
     // Push updated memory blocks to browser
-    if (userWs.readyState === WebSocket.OPEN) {
+    if (session.userWs?.readyState === WebSocket.OPEN) {
       const blocks: Record<string, string> = {};
       for (const [label, value] of memory.getAllBlocks()) {
         blocks[label] = value;
       }
-      userWs.send(JSON.stringify({
+      session.userWs.send(JSON.stringify({
         type: 'memory_update',
         blocks,
         ledger: memory.currentLedger,
@@ -583,8 +601,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
 
   // Forward error events to browser
   bus.on('error.occurred', (event) => {
-    if (userWs.readyState === WebSocket.OPEN) {
-      userWs.send(JSON.stringify({
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({
         type: 'error',
         source: event.source,
         error: event.error,
@@ -597,23 +615,65 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   talker.updateTextPrompt(initialPrompt);
 
   // Push initial memory to browser
-  if (userWs.readyState === WebSocket.OPEN) {
-    const blocks: Record<string, string> = {};
-    for (const [label, value] of memory.getAllBlocks()) {
-      blocks[label] = value;
-    }
-    userWs.send(JSON.stringify({
-      type: 'memory_update',
-      blocks,
-      ledger: memory.currentLedger,
-    }));
-  }
+  pushMemoryToBrowser(session);
 
   // 7. Connect to PersonaPlex
   await talker.connect();
+}
 
-  // Store session reference on WebSocket for Bun callbacks
-  (userWs as any)._voiceSession = session;
+/** Push current memory blocks to the browser WS. */
+function pushMemoryToBrowser(session: VoiceSession): void {
+  if (session.userWs?.readyState !== WebSocket.OPEN) return;
+  const blocks: Record<string, string> = {};
+  for (const [label, value] of session.memory.getAllBlocks()) {
+    blocks[label] = value;
+  }
+  session.userWs.send(JSON.stringify({
+    type: 'memory_update',
+    blocks,
+    ledger: session.memory.currentLedger,
+  }));
+}
+
+/**
+ * Adopt a new browser WebSocket into an existing session.
+ * Swaps the WS reference so all event-bus handlers automatically use it.
+ */
+function adoptSession(session: VoiceSession, newWs: WebSocket): void {
+  // Suppress adopt spam — if the new WS is already the current one, skip
+  if (session.userWs === newWs) return;
+
+  logger.info({ sessionId: session.id, talkerConnected: session.talker.connected }, 'Adopting new browser WS into existing session');
+
+  // Mark old WS as adopted (so its close handler doesn't trigger teardown)
+  // but do NOT close it — closing triggers browser reconnect → adopt loop.
+  if (session.userWs) {
+    (session.userWs as any)._adopted = true;
+  }
+
+  // Swap in the new WS
+  session.userWs = newWs;
+  (newWs as any)._voiceSession = session;
+
+  // Cancel any pending teardown timer
+  if (teardownTimer) {
+    clearTimeout(teardownTimer);
+    teardownTimer = null;
+  }
+
+  // Push current state to the new browser
+  pushMemoryToBrowser(session);
+
+  // If Talker is already connected, tell the browser immediately
+  if (session.talker.handshakeComplete) {
+    logger.info({ sessionId: session.id }, 'Adopt: sending connected (handshake already done)');
+    newWs.send(JSON.stringify({ type: 'state_change', state: 'connected', source: 'talker' }));
+  } else if (session.talker.connected) {
+    logger.info({ sessionId: session.id }, 'Adopt: sending connecting (handshake pending)');
+    newWs.send(JSON.stringify({ type: 'state_change', state: 'connecting', source: 'talker' }));
+  } else {
+    logger.info({ sessionId: session.id }, 'Adopt: talker not yet connected — browser will receive state_change via bus when handshake completes');
+  }
 }
 
 // ─── Start server ───────────────────────────────────────────────
@@ -636,15 +696,32 @@ if (import.meta.main) {
     },
     websocket: {
       open(ws) {
-        handleVoiceSession(ws as unknown as WebSocket);
+        const browserWs = ws as unknown as WebSocket;
+        logger.info({ hasActiveSession: !!activeSession, wsReadyState: ws.readyState }, 'Browser WS open event');
+
+        // Singleton: if we already have an active session, adopt this new
+        // browser WS into it instead of creating a duplicate PersonaPlex
+        // connection (which would deadlock on its single-session lock).
+        if (activeSession) {
+          adoptSession(activeSession, browserWs);
+          return;
+        }
+        handleVoiceSession(browserWs);
       },
       async message(ws, message) {
         const session = (ws as any)._voiceSession as VoiceSession | undefined;
-        if (!session) return;
+        if (!session) {
+          logger.warn({ hasSession: false, msgType: typeof message }, 'Message from browser with no session');
+          return;
+        }
 
         if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
           // Audio from user → forward to PersonaPlex
           const buf = message instanceof Uint8Array ? message.buffer : message;
+          session._browserMsgCount = (session._browserMsgCount ?? 0) + 1;
+          if (session._browserMsgCount <= 3 || session._browserMsgCount % 500 === 0) {
+            logger.debug({ count: session._browserMsgCount, size: buf.byteLength, talkerConnected: session.talker.connected }, 'Browser audio → PersonaPlex');
+          }
           session.talker.sendAudio(buf);
         } else if (typeof message === 'string') {
           // Text input → emit on event bus (Trigger + Reasoner will handle)
@@ -652,18 +729,34 @@ if (import.meta.main) {
         }
       },
       close(ws) {
+        // If this WS was replaced by adoptSession(), don't tear down
+        if ((ws as any)._adopted) return;
+
         const session = (ws as any)._voiceSession as VoiceSession | undefined;
-        if (session) {
+        if (!session) return;
+
+        // Null out the browser WS ref but keep the session alive.
+        // Browser auto-reconnects in ~3s; give 10s grace period before teardown.
+        session.userWs = null;
+        logger.info({ sessionId: session.id }, 'Browser disconnected — grace period before teardown');
+
+        if (teardownTimer) clearTimeout(teardownTimer);
+        teardownTimer = setTimeout(() => {
+          // If browser reconnected (adoptSession ran), userWs will be non-null
+          if (session.userWs !== null) return;
+
           logger.info({
             sessionId: session.id,
             turns: session.turnCount,
             events: session.bus.count,
             errors: session.bus.errors,
-          }, 'Voice session ended');
+          }, 'Voice session ended (no browser reconnect)');
           session.talker.disconnect();
           session.bus.shutdown();
           sessions.delete(session.id);
-        }
+          if (activeSession === session) activeSession = null;
+          teardownTimer = null;
+        }, 10_000);
       },
     },
     port: env.PORT,
