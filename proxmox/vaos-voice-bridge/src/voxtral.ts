@@ -175,6 +175,17 @@ export class VoxtralListener {
   private audioBuffer: Uint8Array[] = [];
   private audioBufferBytes = 0;
 
+  /**
+   * Cached Ogg BOS + comment header pages.
+   * opus-recorder streams Ogg pages: the first 2 pages contain OpusHead and
+   * OpusTags headers. Subsequent pages are audio data. Mistral's
+   * /audio/transcriptions endpoint requires a valid Ogg/Opus file, so we
+   * prepend these headers to every flush to make each chunk decodable.
+   */
+  private oggHeaderPages: Uint8Array | null = null;
+  private oggHeaderPagesCollected = 0;
+  private oggHeaderChunks: Uint8Array[] = [];
+
   /** Flush timer. */
   private flushTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -216,11 +227,70 @@ export class VoxtralListener {
   /**
    * Feed raw Opus audio frames from the browser.
    * Called on every binary WebSocket message alongside PersonaPlex.
+   *
+   * opus-recorder with streamPages:true sends Ogg pages. The first 2 pages
+   * are BOS (OpusHead) and comment (OpusTags) headers. We cache these and
+   * prepend them to every flush so Mistral can decode each chunk.
    */
   feedAudio(data: ArrayBuffer): void {
     const chunk = new Uint8Array(data);
-    this.audioBuffer.push(chunk);
-    this.audioBufferBytes += chunk.length;
+
+    // Capture Ogg header pages (first 2 pages: BOS + OpusTags)
+    if (!this.oggHeaderPages) {
+      this.oggHeaderChunks.push(chunk);
+      // Count Ogg page boundaries in this chunk
+      for (let i = 0; i <= chunk.length - 4; i++) {
+        if (chunk[i] === 0x4F && chunk[i+1] === 0x67 &&
+            chunk[i+2] === 0x67 && chunk[i+3] === 0x53) {
+          this.oggHeaderPagesCollected++;
+        }
+      }
+      // Once we have 3+ OggS markers, the first 2 pages are headers
+      // and the 3rd starts audio data. Cache everything before the 3rd marker.
+      if (this.oggHeaderPagesCollected >= 3) {
+        // Concatenate all collected chunks
+        const totalLen = this.oggHeaderChunks.reduce((s, c) => s + c.length, 0);
+        const all = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const c of this.oggHeaderChunks) {
+          all.set(c, offset);
+          offset += c.length;
+        }
+        // Find the 3rd OggS marker — everything before it is headers
+        let markerCount = 0;
+        let headerEnd = all.length;
+        for (let i = 0; i <= all.length - 4; i++) {
+          if (all[i] === 0x4F && all[i+1] === 0x67 &&
+              all[i+2] === 0x67 && all[i+3] === 0x53) {
+            markerCount++;
+            if (markerCount === 3) {
+              headerEnd = i;
+              break;
+            }
+          }
+        }
+        this.oggHeaderPages = all.slice(0, headerEnd);
+        // Feed remaining audio data into the buffer
+        if (headerEnd < all.length) {
+          const audioData = all.slice(headerEnd);
+          this.audioBuffer.push(audioData);
+          this.audioBufferBytes += audioData.length;
+        }
+        this.oggHeaderChunks = []; // Free memory
+        logger.info({ headerBytes: this.oggHeaderPages.length }, 'Cached Ogg header pages for Voxtral');
+        return;
+      }
+      return; // Still collecting headers
+    }
+
+    // Only buffer chunks that look like Ogg pages (start with "OggS")
+    // opus-recorder with streamPages:true should always send complete Ogg pages
+    if (chunk.length >= 4 && chunk[0] === 0x4F && chunk[1] === 0x67 &&
+        chunk[2] === 0x67 && chunk[3] === 0x53) {
+      this.audioBuffer.push(chunk);
+      this.audioBufferBytes += chunk.length;
+    }
+    // else: skip non-Ogg data (possible if opus-recorder sends partial/non-page data)
   }
 
   /** Start the periodic flush timer. */
@@ -240,6 +310,9 @@ export class VoxtralListener {
     }
     this.audioBuffer = [];
     this.audioBufferBytes = 0;
+    this.oggHeaderPages = null;
+    this.oggHeaderPagesCollected = 0;
+    this.oggHeaderChunks = [];
     logger.info('VoxtralListener stopped');
   }
 
@@ -263,13 +336,37 @@ export class VoxtralListener {
     this.audioBuffer = [];
     this.audioBufferBytes = 0;
 
-    // Concatenate chunks into a single buffer
-    const combined = new Uint8Array(totalBytes);
+    // Concatenate chunks into a single buffer, prepending Ogg headers
+    const headerLen = this.oggHeaderPages?.length ?? 0;
+    const combined = new Uint8Array(headerLen + totalBytes);
     let offset = 0;
+    if (this.oggHeaderPages) {
+      combined.set(this.oggHeaderPages, 0);
+      offset = headerLen;
+    }
     for (const chunk of chunks) {
       combined.set(chunk, offset);
       offset += chunk.length;
     }
+
+    // Validate: combined should start with OggS (our prepended headers)
+    const hasOggHeader = combined.length >= 4 &&
+      combined[0] === 0x4F && combined[1] === 0x67 &&
+      combined[2] === 0x67 && combined[3] === 0x53;
+    if (!hasOggHeader) {
+      logger.warn({ totalBytes: combined.length, first4: Array.from(combined.slice(0, 4)).map(b => b.toString(16)) },
+        'Voxtral flush: audio missing OggS header — skipping');
+      return;
+    }
+
+    // Rewrite Ogg page sequence numbers to be contiguous (0, 1, 2, ...).
+    // Our buffer has header pages (seq 0, 1) followed by data pages from
+    // the middle of the stream (seq N, N+1, ...). Mistral's decoder rejects
+    // the gap, so we renumber all pages sequentially.
+    this.rewriteOggPageSequences(combined);
+
+    logger.debug({ totalBytes: combined.length, headerLen: headerLen, dataBytes: totalBytes },
+      'Voxtral flush: sending audio to Mistral');
 
     // Fire and forget — don't block the audio pipeline
     this.sendToVoxtral(combined).catch(err => {
@@ -419,6 +516,90 @@ export class VoxtralListener {
     // Emit as user.text — trigger.ts handles intent classification
     this.bus.emit(E.userText(this.sessionId, text));
   }
+
+  /**
+   * Rewrite Ogg page sequence numbers and CRC in a buffer to be contiguous.
+   *
+   * Ogg page layout (27-byte header):
+   *   0-3:   "OggS" magic
+   *   4:     version (0)
+   *   5:     header type (BOS=0x02, continuation=0x01, EOS=0x04)
+   *   6-13:  granule position (8 bytes, little-endian)
+   *   14-17: serial number (4 bytes, little-endian)
+   *   18-21: page sequence number (4 bytes, little-endian)
+   *   22-25: CRC checksum (4 bytes, little-endian)
+   *   26:    number of segments
+   *   27+:   segment table (N bytes), then payload
+   *
+   * After rewriting sequence numbers, we must recalculate the CRC.
+   */
+  private rewriteOggPageSequences(buf: Uint8Array): void {
+    let pos = 0;
+    let pageSeq = 0;
+
+    while (pos + 27 <= buf.length) {
+      // Find OggS magic
+      if (buf[pos] !== 0x4F || buf[pos+1] !== 0x67 ||
+          buf[pos+2] !== 0x67 || buf[pos+3] !== 0x53) {
+        break; // Not at a page boundary — done
+      }
+
+      // Rewrite page sequence number (bytes 18-21, little-endian)
+      buf[pos + 18] = pageSeq & 0xFF;
+      buf[pos + 19] = (pageSeq >> 8) & 0xFF;
+      buf[pos + 20] = (pageSeq >> 16) & 0xFF;
+      buf[pos + 21] = (pageSeq >> 24) & 0xFF;
+
+      // Calculate page size to advance: 27 (header) + numSegments + sum(segments)
+      const numSegments = buf[pos + 26];
+      if (pos + 27 + numSegments > buf.length) break;
+
+      let payloadSize = 0;
+      for (let i = 0; i < numSegments; i++) {
+        payloadSize += buf[pos + 27 + i];
+      }
+
+      const pageSize = 27 + numSegments + payloadSize;
+
+      // Recalculate CRC (zero it first, then compute)
+      buf[pos + 22] = 0;
+      buf[pos + 23] = 0;
+      buf[pos + 24] = 0;
+      buf[pos + 25] = 0;
+      const crc = this.oggCrc32(buf, pos, pageSize);
+      buf[pos + 22] = crc & 0xFF;
+      buf[pos + 23] = (crc >> 8) & 0xFF;
+      buf[pos + 24] = (crc >> 16) & 0xFF;
+      buf[pos + 25] = (crc >> 24) & 0xFF;
+
+      pos += pageSize;
+      pageSeq++;
+    }
+  }
+
+  /** Ogg CRC-32 (polynomial 0x04C11DB7, no final XOR). */
+  private oggCrc32(data: Uint8Array, offset: number, length: number): number {
+    // Precompute table on first call
+    if (!VoxtralListener.oggCrcTable) {
+      VoxtralListener.oggCrcTable = new Uint32Array(256);
+      for (let i = 0; i < 256; i++) {
+        let r = i << 24;
+        for (let j = 0; j < 8; j++) {
+          r = (r & 0x80000000) ? ((r << 1) ^ 0x04C11DB7) : (r << 1);
+        }
+        VoxtralListener.oggCrcTable[i] = r >>> 0;
+      }
+    }
+
+    let crc = 0;
+    const table = VoxtralListener.oggCrcTable;
+    for (let i = 0; i < length; i++) {
+      crc = ((crc << 8) ^ table[((crc >>> 24) ^ data[offset + i]) & 0xFF]) >>> 0;
+    }
+    return crc;
+  }
+
+  private static oggCrcTable: Uint32Array | null = null;
 
   /**
    * Detect hallucinated transcriptions from silence/noise.

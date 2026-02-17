@@ -24,6 +24,7 @@ import { Talker } from './talker.js';
 import { Memory } from './memory.js';
 import { Trigger } from './trigger.js';
 import { Reasoner } from './reasoner.js';
+import { getConfig } from './config.js';
 import { VoxtralListener } from './voxtral.js';
 import { PersonaplexTTS } from './tts.js';
 
@@ -640,7 +641,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     proactiveInterval: 25,
     confidenceThreshold: 0.5,
   });
-  const reasoner = new Reasoner(bus, memory, trigger, sessionId);
+  const reasoner = new Reasoner(getConfig());
 
   // Voxtral parallel listener (optional — enabled via VOXTRAL_ENABLED=true)
   const env = getEnv();
@@ -837,6 +838,44 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   }, 10);
 
+  // ── Trigger → Reasoner bridge ─────────────────────────────────────
+  // When Voxtral (or trigger.ts) fires trigger.activate, route to Reasoner.
+  // The Reasoner processes the context and returns a response that gets
+  // injected into PersonaPlex's text prompt via memory compression.
+  bus.on('trigger.activate', async (event) => {
+    logger.info({
+      reason: event.reason,
+      confidence: event.confidence,
+      context: event.context?.slice(0, 200),
+    }, 'Trigger activated — routing to System 2');
+
+    // Notify browser that System 2 is thinking
+    bus.emit({ type: 'reasoner.thinking', active: true, sessionId, timestamp: Date.now() } as any);
+
+    try {
+      const response = await reasoner.processAndRespond(event.context);
+      logger.info({ responseLength: response.length }, 'System 2 responded');
+
+      // Emit interjection for browser display
+      bus.emit({
+        type: 'reasoner.interjection',
+        sessionId,
+        text: response,
+        decision: 'interject',
+        timestamp: Date.now(),
+      } as any);
+
+      // Update memory with the System 2 response
+      memory.setLastSystem2Response(response);
+      const newPrompt = memory.compress();
+      talker.updateTextPrompt(newPrompt);
+    } catch (err) {
+      logger.error({ err: err instanceof Error ? err.message : String(err) }, 'Reasoner failed');
+    } finally {
+      bus.emit({ type: 'reasoner.thinking', active: false, sessionId, timestamp: Date.now() } as any);
+    }
+  }, 80); // High priority — before other subscribers
+
   // Forward error events to browser
   bus.on('error.occurred', (event) => {
     if (session.userWs?.readyState === WebSocket.OPEN) {
@@ -976,9 +1015,9 @@ if (import.meta.main) {
         if (message instanceof ArrayBuffer || message instanceof Uint8Array) {
           // Audio from user → forward to PersonaPlex
           const buf = message instanceof Uint8Array ? message.buffer : message;
-          session._browserMsgCount = (session._browserMsgCount ?? 0) + 1;
-          if (session._browserMsgCount <= 3 || session._browserMsgCount % 500 === 0) {
-            logger.debug({ count: session._browserMsgCount, size: buf.byteLength, talkerConnected: session.talker.connected }, 'Browser audio → PersonaPlex');
+          (session as any)._browserMsgCount = ((session as any)._browserMsgCount ?? 0) + 1;
+          if ((session as any)._browserMsgCount <= 3 || (session as any)._browserMsgCount % 500 === 0) {
+            logger.debug({ count: (session as any)._browserMsgCount, size: buf.byteLength, talkerConnected: session.talker.connected }, 'Browser audio → PersonaPlex');
           }
           session.talker.sendAudio(buf);
           // Fork audio to Voxtral in parallel (if enabled)
