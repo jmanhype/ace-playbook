@@ -1,133 +1,111 @@
 /**
- * Coordinator — System 1 vs System 2 decision logic.
+ * Coordinator: decides whether the Talker handles a turn (System 1)
+ * or waits for the Reasoner (System 2 override).
  *
- * Decides whether the Talker (PersonaPlex) should respond immediately
- * or wait for the Reasoner to process the turn first.
- *
- * Criteria:
- * 1. Action triggers — "build", "create", "plan", etc.
- * 2. Phrase triggers — "can you actually", "go ahead and"
- * 3. Belief phase override — planning/action phases
- * 4. Frustration detection — "I already told you"
+ * Based on "Agents Thinking Fast and Slow" (arXiv:2410.08328):
+ * - System 1 (Talker/PersonaPlex): fast, intuitive, always-on
+ * - System 2 (Reasoner/Letta+Claude): slow, deliberate, plans and forms beliefs
  */
 
-import { createLogger } from './lib/logger.js';
-import type { Belief } from './belief.js';
+import type { BeliefState } from './belief.js';
+import { createLogger } from './logger.js';
 
 const logger = createLogger('coordinator');
 
-export interface Decision {
-  waitForReasoner: boolean;
-  reason: string;
-  trigger?: string;
-}
+export type RoutingMode = 'direct' | 'agent';
 
-// Triggers that indicate the user wants action (System 2 override)
-const ACTION_TRIGGERS = [
-  'build', 'create', 'execute', 'plan', 'deploy', 'launch',
-  'implement', 'design', 'analyze', 'research', 'set up',
-  'figure out', 'make me', 'write me',
+/** Keywords that force System 2 (Reasoner) engagement */
+const AGENT_TRIGGERS = [
+  'build me', 'build a', 'create a project', 'start a mission',
+  'execute', 'deploy', 'analyze my', 'what have we',
+  'remember when', 'plan for', 'design a', 'implement',
+  'run the pipeline', 'trigger', 'ops loop', 'ops-loop',
 ];
 
-// Multi-word phrases that override to System 2
-const PHRASE_TRIGGERS = [
-  'can you actually',
-  'go ahead and',
-  "what's the plan",
-  'what do you think about',
-  'help me figure',
-  'i need you to',
-  'can you help me with',
+/** Keywords that indicate frustration / Reasoner needed */
+const FRUSTRATION_SIGNALS = [
+  'i already told you', 'i said', 'no that\'s wrong',
+  'you\'re not listening', 'pay attention',
 ];
 
-// Belief phases that force System 2 override
-const OVERRIDE_PHASES = new Set(['planning', 'action']);
-
-// Frustration patterns (highest priority)
-const FRUSTRATION_PATTERNS = [
-  'i already told you',
-  'i just said',
-  'are you listening',
-  'pay attention',
-  'i said',
-  'like i mentioned',
-];
-
-// Past-tense exclusions: if the keyword appears in past tense, don't trigger
-const PAST_TENSE_PATTERNS = [
-  /i\s+\w+ed\b/,     // "i created", "i built"
-  /i\s+built\b/,
-  /already\s+\w+ed\b/,
-  /have\s+\w+ed\b/,
-  /had\s+\w+ed\b/,
-  /i\s+was\s+\w+ing\b/,
-];
-
-export function decide(text: string, belief: Belief): Decision {
+export function detectComplexity(text: string): number {
   const lower = text.toLowerCase().trim();
-  const words = lower.split(/\s+/);
+  let score = 0;
 
-  // Skip very short utterances (greetings, fillers)
-  if (words.length <= 2) {
-    return { waitForReasoner: false, reason: 'short_utterance' };
-  }
-
-  // 1. Frustration detection (highest priority)
-  for (const pattern of FRUSTRATION_PATTERNS) {
-    if (lower.includes(pattern)) {
-      logger.info({ trigger: pattern }, 'Frustration detected → System 2');
-      return { waitForReasoner: true, reason: 'frustration', trigger: pattern };
-    }
-  }
-
-  // 2. Belief phase override
-  if (OVERRIDE_PHASES.has(belief.conversation.phase)) {
-    return {
-      waitForReasoner: true,
-      reason: 'belief_phase',
-      trigger: belief.conversation.phase,
-    };
-  }
-
-  // 3. Phrase triggers (multi-word, more specific)
-  for (const phrase of PHRASE_TRIGGERS) {
-    if (lower.includes(phrase)) {
-      logger.info({ trigger: phrase }, 'Phrase trigger → System 2');
-      return { waitForReasoner: true, reason: 'phrase_trigger', trigger: phrase };
-    }
-  }
-
-  // 4. Action keyword triggers (only in imperative context)
-  for (const trigger of ACTION_TRIGGERS) {
+  for (const trigger of AGENT_TRIGGERS) {
     if (lower.includes(trigger)) {
-      // Check it's not past tense / descriptive
-      const isPastTense = PAST_TENSE_PATTERNS.some(p => p.test(lower));
-      if (!isPastTense) {
-        logger.info({ trigger }, 'Action trigger → System 2');
-        return { waitForReasoner: true, reason: 'action_trigger', trigger };
-      }
+      score += 0.6;
+      break; // One trigger is enough for System 2
     }
   }
 
-  // Default: System 1 handles it (fast path)
-  return { waitForReasoner: false, reason: 'no_trigger' };
+  for (const signal of FRUSTRATION_SIGNALS) {
+    if (lower.includes(signal)) {
+      score += 0.3;
+    }
+  }
+
+  // Length heuristic — longer requests tend to need more reasoning
+  const words = lower.split(/\s+/).length;
+  if (words > 25) score += 0.2;
+  if (words > 50) score += 0.1;
+
+  // Question complexity
+  if (/\b(why|how|compare|evaluate|assess)\b/.test(lower) && lower.includes('?')) {
+    score += 0.15;
+  }
+
+  return Math.min(score, 1.0);
 }
 
-// Social turn detection — greetings, fillers, small talk
-const SOCIAL_PATTERNS = [
-  /^(hi|hey|hello|yo|sup|what'?s up|howdy)\b/,
-  /^(good morning|good afternoon|good evening|good night)\b/,
-  /^(thanks|thank you|cool|ok|okay|sure|right|yeah|yep|nope|no)\b/,
-  /^(bye|goodbye|see you|later|gotta go)\b/,
-];
+export function route(text: string, belief: BeliefState, threshold: number): RoutingMode {
+  // If the conversation is in planning/action phase, always use Reasoner
+  if (belief.conversation.phase === 'planning' || belief.conversation.phase === 'action') {
+    logger.info({ phase: belief.conversation.phase }, 'System 2 override: belief phase requires Reasoner');
+    return 'agent';
+  }
 
-export function isSocialTurn(text: string): boolean {
-  const lower = text.toLowerCase().trim();
-  const words = lower.split(/\s+/);
-  if (words.length > 4) return false;
-  return SOCIAL_PATTERNS.some(p => p.test(lower));
+  const complexity = detectComplexity(text);
+  const mode = complexity >= threshold ? 'agent' : 'direct';
+
+  logger.debug({ text: text.slice(0, 60), complexity, threshold, mode }, 'Routing decision');
+  return mode;
 }
 
-export function shouldWaitForReasoner(text: string, belief: Belief): Decision {
-  return decide(text, belief);
+/**
+ * Evaluate whether the conversation phase should transition.
+ * Called after each Reasoner interaction to cycle phases appropriately.
+ *
+ *   understanding → planning (when goals detected)
+ *   planning → action (when plan executed/mission submitted)
+ *   action → understanding (when actions complete or new topic starts)
+ */
+export function evaluatePhaseTransition(belief: BeliefState): BeliefState['conversation']['phase'] | null {
+  const { phase, turnsInPhase } = belief.conversation;
+  const hasGoals = belief.userModel.goals.length > 0;
+  const hasProject = belief.userModel.currentProject !== null;
+  const hasPendingActions = belief.pendingActions.length > 0;
+
+  switch (phase) {
+    case 'understanding':
+      // Move to planning when user has expressed goals
+      if (hasGoals && turnsInPhase >= 2) return 'planning';
+      break;
+
+    case 'planning':
+      // Move to action when missions are submitted
+      if (hasPendingActions) return 'action';
+      // Fall back to understanding if planning stalls
+      if (turnsInPhase > 5) return 'understanding';
+      break;
+
+    case 'action':
+      // Return to understanding when actions are done or topic shifts
+      if (!hasPendingActions && turnsInPhase >= 2) return 'understanding';
+      // Also reset if stuck in action too long
+      if (turnsInPhase > 8) return 'understanding';
+      break;
+  }
+
+  return null; // No transition
 }

@@ -24,6 +24,7 @@ import { Talker } from './talker.js';
 import { Memory } from './memory.js';
 import { Trigger } from './trigger.js';
 import { Reasoner } from './reasoner.js';
+import { VoxtralListener } from './voxtral.js';
 import { synthesize, readWavPcm } from './tts.js';
 
 const logger = createLogger('bridge');
@@ -87,6 +88,7 @@ interface VoiceSession {
   memory: Memory;
   trigger: Trigger;
   reasoner: Reasoner;
+  voxtral: VoxtralListener | null;
   userWs: WebSocket | null;
   turnCount: number;
   createdAt: Date;
@@ -645,9 +647,23 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   });
   const reasoner = new Reasoner(bus, memory, trigger, sessionId);
 
+  // Voxtral parallel listener (optional — enabled via VOXTRAL_ENABLED=true)
+  const env = getEnv();
+  let voxtral: VoxtralListener | null = null;
+  if (env.VOXTRAL_ENABLED === 'true' && env.VOXTRAL_API_KEY) {
+    voxtral = new VoxtralListener(bus, sessionId, {
+      apiKey: env.VOXTRAL_API_KEY,
+      baseUrl: env.VOXTRAL_BASE_URL,
+      model: env.VOXTRAL_MODEL,
+      bufferSeconds: env.VOXTRAL_BUFFER_SECONDS,
+      mode: env.VOXTRAL_MODE,
+    });
+    logger.info({ sessionId, model: env.VOXTRAL_MODEL }, 'Voxtral parallel listener enabled');
+  }
+
   const session: VoiceSession = {
     id: sessionId,
-    bus, talker, memory, trigger, reasoner,
+    bus, talker, memory, trigger, reasoner, voxtral,
     userWs,
     turnCount: 0,
     createdAt: new Date(),
@@ -838,7 +854,10 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // Push initial memory to browser
   pushMemoryToBrowser(session);
 
-  // 7. Connect to PersonaPlex
+  // 7. Start Voxtral listener (if enabled)
+  session.voxtral?.start();
+
+  // 8. Connect to PersonaPlex
   await talker.connect();
 }
 
@@ -961,6 +980,8 @@ if (import.meta.main) {
             logger.debug({ count: session._browserMsgCount, size: buf.byteLength, talkerConnected: session.talker.connected }, 'Browser audio → PersonaPlex');
           }
           session.talker.sendAudio(buf);
+          // Fork audio to Voxtral in parallel (if enabled)
+          session.voxtral?.feedAudio(buf);
         } else if (typeof message === 'string') {
           // Parse prefix: "speech:..." = SpeechRecognition, "text:..." = typed input
           const isSpeech = message.startsWith('speech:');
@@ -1017,6 +1038,7 @@ if (import.meta.main) {
             events: session.bus.count,
             errors: session.bus.errors,
           }, 'Voice session ended (no browser reconnect)');
+          session.voxtral?.stop();
           session.talker.disconnect();
           session.bus.shutdown();
           sessions.delete(session.id);

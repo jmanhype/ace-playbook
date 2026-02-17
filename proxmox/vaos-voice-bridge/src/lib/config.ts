@@ -31,6 +31,14 @@ const EnvSchema = z.object({
   // TTS
   VOICE_PROMPT_PATH: z.string().default('/opt/moshi/voices/NATF0.pt'),
   TTS_SAMPLE_RATE: z.coerce.number().default(24000),
+
+  // Voxtral (parallel audio listener for intent detection)
+  VOXTRAL_ENABLED: z.enum(['true', 'false']).default('false'),
+  VOXTRAL_API_KEY: z.string().optional(),
+  VOXTRAL_BASE_URL: z.string().url().default('https://api.together.xyz/v1'),
+  VOXTRAL_MODEL: z.string().default('mistralai/Voxtral-Mini-3B-2507'),
+  VOXTRAL_BUFFER_SECONDS: z.coerce.number().default(4),
+  VOXTRAL_MODE: z.enum(['chat', 'transcribe']).default('chat'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
