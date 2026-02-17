@@ -650,10 +650,16 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       apiKey: env.VOXTRAL_API_KEY,
       baseUrl: env.VOXTRAL_BASE_URL,
       model: env.VOXTRAL_MODEL,
+      classifierModel: env.VOXTRAL_CLASSIFIER_MODEL,
       bufferSeconds: env.VOXTRAL_BUFFER_SECONDS,
       mode: env.VOXTRAL_MODE,
     });
-    logger.info({ sessionId, model: env.VOXTRAL_MODEL }, 'Voxtral parallel listener enabled');
+    logger.info({
+      sessionId,
+      model: env.VOXTRAL_MODEL,
+      classifier: env.VOXTRAL_CLASSIFIER_MODEL,
+      mode: env.VOXTRAL_MODE,
+    }, 'Voxtral parallel listener enabled');
   }
 
   const session: VoiceSession = {

@@ -2,22 +2,33 @@
  * VoxtralListener — Parallel audio listener for intent detection.
  *
  * Listens to the same user audio stream as PersonaPlex, buffers chunks,
- * and periodically sends them to Voxtral Mini 3B (via Together AI) for
+ * and periodically sends them to Voxtral (via Mistral API) for
  * speech-to-tool-call classification.
  *
  * When Voxtral detects tool-worthy intent in the audio, it fires
- * trigger.activate on the event bus — replacing the text-based
- * semantic trigger with a single model that goes audio → tool call.
+ * trigger.activate on the event bus — replacing Chrome SpeechRecognition,
+ * text-based pattern matching, and separate intent extraction with a
+ * single model family that goes audio → tool call.
+ *
+ * Two-step pipeline (both Mistral API):
+ *   1. Voxtral Mini (3B) transcribes audio via /audio/transcriptions
+ *   2. Voxtral Small (24B) classifies transcript with tool definitions
+ *      → returns proper tool_calls or "no action"
+ *
+ * This replaces three separate components:
+ *   - Chrome SpeechRecognition (ASR)
+ *   - trigger.ts pattern matching (semantic gate)
+ *   - manual intent extraction (structured query)
  *
  * PersonaPlex still handles the conversation. Voxtral is the ear
  * for System 2.
  *
  * Flow:
  *   Browser audio → VoxtralListener.feedAudio()
- *                 → buffer accumulates ~3-5s of audio
- *                 → flush to Together AI (Voxtral Mini 3B)
+ *                 → buffer accumulates ~4s of audio
+ *                 → flush: Voxtral Mini transcribes → Voxtral Small classifies
  *                 → tool_call detected? → bus.emit(trigger.activate)
- *                 → plain text? → optional transcript (future: replace SpeechRecognition)
+ *                 → no action? → discard (PersonaPlex handles conversation)
  */
 
 import { createLogger } from './lib/logger.js';
@@ -114,17 +125,16 @@ const VOXTRAL_TOOLS = [
 // ─── Configuration ───────────────────────────────────────────────
 
 export interface VoxtralConfig {
-  /** API key (Together AI, Mistral, or self-hosted vLLM). */
+  /** API key for the Voxtral provider (Mistral API or Together AI). */
   apiKey: string;
-  /** API base URL (default: Together AI). */
+  /** API base URL. Default: Mistral API. */
   baseUrl?: string;
-  /** Model ID for transcription. */
+  /** Model ID for transcription (Voxtral Mini 3B). */
   model?: string;
   /**
-   * Model ID for tool-calling classification step (transcribe mode only).
-   * Voxtral on Together AI serverless doesn't return proper tool_calls
-   * (backend not configured with --tool-call-parser), so we use a separate
-   * model that supports native tool calling.
+   * Model ID for tool-calling classification (Voxtral Small 24B on Mistral API).
+   * Voxtral Mini doesn't support function calling; Voxtral Small does.
+   * Only used in 'chat' mode.
    */
   classifierModel?: string;
   /** How many seconds of audio to accumulate before flushing. */
@@ -133,20 +143,20 @@ export interface VoxtralConfig {
   minBufferBytes?: number;
   /** Maximum concurrent API requests. */
   maxConcurrent?: number;
-  /** Whether to emit plain transcriptions as user.text events. */
+  /** Whether to also emit transcriptions as user.text events. */
   emitTranscriptions?: boolean;
   /**
    * API mode:
-   * - 'chat': Send audio via chat/completions with input_audio + tools (vLLM, Mistral native)
-   * - 'transcribe': Voxtral transcribes audio, emits user.text for existing trigger.ts to classify
+   * - 'chat': Two-step Mistral pipeline — Voxtral Mini transcribes, Voxtral Small classifies with tools
+   * - 'transcribe': Voxtral Mini transcribes only, emits user.text for existing trigger.ts to classify
    */
   mode?: 'chat' | 'transcribe';
 }
 
 const DEFAULTS = {
-  baseUrl: 'https://api.together.xyz/v1',
-  model: 'mistralai/Voxtral-Mini-3B-2507',
-  classifierModel: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
+  baseUrl: 'https://api.mistral.ai/v1',
+  model: 'voxtral-mini-2507',
+  classifierModel: 'voxtral-small-2507',
   bufferSeconds: 4,
   minBufferBytes: 4800, // ~0.1s of Opus at 48kbps
   maxConcurrent: 2,
@@ -175,23 +185,8 @@ export class VoxtralListener {
   private lastTriggerTime = 0;
   private readonly TRIGGER_COOLDOWN_MS = 5_000;
 
-  /** System prompt — very strict to minimize false positives. */
-  private readonly systemPrompt = `You are a strict voice intent classifier. Your job: decide if the user EXPLICITLY asked for an action, or if they are just having a conversation.
-
-ONLY call a tool when the user uses EXPLICIT action language like:
-- "Search for...", "Look up...", "Google..." → search_web
-- "Remember that...", "Don't forget..." → remember (ONLY when user explicitly asks you to remember something specific)
-- "Build...", "Deploy...", "Create...", "Send..." → execute_task
-- "What's the status of...", "How is X going" → get_status
-
-NEVER call a tool for:
-- Agreements ("yeah", "that makes sense", "okay")
-- Opinions ("I think...", "probably...")
-- Questions that are part of normal conversation
-- Greetings, small talk, acknowledgments
-- Anything that isn't a DIRECT command or request
-
-If in doubt, do NOT call a tool. Respond with "no action" instead. False positives are worse than missed detections.`;
+  /** System prompt for the Voxtral Small classifier — strict to minimize false positives. */
+  private readonly classifierPrompt = `You are a strict intent classifier for a voice assistant. ONLY call a tool when the user EXPLICITLY requests an action. For normal conversation, agreements, small talk, or anything ambiguous, respond with "no action needed". False positives are worse than missed detections.`;
 
   constructor(bus: EventBus, sessionId: string, config: VoxtralConfig) {
     this.bus = bus;
@@ -290,16 +285,29 @@ If in doubt, do NOT call a tool. Respond with "no action" instead. False positiv
 
     try {
       if (this.config.mode === 'transcribe') {
-        return await this.transcribeAndClassify(audioData, startTime);
+        return await this.transcribeOnly(audioData, startTime);
       }
 
-      // Encode audio as base64 for the API
-      const audioBase64 = Buffer.from(audioData).toString('base64');
+      // ─── Chat Mode: Two-Step Mistral Pipeline ──────────────────
+      // Step 1: Voxtral Mini transcribes raw audio (accepts Opus via FormData)
+      // Step 2: Voxtral Small classifies transcript with tool definitions
+      //
+      // This replaces: Chrome SpeechRecognition + trigger.ts + intent extraction
 
-      // Build the multimodal message with audio + tool definitions.
-      // Format: vLLM/Mistral-compatible `input_audio` (base64 wav/opus).
-      // Together AI may use `audio` key instead — we try `input_audio` first
-      // (works with self-hosted vLLM and Mistral API).
+      // Step 1: Transcribe
+      const transcript = await this.transcribe(audioData);
+      if (!transcript) return;
+
+      const transcribeMs = Date.now() - startTime;
+      logger.debug({ text: transcript.slice(0, 200), latencyMs: transcribeMs }, 'Voxtral transcribed');
+
+      // Optionally emit the transcription as user.text
+      if (this.config.emitTranscriptions) {
+        this.bus.emit(E.userText(this.sessionId, transcript));
+      }
+
+      // Step 2: Classify with tools via Voxtral Small
+      const classifyStart = Date.now();
       const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -307,28 +315,10 @@ If in doubt, do NOT call a tool. Respond with "no action" instead. False positiv
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: this.config.model,
+          model: this.config.classifierModel,
           messages: [
-            {
-              role: 'system',
-              content: this.systemPrompt,
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'input_audio',
-                  input_audio: {
-                    data: audioBase64,
-                    format: 'opus',
-                  },
-                },
-                {
-                  type: 'text',
-                  text: 'Listen to the audio and determine if the user is requesting an action.',
-                },
-              ],
-            },
+            { role: 'system', content: this.classifierPrompt },
+            { role: 'user', content: transcript },
           ],
           tools: VOXTRAL_TOOLS,
           tool_choice: 'auto',
@@ -342,55 +332,53 @@ If in doubt, do NOT call a tool. Respond with "no action" instead. False positiv
         logger.error({
           status: response.status,
           error: errorText.slice(0, 500),
-          latencyMs: Date.now() - startTime,
-        }, 'Voxtral API error response');
+        }, 'Voxtral classifier error');
         return;
       }
 
       const result = await response.json() as VoxtralResponse;
-      const latencyMs = Date.now() - startTime;
+      const totalMs = Date.now() - startTime;
+      const classifyMs = Date.now() - classifyStart;
       const choice = result.choices?.[0];
 
       if (!choice) {
-        logger.warn({ latencyMs }, 'Voxtral returned no choices');
+        logger.warn({ totalMs }, 'Voxtral classifier returned no choices');
         return;
       }
 
       // Check for tool calls
       if (choice.message?.tool_calls && choice.message.tool_calls.length > 0) {
-        await this.handleToolCalls(choice.message.tool_calls, latencyMs);
+        logger.info({
+          transcribeMs,
+          classifyMs,
+          totalMs,
+          transcript: transcript.slice(0, 100),
+        }, 'Voxtral pipeline: tool call detected');
+        await this.handleToolCalls(choice.message.tool_calls, totalMs);
         return;
       }
 
-      // Plain text response — Voxtral decided no tool was needed
-      const text = choice.message?.content;
-      if (text) {
-        logger.debug({ text: text.slice(0, 200), latencyMs }, 'Voxtral transcript (no tool call)');
-
-        // Optionally emit as a user.text event (more reliable than SpeechRecognition)
-        if (this.config.emitTranscriptions && text.length > 5) {
-          this.bus.emit(E.userText(this.sessionId, text));
-        }
-      }
+      // No tool call — Voxtral Small decided it's normal conversation
+      logger.debug({
+        text: choice.message?.content?.slice(0, 100),
+        totalMs,
+      }, 'Voxtral pipeline: no action');
     } finally {
       this.inflight--;
     }
   }
 
-  // ─── Transcribe + Classify Fallback ───────────────────────────
-  // For providers that don't support audio in chat/completions (e.g. Together AI),
-  // we transcribe first, then classify the text with tool calling.
+  // ─── Transcription ──────────────────────────────────────────────
+  // Shared audio → text via Voxtral Mini's /audio/transcriptions endpoint.
+  // Accepts raw Opus frames via FormData. Returns null if silence/hallucination.
 
-  private async transcribeAndClassify(audioData: Uint8Array, startTime: number): Promise<void> {
-    // Transcribe audio via Voxtral, then emit as user.text.
-    // The existing trigger.ts pattern matching handles intent classification.
-    // This is more reliable than LLM-based classification which has high false positive rates.
+  private async transcribe(audioData: Uint8Array): Promise<string | null> {
     const formData = new FormData();
-    formData.append('file', new Blob([audioData], { type: 'audio/opus' }), 'audio.opus');
+    formData.append('file', new Blob([audioData as BlobPart], { type: 'audio/opus' }), 'audio.opus');
     formData.append('model', this.config.model);
     formData.append('language', 'en');
 
-    const transcribeRes = await fetch(`${this.config.baseUrl}/audio/transcriptions`, {
+    const res = await fetch(`${this.config.baseUrl}/audio/transcriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -398,29 +386,37 @@ If in doubt, do NOT call a tool. Respond with "no action" instead. False positiv
       body: formData,
     });
 
-    if (!transcribeRes.ok) {
-      const err = await transcribeRes.text();
-      logger.error({ status: transcribeRes.status, error: err.slice(0, 300) }, 'Voxtral transcription failed');
-      return;
+    if (!res.ok) {
+      const err = await res.text();
+      logger.error({ status: res.status, error: err.slice(0, 300) }, 'Voxtral transcription failed');
+      return null;
     }
 
-    const transcription = await transcribeRes.json() as { text?: string };
+    const transcription = await res.json() as { text?: string };
     const text = transcription.text?.trim();
-    if (!text || text.length < 3) return;
+    if (!text || text.length < 3) return null;
+
+    // Filter hallucinations from silence/noise
+    if (this.isLikelyHallucination(text)) {
+      logger.debug({ text: text.slice(0, 100) }, 'Voxtral: filtered hallucination');
+      return null;
+    }
+
+    return text;
+  }
+
+  // ─── Transcribe-Only Mode ──────────────────────────────────────
+  // For setups using existing trigger.ts for classification.
+  // Voxtral Mini transcribes, emits user.text for pattern matching.
+
+  private async transcribeOnly(audioData: Uint8Array, startTime: number): Promise<void> {
+    const text = await this.transcribe(audioData);
+    if (!text) return;
 
     const latencyMs = Date.now() - startTime;
-
-    // Filter out hallucinated transcriptions from silence/noise.
-    // Voxtral hallucinates coherent text from non-speech audio.
-    if (this.isLikelyHallucination(text)) {
-      logger.debug({ text: text.slice(0, 100), latencyMs }, 'Voxtral: filtered hallucination');
-      return;
-    }
-
     logger.info({ text: text.slice(0, 200), latencyMs }, 'Voxtral transcription');
 
-    // Emit as user.text — the existing Trigger subscribes to this and handles
-    // intent classification via pattern matching (deflections, action keywords, etc.)
+    // Emit as user.text — trigger.ts handles intent classification
     this.bus.emit(E.userText(this.sessionId, text));
   }
 

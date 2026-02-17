@@ -160,17 +160,23 @@ Typed text (`text:` prefix) bypasses all echo filters. Only speech transcription
 
 The current Trigger system operates on text -- it requires SpeechRecognition to transcribe user speech before it can classify intent. This introduces latency and loses information present in the audio signal (tone, emphasis, hesitation).
 
-Voxtral Mini 3B (Mistral AI, 2025) is a 3B-parameter speech understanding model that supports function calling directly from audio input. Voice Bridge integrates it as a **parallel audio listener**: the same Opus stream sent to PersonaPlex is simultaneously buffered and sent to Voxtral for intent classification.
+Voice Bridge replaces three separate components (Chrome SpeechRecognition, text-based pattern matching, manual intent extraction) with a **two-step Voxtral pipeline** on the Mistral API:
 
 ```
 Browser mic audio
     |
-    +---> PersonaPlex (conversation)
+    +---> PersonaPlex (conversation, full-duplex)
     |
-    +---> Voxtral Mini 3B (intent classification)
+    +---> VoxtralListener (parallel audio buffer)
               |
-              tool_call detected? ---> trigger.activate event
-              plain text? ---> optional transcript
+              +---> Step 1: Voxtral Mini (3B) transcribes audio
+              |     POST /audio/transcriptions (raw Opus, $0.001/min)
+              |
+              +---> Step 2: Voxtral Small (24B) classifies with tools
+                    POST /chat/completions + tool definitions
+                    |
+                    tool_call? ---> trigger.activate event
+                    "no action"? ---> discard (PersonaPlex handles conversation)
 ```
 
 Four intent tools are defined:
@@ -182,14 +188,26 @@ Four intent tools are defined:
 | `execute_task` | "build", "deploy", "create", "send"            |
 | `get_status`   | "what's the status of", "how is X going"       |
 
-Voxtral operates in two API modes:
+### 5.1 Why Two Models
 
-- **Chat mode** (vLLM, Mistral API): Audio is sent as `input_audio` alongside tool definitions in a single `chat/completions` request. Voxtral returns either a tool call or a plain text response.
-- **Transcribe mode** (Together AI fallback): Audio is first transcribed via `/audio/transcriptions`, then the text is classified via a second `chat/completions` request with tools.
+Voxtral Mini (3B) handles audio transcription ($0.001/min) but does not support function calling on the Mistral API. Voxtral Small (24B) supports both audio understanding and function calling. The two-step pipeline uses Mini for cheap transcription and Small for precise intent classification:
+
+- **Zero false positives** on conversational text: "yeah that makes sense", "okay cool thanks" correctly produce no tool call
+- **Precise tool calls** on explicit requests: "search for restaurants nearby" returns `search_web({"query": "restaurants nearby"})`
+- **Structured arguments**: Tool calls include properly parsed parameters for the Reasoner
+
+### 5.2 Modes
+
+- **Chat mode** (default, Mistral API): Two-step pipeline -- Voxtral Mini transcribes, Voxtral Small classifies with tools. Full intent extraction in ~1-2s.
+- **Transcribe mode** (fallback): Voxtral Mini transcribes only, emits `user.text` for the existing trigger.ts pattern matching. Useful with Together AI or other providers that lack native tool calling.
+
+### 5.3 Hallucination Filtering
+
+Voxtral hallucinates coherent text from silence and non-speech audio. The listener filters common patterns ("thank you for watching", "please subscribe", "I didn't catch that") before passing transcripts to the classifier.
 
 The listener flushes every 4 seconds, with a 5-second cooldown between triggers to prevent rapid-fire activation. Maximum 2 concurrent API requests.
 
-**VRAM budget**: PersonaPlex ~19GB + Voxtral quantized ~4GB = 23GB on a 24GB RTX 3090.
+**Cost**: ~$0.07/hour (Voxtral Mini transcription + Voxtral Small classification). No GPU required -- runs entirely on Mistral's hosted API.
 
 ## 6. Solving the Three Limitations
 
@@ -215,7 +233,9 @@ Returning to the three limitations from Unmute #77:
 
 ## 8. Limitations and Future Work
 
-- **Voxtral function calling from audio is undocumented**: While Mistral advertises the capability, no hosted API provider publishes working examples of audio + tool calling in a single request. The transcribe-then-classify fallback adds ~1-2s latency.
+- **Voxtral Small for single-pass audio-to-tool-call**: Voxtral Small (24B) supports both audio and function calling in a single API call on Mistral's platform. However, the browser sends raw Opus frames which must be converted to WAV/OGG for the `input_audio` field. The current two-step pipeline (Mini transcribes, Small classifies) avoids this conversion at the cost of an extra API call (~1-2s additional latency). Adding server-side Opus-to-WAV conversion would enable true single-pass inference.
+
+- **Voxtral Mini lacks function calling**: Despite Mistral advertising function calling for the Voxtral family, only Voxtral Small (24B) supports it on their API (`capabilities.function_calling = true`). Voxtral Mini (3B) is audio-only. Self-hosting Mini with vLLM's `--tool-call-parser mistral` flag could unlock function calling, but the 3090's 4.5GB free VRAM is insufficient (model needs ~6.6GB in FP16).
 
 - **200-token compression budget**: PersonaPlex's `text_prompt` is limited. Complex multi-step tool results must be aggressively summarized, which loses nuance.
 
@@ -225,7 +245,9 @@ Returning to the three limitations from Unmute #77:
 
 - **Echo suppression is heuristic**: The three-layer system works well in practice but can suppress genuine user speech that happens to overlap with PersonaPlex's vocabulary.
 
-Future work includes: (1) training a lightweight trigger model on the audio signal directly, replacing pattern matching; (2) exploring PersonaPlex v2's native tool calling when available; (3) multi-agent orchestration where multiple Reasoner agents specialize in different tool domains.
+- **Voxtral hallucination from silence**: Both Mini and Small hallucinate coherent text from silence/noise. The current pattern-based filter catches common hallucinations but may miss novel patterns. A silence detector (VAD) upstream of the Voxtral listener would prevent unnecessary API calls.
+
+Future work includes: (1) server-side Opus-to-WAV conversion for single-pass Voxtral Small inference; (2) exploring PersonaPlex v2's native tool calling when available; (3) multi-agent orchestration where multiple Reasoner agents specialize in different tool domains; (4) WebRTC VAD integration to gate Voxtral flushes on speech activity.
 
 ## References
 

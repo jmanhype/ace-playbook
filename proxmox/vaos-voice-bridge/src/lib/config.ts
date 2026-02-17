@@ -35,8 +35,9 @@ const EnvSchema = z.object({
   // Voxtral (parallel audio listener for intent detection)
   VOXTRAL_ENABLED: z.enum(['true', 'false']).default('false'),
   VOXTRAL_API_KEY: z.string().optional(),
-  VOXTRAL_BASE_URL: z.string().url().default('https://api.together.xyz/v1'),
-  VOXTRAL_MODEL: z.string().default('mistralai/Voxtral-Mini-3B-2507'),
+  VOXTRAL_BASE_URL: z.string().url().default('https://api.mistral.ai/v1'),
+  VOXTRAL_MODEL: z.string().default('voxtral-mini-2507'),
+  VOXTRAL_CLASSIFIER_MODEL: z.string().default('voxtral-small-2507'),
   VOXTRAL_BUFFER_SECONDS: z.coerce.number().default(4),
   VOXTRAL_MODE: z.enum(['chat', 'transcribe']).default('chat'),
 });
