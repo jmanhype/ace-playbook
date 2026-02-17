@@ -968,9 +968,16 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // The Reasoner processes the context and returns a response that gets
   // injected into PersonaPlex's text prompt via memory compression.
   let lastSystem2DoneTs = 0;
+  let system2InFlight = false;
   const ECHO_COOLDOWN_MS = 8000; // Suppress re-triggers while PersonaPlex delivers answer
 
   bus.on('trigger.activate', async (event) => {
+    // In-flight deduplication: block re-triggers while Reasoner is already processing
+    if (system2InFlight) {
+      logger.debug({ context: event.context?.slice(0, 80) }, 'Trigger suppressed — System 2 already in-flight');
+      return;
+    }
+
     // Echo suppression: block re-triggers during the cooldown window after
     // System 2 finishes (browser TTS is speaking the answer, and
     // Voxtral might re-transcribe and re-trigger).
@@ -979,6 +986,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       logger.debug({ sinceDoneMs: sinceDone, context: event.context?.slice(0, 80) }, 'Trigger suppressed — echo cooldown');
       return;
     }
+
+    system2InFlight = true;
 
     logger.info({
       reason: event.reason,
@@ -1086,6 +1095,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, 'Reasoner failed');
     } finally {
+      system2InFlight = false;
       lastSystem2DoneTs = Date.now();
       bus.emit({ type: 'reasoner.thinking', active: false, sessionId, timestamp: Date.now() } as any);
     }

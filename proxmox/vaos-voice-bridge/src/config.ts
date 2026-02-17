@@ -43,7 +43,7 @@ export function getConfig(): Config {
     },
     routing: {
       complexityThreshold: parseFloat(process.env.COMPLEXITY_THRESHOLD || '0.6'),
-      agentTimeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+      agentTimeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '60000', 10),
     },
     logLevel: process.env.LOG_LEVEL || 'info',
   };
