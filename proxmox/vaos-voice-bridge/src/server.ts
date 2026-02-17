@@ -25,7 +25,7 @@ import { Memory } from './memory.js';
 import { Trigger } from './trigger.js';
 import { Reasoner } from './reasoner.js';
 import { VoxtralListener } from './voxtral.js';
-import { synthesize, readWavPcm } from './tts.js';
+import { PersonaplexTTS } from './tts.js';
 
 const logger = createLogger('bridge');
 
@@ -601,16 +601,11 @@ function createApp(): Hono {
     }
     if (!session) return c.json({ error: 'No active voice session' }, 404);
 
-    const wavPath = await synthesize(body.text);
-    if (!wavPath) return c.json({ error: 'TTS synthesis failed' }, 500);
-
-    const pcm = await readWavPcm(wavPath);
-    if (!pcm || !session.userWs) {
-      return c.json({ error: 'Failed to deliver audio' }, 500);
-    }
-
-    session.userWs.send(pcm);
-    logger.info({ text: body.text.slice(0, 80), sessionId: session.id }, 'Spoke to user via ops-loop');
+    // TTS via PersonaPlex proxy is not wired for this endpoint yet.
+    // For now, inject text into the belief state and let PersonaPlex speak it.
+    if (!session.userWs) return c.json({ error: 'No active WebSocket' }, 500);
+    session.userWs.send(JSON.stringify({ type: 'speak', text: body.text }));
+    logger.info({ text: body.text.slice(0, 80), sessionId: session.id }, 'Sent speak command');
     return c.json({ ok: true, spoken: body.text.length });
   });
 

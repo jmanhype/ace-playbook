@@ -118,8 +118,15 @@ export interface VoxtralConfig {
   apiKey: string;
   /** API base URL (default: Together AI). */
   baseUrl?: string;
-  /** Model ID. */
+  /** Model ID for transcription. */
   model?: string;
+  /**
+   * Model ID for tool-calling classification step (transcribe mode only).
+   * Voxtral on Together AI serverless doesn't return proper tool_calls
+   * (backend not configured with --tool-call-parser), so we use a separate
+   * model that supports native tool calling.
+   */
+  classifierModel?: string;
   /** How many seconds of audio to accumulate before flushing. */
   bufferSeconds?: number;
   /** Minimum audio bytes before attempting a flush. */
@@ -130,8 +137,8 @@ export interface VoxtralConfig {
   emitTranscriptions?: boolean;
   /**
    * API mode:
-   * - 'chat': Send audio via chat/completions with input_audio + tools (vLLM, Mistral)
-   * - 'transcribe': Use audio/transcriptions, then classify text with tools (Together AI fallback)
+   * - 'chat': Send audio via chat/completions with input_audio + tools (vLLM, Mistral native)
+   * - 'transcribe': Voxtral transcribes audio, emits user.text for existing trigger.ts to classify
    */
   mode?: 'chat' | 'transcribe';
 }
@@ -139,6 +146,7 @@ export interface VoxtralConfig {
 const DEFAULTS = {
   baseUrl: 'https://api.together.xyz/v1',
   model: 'mistralai/Voxtral-Mini-3B-2507',
+  classifierModel: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
   bufferSeconds: 4,
   minBufferBytes: 4800, // ~0.1s of Opus at 48kbps
   maxConcurrent: 2,
@@ -167,15 +175,23 @@ export class VoxtralListener {
   private lastTriggerTime = 0;
   private readonly TRIGGER_COOLDOWN_MS = 5_000;
 
-  /** System prompt for Voxtral — instructs it to listen and classify. */
-  private readonly systemPrompt = `You are a voice intent classifier. You listen to audio from a conversation and determine if the user is requesting an ACTION that requires tools (web search, memory operations, task execution, status checks) or if they are just TALKING (normal conversation, greetings, opinions, stories).
+  /** System prompt — very strict to minimize false positives. */
+  private readonly systemPrompt = `You are a strict voice intent classifier. Your job: decide if the user EXPLICITLY asked for an action, or if they are just having a conversation.
 
-Rules:
-- Only call a tool if the user is clearly requesting an action
-- Normal conversation, questions, stories, opinions → do NOT call any tool, just respond with a brief transcript
-- "Search for X", "Look up Y", "Remember that Z" → call the appropriate tool
-- Ambiguous cases → do NOT call a tool (avoid false triggers)
-- Extract the user's actual intent, not the AI assistant's words (if both voices are present in the audio)`;
+ONLY call a tool when the user uses EXPLICIT action language like:
+- "Search for...", "Look up...", "Google..." → search_web
+- "Remember that...", "Don't forget..." → remember (ONLY when user explicitly asks you to remember something specific)
+- "Build...", "Deploy...", "Create...", "Send..." → execute_task
+- "What's the status of...", "How is X going" → get_status
+
+NEVER call a tool for:
+- Agreements ("yeah", "that makes sense", "okay")
+- Opinions ("I think...", "probably...")
+- Questions that are part of normal conversation
+- Greetings, small talk, acknowledgments
+- Anything that isn't a DIRECT command or request
+
+If in doubt, do NOT call a tool. Respond with "no action" instead. False positives are worse than missed detections.`;
 
   constructor(bus: EventBus, sessionId: string, config: VoxtralConfig) {
     this.bus = bus;
@@ -184,6 +200,7 @@ Rules:
       apiKey: config.apiKey,
       baseUrl: config.baseUrl ?? DEFAULTS.baseUrl,
       model: config.model ?? DEFAULTS.model,
+      classifierModel: config.classifierModel ?? DEFAULTS.classifierModel,
       bufferSeconds: config.bufferSeconds ?? DEFAULTS.bufferSeconds,
       minBufferBytes: config.minBufferBytes ?? DEFAULTS.minBufferBytes,
       maxConcurrent: config.maxConcurrent ?? DEFAULTS.maxConcurrent,
@@ -193,8 +210,9 @@ Rules:
 
     logger.info({
       model: this.config.model,
+      classifierModel: this.config.classifierModel,
+      mode: this.config.mode,
       bufferSeconds: this.config.bufferSeconds,
-      emitTranscriptions: this.config.emitTranscriptions,
     }, 'VoxtralListener initialized');
   }
 
@@ -364,7 +382,9 @@ Rules:
   // we transcribe first, then classify the text with tool calling.
 
   private async transcribeAndClassify(audioData: Uint8Array, startTime: number): Promise<void> {
-    // Step 1: Transcribe audio
+    // Transcribe audio via Voxtral, then emit as user.text.
+    // The existing trigger.ts pattern matching handles intent classification.
+    // This is more reliable than LLM-based classification which has high false positive rates.
     const formData = new FormData();
     formData.append('file', new Blob([audioData], { type: 'audio/opus' }), 'audio.opus');
     formData.append('model', this.config.model);
@@ -388,48 +408,41 @@ Rules:
     const text = transcription.text?.trim();
     if (!text || text.length < 3) return;
 
-    const transcribeMs = Date.now() - startTime;
-    logger.debug({ text: text.slice(0, 200), transcribeMs }, 'Voxtral transcription');
+    const latencyMs = Date.now() - startTime;
 
-    // Optionally emit transcription
-    if (this.config.emitTranscriptions) {
-      this.bus.emit(E.userText(this.sessionId, text));
-    }
-
-    // Step 2: Classify with tool calling (text-only, fast)
-    const classifyRes = await fetch(`${this.config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.config.model,
-        messages: [
-          { role: 'system', content: this.systemPrompt },
-          { role: 'user', content: `The user said: "${text}"` },
-        ],
-        tools: VOXTRAL_TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.1,
-        max_tokens: 256,
-      }),
-    });
-
-    if (!classifyRes.ok) {
-      logger.error({ status: classifyRes.status }, 'Voxtral classification failed');
+    // Filter out hallucinated transcriptions from silence/noise.
+    // Voxtral hallucinates coherent text from non-speech audio.
+    if (this.isLikelyHallucination(text)) {
+      logger.debug({ text: text.slice(0, 100), latencyMs }, 'Voxtral: filtered hallucination');
       return;
     }
 
-    const result = await classifyRes.json() as VoxtralResponse;
-    const latencyMs = Date.now() - startTime;
-    const choice = result.choices?.[0];
+    logger.info({ text: text.slice(0, 200), latencyMs }, 'Voxtral transcription');
 
-    if (choice?.message?.tool_calls?.length) {
-      await this.handleToolCalls(choice.message.tool_calls, latencyMs);
-    } else {
-      logger.debug({ text: text.slice(0, 100), latencyMs }, 'Voxtral: no tool call (normal conversation)');
-    }
+    // Emit as user.text — the existing Trigger subscribes to this and handles
+    // intent classification via pattern matching (deflections, action keywords, etc.)
+    this.bus.emit(E.userText(this.sessionId, text));
+  }
+
+  /**
+   * Detect hallucinated transcriptions from silence/noise.
+   * Voxtral generates coherent but fabricated text when given non-speech audio.
+   */
+  private isLikelyHallucination(text: string): boolean {
+    const lower = text.toLowerCase();
+    // Common hallucination patterns from silence
+    const HALLUCINATION_PATTERNS = [
+      "i'm sorry",
+      "i didn't catch",
+      "could you repeat",
+      "i can't hear",
+      "thank you for watching",
+      "please subscribe",
+      "the end",
+      "music playing",
+      "[music]",
+    ];
+    return HALLUCINATION_PATTERNS.some(p => lower.includes(p));
   }
 
   // ─── Tool Call Handling ──────────────────────────────────────
