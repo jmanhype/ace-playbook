@@ -518,7 +518,7 @@ export class VoxtralListener {
   }
 
   /**
-   * Rewrite Ogg page sequence numbers and CRC in a buffer to be contiguous.
+   * Rewrite Ogg page headers to create a valid standalone Ogg/Opus file.
    *
    * Ogg page layout (27-byte header):
    *   0-3:   "OggS" magic
@@ -531,11 +531,39 @@ export class VoxtralListener {
    *   26:    number of segments
    *   27+:   segment table (N bytes), then payload
    *
-   * After rewriting sequence numbers, we must recalculate the CRC.
+   * We rewrite three fields per page:
+   *   1. Serial number — force all pages to use the BOS page's serial
+   *      (data pages from mid-stream might have drifted after encoder restarts)
+   *   2. Page sequence — renumber contiguously from 0
+   *   3. Granule position — reset data page granules to be consistent
+   *      with fresh headers (pages from 60s+ into the stream have granule
+   *      ~2.8M which Mistral's decoder rejects against pre-skip=3840)
+   *
+   * After modifying headers, CRC must be recalculated per page.
+   *
+   * Opus in Ogg: granule = total 48kHz PCM samples decoded.
+   * With 20ms frames, each frame = 960 samples at 48kHz.
+   * With maxFramesPerPage=2, each audio page = 1920 samples.
+   * Pre-skip is typically 3840 (80ms). First audio page granule = pre-skip + samples.
    */
   private rewriteOggPageSequences(buf: Uint8Array): void {
     let pos = 0;
     let pageSeq = 0;
+    let pagesRewritten = 0;
+
+    // Extract serial number from the first page (BOS header)
+    let serialNumber = 0;
+    if (buf.length >= 18) {
+      serialNumber = buf[14] | (buf[15] << 8) | (buf[16] << 16) | ((buf[17] << 24) >>> 0);
+    }
+
+    // Ogg Opus granule tracking:
+    // Page 0 (BOS/OpusHead): granule = 0
+    // Page 1 (OpusTags): granule = 0
+    // Page 2+: granule = pre_skip + (audioPageIndex * samples_per_page)
+    const PRE_SKIP = 3840;          // 80ms at 48kHz (standard Opus)
+    const SAMPLES_PER_PAGE = 1920;  // 2 frames × 960 samples (20ms at 48kHz)
+    let audioPageIndex = 0;
 
     while (pos + 27 <= buf.length) {
       // Find OggS magic
@@ -544,13 +572,7 @@ export class VoxtralListener {
         break; // Not at a page boundary — done
       }
 
-      // Rewrite page sequence number (bytes 18-21, little-endian)
-      buf[pos + 18] = pageSeq & 0xFF;
-      buf[pos + 19] = (pageSeq >> 8) & 0xFF;
-      buf[pos + 20] = (pageSeq >> 16) & 0xFF;
-      buf[pos + 21] = (pageSeq >> 24) & 0xFF;
-
-      // Calculate page size to advance: 27 (header) + numSegments + sum(segments)
+      // Calculate page size first (need it for bounds check)
       const numSegments = buf[pos + 26];
       if (pos + 27 + numSegments > buf.length) break;
 
@@ -560,8 +582,39 @@ export class VoxtralListener {
       }
 
       const pageSize = 27 + numSegments + payloadSize;
+      if (pos + pageSize > buf.length) break; // Bounds check for CRC
 
-      // Recalculate CRC (zero it first, then compute)
+      // Rewrite serial number (bytes 14-17, little-endian)
+      buf[pos + 14] = serialNumber & 0xFF;
+      buf[pos + 15] = (serialNumber >> 8) & 0xFF;
+      buf[pos + 16] = (serialNumber >> 16) & 0xFF;
+      buf[pos + 17] = (serialNumber >> 24) & 0xFF;
+
+      // Rewrite page sequence number (bytes 18-21, little-endian)
+      buf[pos + 18] = pageSeq & 0xFF;
+      buf[pos + 19] = (pageSeq >> 8) & 0xFF;
+      buf[pos + 20] = (pageSeq >> 16) & 0xFF;
+      buf[pos + 21] = (pageSeq >> 24) & 0xFF;
+
+      // Rewrite granule position (bytes 6-13, 8 bytes little-endian)
+      if (pageSeq < 2) {
+        // Header pages: granule = 0
+        for (let i = 6; i <= 13; i++) buf[pos + i] = 0;
+      } else {
+        // Audio data pages: granule = pre_skip + (audioPageIndex+1) * samples_per_page
+        const granule = PRE_SKIP + (audioPageIndex + 1) * SAMPLES_PER_PAGE;
+        buf[pos + 6]  = granule & 0xFF;
+        buf[pos + 7]  = (granule >> 8) & 0xFF;
+        buf[pos + 8]  = (granule >> 16) & 0xFF;
+        buf[pos + 9]  = (granule >> 24) & 0xFF;
+        buf[pos + 10] = 0; // Upper 32 bits (granule < 2^32 for any reasonable duration)
+        buf[pos + 11] = 0;
+        buf[pos + 12] = 0;
+        buf[pos + 13] = 0;
+        audioPageIndex++;
+      }
+
+      // Recalculate CRC (zero it first, then compute over entire page)
       buf[pos + 22] = 0;
       buf[pos + 23] = 0;
       buf[pos + 24] = 0;
@@ -574,6 +627,12 @@ export class VoxtralListener {
 
       pos += pageSize;
       pageSeq++;
+      pagesRewritten++;
+    }
+
+    if (pagesRewritten > 0 && pos < buf.length) {
+      logger.warn({ pagesRewritten, totalBytes: buf.length, processedBytes: pos, remaining: buf.length - pos },
+        'Ogg rewrite: incomplete — trailing bytes after last valid page');
     }
   }
 
