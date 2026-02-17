@@ -98,6 +98,10 @@ interface VoiceSession {
   talkerStreamingText: string;
   /** Timestamp of last talker audio frame forwarded to browser (for echo gate). */
   lastTalkerAudioTs: number;
+  /** Server-side audio gate: suppress PersonaPlex audio during TTS delivery. */
+  suppressMoshiAudio: boolean;
+  /** Timestamp when suppress should auto-expire (fallback if client never signals done). */
+  suppressMoshiUntil: number;
 }
 
 const sessions = new Map<string, VoiceSession>();
@@ -211,11 +215,27 @@ let totalAudioBytes=0;
 let audioSetupPromise=null;
 let lastAudioPlaybackTs=0;
 let lastTalkerSpeechTs=0;
+const ttsQueue=[];
+let ttsPlaying=false;
+let moshiMuted=false;
 const ECHO_GATE_MS=8000;
 
 function setStatus(s){
   statusEl.textContent=s.charAt(0).toUpperCase()+s.slice(1);
   statusEl.className=s;
+}
+
+function muteMoshi(){
+  if(moshiMuted||!moshiWorklet||!audioCtx)return;
+  moshiMuted=true;
+  try{moshiWorklet.disconnect();}catch(e){}
+  moshiWorklet.port.postMessage({type:'reset'});
+}
+function unmuteMoshi(){
+  if(!moshiMuted||!moshiWorklet||!audioCtx)return;
+  moshiMuted=false;
+  try{moshiWorklet.connect(audioCtx.destination);}catch(e){}
+  moshiWorklet.port.postMessage({type:'reset'});
 }
 
 function addMsg(text,cls){
@@ -313,6 +333,45 @@ async function playAudio(buf){
   }
 }
 
+async function playTTSWav(wavBuf){
+  ttsQueue.push(wavBuf);
+  if(!ttsPlaying)playNextTTS();
+}
+async function playNextTTS(){
+  if(ttsQueue.length===0){
+    ttsPlaying=false;
+    return;
+  }
+  const wasPlaying=ttsPlaying;
+  ttsPlaying=true;
+  if(!audioCtx){
+    if(!audioSetupPromise){
+      audioSetupPromise=setupAudioPlayback().catch(e=>{
+        addMsg('Audio setup error: '+e.message,'error');
+        audioSetupPromise=null;
+      });
+    }
+    await audioSetupPromise;
+  }
+  if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+  try{
+    const decoded=await audioCtx.decodeAudioData(ttsQueue.shift().slice(0));
+    const source=audioCtx.createBufferSource();
+    const gain=audioCtx.createGain();
+    gain.gain.value=1.5;
+    source.buffer=decoded;
+    source.connect(gain);
+    gain.connect(audioCtx.destination);
+    source.onended=()=>playNextTTS();
+    if(!wasPlaying)addMsg('[System 2 speaking]','system2');
+    lastTalkerSpeechTs=Date.now();
+    source.start();
+  }catch(err){
+    addMsg('TTS playback error: '+err.message,'error');
+    playNextTTS();
+  }
+}
+
 function connect(){
   if(ws&&ws.readyState<2)return;
   setStatus('connecting');
@@ -334,19 +393,28 @@ function connect(){
   ws.onerror=()=>addMsg('Connection error','error');
   ws.onmessage=(e)=>{
     if(e.data instanceof ArrayBuffer){
-      playAudio(e.data);
+      const view=new Uint8Array(e.data);
+      if(view.length>1&&view[0]===0x10){
+        // TTS audio (WAV) from Pocket TTS — decode and play
+        playTTSWav(e.data.slice(1));
+      }else{
+        playAudio(e.data);
+      }
     }else{
       try{
         const msg=JSON.parse(e.data);
         if(msg.type==='system2_thinking'){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display=msg.active?'block':'none';
+          if(msg.active)playThinkingChime();
           // Reset Moshi audio buffer to cut off hallucinated speech mid-sentence
           if(msg.resetAudio&&moshiWorklet){moshiWorklet.port.postMessage({type:'reset'});}
         }else if(msg.type==='reasoner_response'){
           const el=document.getElementById('s2thinking');
           if(el)el.style.display='none';
           addMsg('[System 2 → System 1] '+msg.text,'system2');
+        }else if(msg.type==='system2_speak'){
+          speakSystem2(msg.text);
         }else if(msg.type==='talker_speaking'){
           lastTalkerSpeechTs=Date.now();
         }else if(msg.type==='talker_text'){
@@ -355,10 +423,11 @@ function connect(){
         }else if(msg.type==='state_change'){
           addMsg('State: '+msg.state+(msg.source==='talker'?' (PersonaPlex)':''),'system1');
           if(msg.state==='connected'&&msg.source==='talker'){
+            diag('[State] PersonaPlex connected — auto-starting mic in 300ms');
             stopMic();
             setStatus('connected');
             addMsg('PersonaPlex ready! Starting mic...','system1');
-            setTimeout(startMic,300);
+            setTimeout(()=>{diag('[State] setTimeout fired — calling startMic');startMic();},300);
           }else if(msg.state==='disconnected'){
             setStatus('connecting');
             stopMic();
@@ -401,14 +470,19 @@ async function loadOpusRecorder(){
   encoderBlobUrl=URL.createObjectURL(blob);
 }
 
+function diag(msg){console.log(msg);if(ws&&ws.readyState===1)ws.send('diag:'+msg);}
 async function startMic(){
-  if(recording)return;
+  diag('[Mic] startMic called, recording='+recording);
+  if(recording){diag('[Mic] Already recording, skipping');return;}
   try{
     if(!encoderBlobUrl){
       addMsg('Loading Opus encoder...','system1');
+      diag('[Mic] Loading opus-recorder CDN...');
       await loadOpusRecorder();
       addMsg('Opus encoder ready','system1');
+      diag('[Mic] CDN loaded OK');
     }
+    diag('[Mic] Creating Recorder...');
     opusRec=new Recorder({
       encoderPath:encoderBlobUrl,
       encoderSampleRate:24000,
@@ -425,11 +499,14 @@ async function startMic(){
         ws.send(typedArray.buffer);
       }
     };
+    diag('[Mic] Calling opusRec.start() (getUserMedia)...');
     await opusRec.start();
     recording=true;
     micBtn.classList.add('active');
     addMsg('Mic active (Ogg/Opus 24kHz streamed)','system1');
+    diag('[Mic] Recording started successfully');
   }catch(err){
+    diag('[Mic] ERROR: '+err.message);
     addMsg('Mic error: '+err.message,'error');
   }
 }
@@ -442,6 +519,7 @@ function stopMic(){
 }
 
 micBtn.addEventListener('click',()=>{
+  diag('[Mic] Button clicked, recording='+recording);
   if(recording)stopMic();
   else startMic();
 });
@@ -537,6 +615,53 @@ startMic=async function(){await _origStartMic();startSpeechRecognition();};
 const _origStopMic=stopMic;
 stopMic=function(){stopSpeechRecognition();_origStopMic();};
 
+// ── Browser TTS for System 2 answers ──
+// Moshi 7B ignores text_prompt instructions, so we use the browser's
+// SpeechSynthesis to speak System 2 answers directly. This gives immediate
+// delivery without interrupting PersonaPlex's conversation.
+let ttsActive=false;
+function speakSystem2(text){
+  if(!window.speechSynthesis){addMsg('[TTS not supported]','error');return;}
+  // Cancel any in-progress TTS
+  window.speechSynthesis.cancel();
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.rate=1.1;
+  utt.pitch=1.0;
+  utt.volume=0.9;
+  // Try to pick a different voice from Moshi so user can distinguish
+  const voices=window.speechSynthesis.getVoices();
+  const preferred=voices.find(v=>v.name.includes('Samantha'))||voices.find(v=>v.name.includes('Karen'))||voices.find(v=>v.lang==='en-US'&&v.localService);
+  if(preferred)utt.voice=preferred;
+  // Suppress SpeechRecognition during TTS to prevent echo feedback
+  utt.onstart=()=>{
+    ttsActive=true;
+    lastTalkerSpeechTs=Date.now();
+    console.log('[TTS] Speaking System 2 answer');
+    addMsg('[System 2 speaking] '+text.slice(0,80)+'...','system2');
+  };
+  utt.onend=()=>{
+    ttsActive=false;
+    lastTalkerSpeechTs=Date.now();
+    console.log('[TTS] Done');
+  };
+  utt.onerror=(e)=>{
+    ttsActive=false;
+    console.warn('[TTS] Error:',e.error);
+  };
+  window.speechSynthesis.speak(utt);
+}
+
+function playThinkingChime(){
+  if(!audioCtx)return;
+  const osc=audioCtx.createOscillator();
+  const env=audioCtx.createGain();
+  osc.type='sine';osc.frequency.value=440;
+  env.gain.setValueAtTime(0.15,audioCtx.currentTime);
+  env.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.12);
+  osc.connect(env);env.connect(audioCtx.destination);
+  osc.start();osc.stop(audioCtx.currentTime+0.12);
+}
+
 connect();
 </script>
 </body>
@@ -618,8 +743,8 @@ function createApp(): Hono {
     const body = await c.req.json<{ context: string }>();
     if (!body.context) return c.json({ error: 'context required' }, 400);
 
-    // Emit as user text event (will route through Trigger → Reasoner)
-    session.bus.emit(E.userText(session.id, `[SYSTEM] ${body.context}`));
+    // Fire trigger.activate directly — bypasses Voxtral/Trigger pattern matching
+    session.bus.emit(E.triggerActivate(session.id, 'user_request', 0.95, body.context));
     return c.json({ ok: true });
   });
 
@@ -672,6 +797,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     recentTalkerTurns: [],
     talkerStreamingText: '',
     lastTalkerAudioTs: 0,
+    suppressMoshiAudio: false,
+    suppressMoshiUntil: 0,
   };
   sessions.set(sessionId, session);
 
@@ -708,39 +835,45 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   //    NOTE: All handlers read session.userWs (not the closure variable)
   //    so that browser WS swaps (reconnects) are picked up automatically.
 
-  // ── System 2 flow ──────────────────────────────────────────────
+  // ── System 2 flow (natural pause delivery) ─────────────────────
   //
   // When trigger fires:
-  //   1. Mute PersonaPlex audio/text to browser (stop hallucination delivery)
-  //   2. Tell browser to reset Moshi audio buffer (cut off mid-sentence hallucination)
-  //   3. Show thinking indicator in browser
-  //   4. PersonaPlex stays connected (no disconnect — avoids handshake latency)
+  //   1. Show thinking indicator in browser
+  //   2. PersonaPlex keeps talking — no mute, no forced reconnect
+  //   3. System 2 (Reasoner) processes in background
   //
   // When System 2 finishes:
-  //   5. Unmute
-  //   6. Single reconnect with answer prompt
-  //   7. PersonaPlex delivers the result in its own voice
+  //   4. Store response in memory, update text prompt
+  //   5. Set talker.pendingSystem2 = true (shortens drought threshold to 5s)
+  //   6. PersonaPlex hits next natural pause → drought fires → reconnects
+  //   7. PersonaPlex speaks the answer naturally in its own voice
   //
-  // One audio disruption (the answer reconnect), not two.
+  // Zero audio disruption during thinking. One reconnect at natural pause.
 
-  let system2Muted = false;
-
+  // System 2 thinking state — browser shows indicator, but PersonaPlex is NOT muted.
   bus.on('reasoner.thinking', (event) => {
-    system2Muted = event.active;
     if (event.active) {
-      logger.info('System 2 active — muting PersonaPlex + resetting browser audio buffer');
-      // Tell browser to clear buffered hallucinated audio and show thinking indicator
-      if (session.userWs?.readyState === WebSocket.OPEN) {
-        session.userWs.send(JSON.stringify({ type: 'system2_thinking', active: true, resetAudio: true }));
-      }
+      logger.info('System 2 thinking — PersonaPlex continues uninterrupted');
     } else {
-      logger.info('System 2 done — unmuting, answer reconnect follows');
+      logger.info('System 2 done — answer queued for next natural pause');
     }
-  }, 90); // High priority — runs before the audio forwarder
+    // Show/hide thinking indicator in browser + resetAudio flag for buffer flush
+    if (session.userWs?.readyState === WebSocket.OPEN) {
+      session.userWs.send(JSON.stringify({ type: 'system2_thinking', active: event.active, resetAudio: !!event.resetAudio }));
+    }
+  }, 90);
 
-  // Forward PersonaPlex audio to browser (suppressed during System 2)
+  // Forward PersonaPlex audio to browser (gated during TTS delivery)
   bus.on('talker.audio', (event) => {
-    if (system2Muted) return; // Suppress hallucinated audio
+    // Server-side audio gate: drop PersonaPlex frames while TTS is playing
+    if (session.suppressMoshiAudio) {
+      if (Date.now() > session.suppressMoshiUntil) {
+        session.suppressMoshiAudio = false;
+        logger.debug('Moshi audio suppress expired — resuming');
+      } else {
+        return; // Drop this audio frame
+      }
+    }
     if (session.userWs?.readyState === WebSocket.OPEN) {
       session.userWs.send(event.data);
     }
@@ -763,8 +896,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }
   }, 50);
 
-  // Forward Talker text to browser (suppressed during System 2)
-  // Also record for echo dedup
+  // Forward Talker text to browser + record for echo dedup
   bus.on('talker.turn', (event) => {
     // Record for server-side echo detection (prune >15s)
     const now = Date.now();
@@ -775,7 +907,6 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     // Don't clear streaming buffer — SpeechRecognition results arrive delayed,
     // so we need the text available for echo matching even after turn completes.
 
-    if (system2Muted) return; // Suppress hallucinated text
     if (session.userWs?.readyState === WebSocket.OPEN) {
       session.userWs.send(JSON.stringify({ type: 'talker_text', text: event.text }));
     }
@@ -802,8 +933,8 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   }, 10);
 
   // Memory compressed → update Talker text prompt + push to browser.
-  // When System 2 has an answer, do the SINGLE reconnect with the answer prompt.
-  // This is the only audio disruption — PersonaPlex reconnects and delivers the result.
+  // When System 2 has an answer, signal pending delivery (drought threshold
+  // shortens to 5s so PersonaPlex reconnects at next natural pause).
   let lastAnswerReconnect = 0;
   bus.on('memory.compressed', (event) => {
     // Update PersonaPlex's text prompt (stored for next connect)
@@ -823,18 +954,12 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
       }));
     }
 
-    // If System 2 just responded, do the answer reconnect.
-    // This fires ONCE — we clear the System 2 response after triggering
-    // the reconnect to prevent re-triggering on subsequent compressed events.
+    // If System 2 just responded, clear the response from memory so future
+    // compressions don't re-include it.
     const hasSystem2Context = memory.getLastSystem2Response().length > 0;
     if (hasSystem2Context) {
-      // Clear immediately — one shot only.
       memory.clearLastSystem2Response();
-      lastAnswerReconnect = Date.now();
-      logger.info({ promptLength: event.prompt.length }, 'Answer reconnect — PersonaPlex will deliver System 2 result');
-      talker.reconnectWithNewPrompt().catch(err => {
-        logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'Answer reconnect failed');
-      });
+      logger.info({ promptLength: event.prompt.length }, 'System 2 context stored in prompt');
     }
   }, 10);
 
@@ -842,7 +967,19 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
   // When Voxtral (or trigger.ts) fires trigger.activate, route to Reasoner.
   // The Reasoner processes the context and returns a response that gets
   // injected into PersonaPlex's text prompt via memory compression.
+  let lastSystem2DoneTs = 0;
+  const ECHO_COOLDOWN_MS = 8000; // Suppress re-triggers while PersonaPlex delivers answer
+
   bus.on('trigger.activate', async (event) => {
+    // Echo suppression: block re-triggers during the cooldown window after
+    // System 2 finishes (browser TTS is speaking the answer, and
+    // Voxtral might re-transcribe and re-trigger).
+    const sinceDone = Date.now() - lastSystem2DoneTs;
+    if (sinceDone < ECHO_COOLDOWN_MS) {
+      logger.debug({ sinceDoneMs: sinceDone, context: event.context?.slice(0, 80) }, 'Trigger suppressed — echo cooldown');
+      return;
+    }
+
     logger.info({
       reason: event.reason,
       confidence: event.confidence,
@@ -850,7 +987,7 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
     }, 'Trigger activated — routing to System 2');
 
     // Notify browser that System 2 is thinking
-    bus.emit({ type: 'reasoner.thinking', active: true, sessionId, timestamp: Date.now() } as any);
+    bus.emit({ type: 'reasoner.thinking', active: true, resetAudio: true, sessionId, timestamp: Date.now() } as any);
 
     try {
       const response = await reasoner.processAndRespond(event.context);
@@ -865,13 +1002,91 @@ async function handleVoiceSession(userWs: WebSocket): Promise<void> {
         timestamp: Date.now(),
       } as any);
 
-      // Update memory with the System 2 response
+      // Dual delivery: token injection (knowledge) + Pocket TTS (clean audio)
+      //
+      // Server-side audio gate: suppress PersonaPlex audio frames to browser
+      // during injection + TTS so the user only hears clean TTS.
+      // PersonaPlex still absorbs the tokens (knowledge transfer works),
+      // but its garbled/parrot audio is dropped at the server.
+
+      // 1. Suppress PersonaPlex audio + drip-feed text for knowledge transfer
+      //    Moshi's Inner Monologue expects text tokens aligned to 80ms audio frames.
+      //    Burst injection overwhelms temporal alignment → degeneration ("plus plus plus").
+      //    Drip-feed ~20 chars every 80ms to match Moshi's per-frame text consumption.
+      const TTS_SUPPRESS_COOLDOWN_MS = 8000; // extra time after last TTS for parrot echo to die
+      const MOSHI_FRAME_MS = 80; // Moshi/Mimi codec frame duration
+      const DRIP_CHUNK_SIZE = 20; // chars per frame (~matches Inner Monologue rate)
+      session.suppressMoshiAudio = true;
+      session.suppressMoshiUntil = Date.now() + 60_000; // 60s max fallback, refined below
+      logger.info('Moshi audio suppressed for TTS delivery');
+
+      if (session.talker) {
+        // Drip-feed injection: send text in small chunks aligned to Moshi frame rate.
+        // Run in background — don't block TTS generation.
+        const chunks = response.match(new RegExp(`.{1,${DRIP_CHUNK_SIZE}}`, 'g')) ?? [response];
+        const dripFeed = async () => {
+          for (const chunk of chunks) {
+            session.talker.sendText(chunk);
+            await new Promise(r => setTimeout(r, MOSHI_FRAME_MS));
+          }
+          logger.info({ chunks: chunks.length, totalMs: chunks.length * MOSHI_FRAME_MS }, 'Drip-feed injection complete');
+        };
+        dripFeed(); // fire-and-forget, runs in parallel with TTS generation
+      }
+
+      // 2. Generate clean audio via Pocket TTS — sentence-chunked for lower latency
+      try {
+        const sentences = response.match(/[^.!?]+[.!?]+/g) ?? [response];
+        let sentOk = 0;
+        for (const sentence of sentences) {
+          const trimmed = sentence.trim();
+          if (!trimmed) continue;
+          const formData = new FormData();
+          formData.append('text', trimmed);
+          const ttsResp = await fetch('http://localhost:8877/tts', {
+            method: 'POST',
+            body: formData,
+          });
+          if (ttsResp.ok) {
+            const wavBuffer = await ttsResp.arrayBuffer();
+            if (session.userWs?.readyState === WebSocket.OPEN) {
+              const msg = new Uint8Array(1 + wavBuffer.byteLength);
+              msg[0] = 0x10; // TTS_AUDIO message type
+              msg.set(new Uint8Array(wavBuffer), 1);
+              session.userWs.send(msg.buffer);
+              sentOk++;
+            }
+            // Estimate playback time: WAV at 24kHz mono 16-bit = 48000 bytes/sec
+            const estimatedPlayMs = Math.ceil((wavBuffer.byteLength / 48000) * 1000);
+            session.suppressMoshiUntil = Date.now() + estimatedPlayMs + TTS_SUPPRESS_COOLDOWN_MS;
+          } else {
+            logger.warn({ status: ttsResp.status, sentence: trimmed.slice(0, 60) }, 'Pocket TTS sentence failed');
+          }
+        }
+        if (sentOk > 0) {
+          logger.info({ sentences: sentences.length, sent: sentOk, suppressUntil: new Date(session.suppressMoshiUntil).toISOString() }, 'Pocket TTS sentence-chunked delivery');
+        } else {
+          logger.warn('All Pocket TTS sentences failed — falling back to browser TTS');
+          session.suppressMoshiAudio = false; // No TTS to protect, resume immediately
+          if (session.userWs?.readyState === WebSocket.OPEN) {
+            session.userWs.send(JSON.stringify({ type: 'system2_speak', text: response }));
+          }
+        }
+      } catch (ttsErr) {
+        logger.warn({ err: ttsErr instanceof Error ? ttsErr.message : String(ttsErr) }, 'Pocket TTS unavailable — falling back to browser TTS');
+        session.suppressMoshiAudio = false; // No TTS, resume audio
+        if (session.userWs?.readyState === WebSocket.OPEN) {
+          session.userWs.send(JSON.stringify({ type: 'system2_speak', text: response }));
+        }
+      }
+
+      // Store in memory for context
       memory.setLastSystem2Response(response);
-      const newPrompt = memory.compress();
-      talker.updateTextPrompt(newPrompt);
+      memory.emitCompressed();
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, 'Reasoner failed');
     } finally {
+      lastSystem2DoneTs = Date.now();
       bus.emit({ type: 'reasoner.thinking', active: false, sessionId, timestamp: Date.now() } as any);
     }
   }, 80); // High priority — before other subscribers
@@ -1023,6 +1238,11 @@ if (import.meta.main) {
           // Fork audio to Voxtral in parallel (if enabled)
           session.voxtral?.feedAudio(buf);
         } else if (typeof message === 'string') {
+          // Diagnostic messages from browser (diag:...)
+          if (message.startsWith('diag:')) {
+            logger.info({ browserDiag: message.slice(5) }, 'Browser diagnostic');
+            return;
+          }
           // Parse prefix: "speech:..." = SpeechRecognition, "text:..." = typed input
           const isSpeech = message.startsWith('speech:');
           const isTyped = message.startsWith('text:');
