@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -u
 """
 ANE Real-Time Fine-Tuning Daemon
 Based on Ex0byt's pipeline architecture:
@@ -85,7 +85,8 @@ class ANEBridge:
         self.lib.ane_bridge_build_weight_blob.argtypes = [
             ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int,
             ctypes.POINTER(ctypes.c_size_t)]
-        self.lib.ane_bridge_free_blob.argtypes = [ctypes.c_void_p]
+        # Note: ane_bridge_free_blob is declared in header but NOT in .m source
+        # Don't reference it — use stdlib free() if needed for weight blobs
 
     @property
     def compile_count(self):
@@ -116,7 +117,8 @@ def apply_lora(model, rank, num_layers):
         for proj_name in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             if hasattr(attn, proj_name):
                 orig = getattr(attn, proj_name)
-                if isinstance(orig, nn.Linear):
+                # LoRALinear.from_base handles both nn.Linear and nn.QuantizedLinear
+                if not isinstance(orig, LoRALinear):
                     lora = LoRALinear.from_base(orig, r=rank)
                     setattr(attn, proj_name, lora)
 
@@ -131,18 +133,21 @@ def apply_lora(model, rank, num_layers):
 
 model = apply_lora(model, LORA_RANK, LORA_LAYERS)
 
-# Phase 2b: Replace LoRA layers with ANE-backed versions
+# Phase 2b: Replace LoRA layers with ANE-backed versions (conv-based)
 ane_kernels = None
 if ane.available:
     try:
         from ane_lora_kernels import (
             ANELoRAKernels, set_ane_kernels, replace_lora_with_ane)
 
-        # Initialize kernel dispatcher + pre-compile for Qwen2.5-3B shapes
-        ane_kernels = ANELoRAKernels(ane.lib)
-        compiled = ane_kernels.precompile_for_shapes(
-            in_dim=2048, out_dims=[2048, 256], rank=LORA_RANK,
-            seq_lengths=[8, 16, 32, 64, 128, 256, 512])
+        # Initialize kernel dispatcher (conv-based, subprocess isolation)
+        ane_kernels = ANELoRAKernels(BRIDGE_PATH)
+
+        # Verify ANE conv works
+        err = ane_kernels.verify_conv()
+        if err > 0.1:
+            raise RuntimeError(f"ANE conv verification failed: max_error={err:.4f}")
+        print(f"[ANE] Conv verification passed (max_error={err:.6f})")
 
         # Wire kernels into custom VJP
         set_ane_kernels(ane_kernels)
@@ -150,7 +155,7 @@ if ane.available:
         # Swap LoRALinear → ANELoRALinear (shares params, no copy)
         replaced = replace_lora_with_ane(model)
         print(f"[ANE] {replaced} LoRA layers → ANE gradient dispatch active "
-              f"({compiled} kernels pre-compiled)")
+              f"(conv-based, subprocess isolation)")
     except Exception as e:
         print(f"[ANE] Layer replacement failed ({e}), using MLX GPU fallback")
         ane_kernels = None
@@ -190,7 +195,9 @@ def ane_training_worker():
         try:
             loss = _finetune_step(user_text, assistant_text)
         except Exception as e:
+            import traceback
             print(f"[FT] Error: {e}")
+            traceback.print_exc()
 
         # Save adapter after each training step
         try:
@@ -224,46 +231,40 @@ def _finetune_step(user_text, assistant_text):
         targets = tokens[1:]
         return nn.losses.cross_entropy(logits.squeeze(0), targets, reduction="mean")
 
-    # Reset ANE dispatch stats for this step
-    ane_stats = None
-    if ane.available:
-        try:
-            from ane_lora_kernels import reset_ane_dispatch_stats, get_ane_dispatch_stats
-            reset_ane_dispatch_stats()
-        except ImportError:
-            pass
+    # Capture dispatch counts before step
+    pre_dispatches = 0
+    if ane_kernels:
+        pre_dispatches = ane_kernels.total_dispatches
 
     # Forward + backward (ANE dispatch happens automatically in VJP!)
     loss_and_grad = nn.value_and_grad(model, loss_fn)
     loss, grads = loss_and_grad(model, tokens)
     mx.eval(loss, grads)
 
-    # SGD update
+    # SGD update on trainable (LoRA) params only
     lr = 1e-4
-    trainable = dict(mlx.utils.tree_flatten(model.trainable_parameters()))
+    trainable_flat = dict(mlx.utils.tree_flatten(model.trainable_parameters()))
     grad_flat = dict(mlx.utils.tree_flatten(grads))
-
-    updates = {k: trainable[k] - lr * grad_flat[k]
-               for k in trainable if k in grad_flat}
-
+    updates = []
+    for k in trainable_flat:
+        if k in grad_flat:
+            updates.append((k, trainable_flat[k] - lr * grad_flat[k]))
     if updates:
-        model.load_weights(list(updates.items()))
+        model.load_weights(updates, strict=False)
         mx.eval(model.parameters())
 
     loss_val = float(loss)
 
-    # Log with ANE stats if available
-    if ane.available:
-        try:
-            from ane_lora_kernels import get_ane_dispatch_stats
-            stats = get_ane_dispatch_stats()
-            dispatches = stats["dispatches"]
-            fallbacks = stats["fallbacks"]
-            engine = "ANE" if dispatches > 0 else "MLX"
-            print(f"[{engine}-FT] loss={loss_val:.4f} | "
-                  f"dispatches={dispatches} fallbacks={fallbacks}")
-        except ImportError:
-            print(f"[MLX-FT] loss={loss_val:.4f}")
+    # Log with ANE stats
+    if ane_kernels:
+        from ane_lora_kernels import get_dispatch_stats
+        stats = get_dispatch_stats()
+        new_dispatches = ane_kernels.total_dispatches - pre_dispatches
+        engine = "ANE" if new_dispatches > 0 else "MLX"
+        print(f"[{engine}-FT] loss={loss_val:.4f} | "
+              f"ane_dispatches={new_dispatches} "
+              f"total_ane={stats.get('total_ane_dispatches', 0)} "
+              f"total_steps={stats.get('total_ane_steps', 0)}")
     else:
         print(f"[MLX-FT] loss={loss_val:.4f}")
 
@@ -296,29 +297,19 @@ class DaemonHandler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def _handle_status(self):
-        # ANE kernel + dispatch stats
-        ane_kernel_count = 0
-        ane_kernel_compile_count = 0
-        ane_dispatch_stats = {}
+        # ANE dispatch stats
+        ane_stats = {}
         if ane_kernels is not None:
-            ane_kernel_count = ane_kernels.kernel_count
-            ane_kernel_compile_count = ane_kernels.compile_count
-        try:
-            from ane_lora_kernels import get_ane_dispatch_stats
-            ane_dispatch_stats = get_ane_dispatch_stats()
-        except ImportError:
-            pass
+            from ane_lora_kernels import get_dispatch_stats
+            ane_stats = get_dispatch_stats()
 
         status = {
             "model": MODEL_NAME,
             "lora_rank": LORA_RANK,
             "lora_layers": LORA_LAYERS,
             "ane_available": ane.available,
-            "ane_phase": "2b" if ane_kernels is not None else ("fallback" if not ane.available else "init"),
-            "ane_compile_count": ane.compile_count,
-            "ane_kernel_count": ane_kernel_count,
-            "ane_kernel_compile_count": ane_kernel_compile_count,
-            "ane_dispatch_stats": ane_dispatch_stats,
+            "ane_phase": "2b-conv" if ane_kernels is not None else ("fallback" if not ane.available else "init"),
+            "ane_stats": ane_stats,
             "training_pairs_total": len(training_pairs),
             "training_queue_size": training_queue.qsize(),
         }
@@ -427,7 +418,7 @@ class DaemonHandler(BaseHTTPRequestHandler):
 
 # ---------- Main ----------
 if __name__ == "__main__":
-    ane_mode = "Phase 2b — GRADIENT DISPATCH" if ane_kernels else (
+    ane_mode = "Phase 2b — CONV GRADIENT DISPATCH" if ane_kernels else (
         "FALLBACK (MLX GPU)" if not ane.available else "INIT FAILED")
     print(f"\n{'='*60}")
     print(f"  ANE Real-Time Fine-Tuning Daemon")
@@ -435,8 +426,7 @@ if __name__ == "__main__":
     print(f"  LoRA:      rank={LORA_RANK}, layers={LORA_LAYERS}")
     print(f"  ANE:       {ane_mode}")
     if ane_kernels:
-        print(f"  Kernels:   {ane_kernels.kernel_count} cached, "
-              f"{ane_kernels.compile_count}/{100} budget")
+        print(f"  Method:    conv kernels, subprocess isolation")
     print(f"  Port:      {PORT}")
     print(f"  Adapter:   {ADAPTER_PATH}")
     print(f"{'='*60}\n")
