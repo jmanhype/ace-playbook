@@ -39,7 +39,7 @@ def generate_image_openai(prompt, path, size):
         from openai import OpenAI
 
         client = OpenAI()
-        result = client.images.generate(model="gpt-image-1", prompt=prompt, size=size)
+        result = client.images.generate(model="gpt-image-2", prompt=prompt, size=size)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(base64.b64decode(result.data[0].b64_json))
         return {"ok": True, "mode": "openai_gpt_image_api"}
