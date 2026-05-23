@@ -1,0 +1,62 @@
+{
+  "output_dir": "/Users/speed/bibles/smackdown_bombay/images",
+  "source": "/Users/speed/Documents/Codex/2026-04-27/ok-we-created-a-gpt-image/poster_smackdown_bombay.png",
+  "pages": [
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_01_primary.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_02_turnaround.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_03_proportions.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_04_expressions.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_05_cranial_hair.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_06_surface_construction.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_07_props_accessories.png",
+      "size": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "file": "/Users/speed/bibles/smackdown_bombay/images/page_08_color_motion.png",
+      "size": [
+        1024,
+        1536
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Rafiq \u201cRiff\u201d Khan",
+  "film": "SMACKDOWN IN BOMBAY",
+  "role": "Bollywood leading man / electric-guitar hero",
+  "core_lock": [
+    "adult Indian male, lean heroic build",
+    "thick wavy black 1970s hero hair + sideburns",
+    "white embroidered kurta / pajama",
+    "black-gold embroidered guitar strap",
+    "red sunburst electric guitar with chrome pickups",
+    "hand-painted Bollywood action-horror poster texture"
+  ],
+  "source_poster": "/Users/speed/Documents/Codex/2026-04-27/ok-we-created-a-gpt-image/poster_smackdown_bombay.png",
+  "pages": [
+    "Primary Hero Reference",
+    "Orthographic Turnaround",
+    "Morphology / Proportions / Silhouette",
+    "Expression / Emotion Sheet",
+    "Cranial / Hair / Head Details",
+    "Surface Treatment / Construction",
+    "Extremities / Props / Accessories",
+    "Materials / Color / Rigging / Motion"
+  ],
+  "palette": {
+    "cream kurta": "#F8E8C6",
+    "vermilion guitar": "#7B1A12",
+    "burnt orange": "#D96516",
+    "aged gold": "#C49A3B",
+    "charcoal hair": "#211816",
+    "smoke blue": "#2E5366",
+    "paper": "#E8B66C",
+    "ink": "#160C08"
+  }
+}
