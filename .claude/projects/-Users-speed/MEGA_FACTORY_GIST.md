@@ -539,7 +539,7 @@ No need to use `pred_joint_coords` directly - the MHR model handles it correctly
 
 **Complete AI Audio Factory — May 26, 2026**
 
-**Status**: ✅ FULLY OPERATIONAL (All 3 Systems Tested & Working)
+**Status**: ✅ OPERATIONAL (All 4 Systems Working)
 **Architecture**: 4-Pillar Production System
 
 ### The 4-Pillar Architecture (May 26, 2026)
@@ -591,16 +591,36 @@ No need to use `pred_joint_coords` directly - the MHR model handles it correctly
   5. Woosh-VFlow-8s (1.6GB) - V2A (full quality, 64 steps)
   6. Woosh-DVFlow-8s (1.6GB) - V2A distilled (0.20s generation!)
 
-**PILLAR 4: Stable Audio 3.0 (Musical Score)** ⚠️
+**PILLAR 4: Stable Audio 3.0 (Musical Score)** ✅
 - **Location**: `~/stable-audio-3/` on 3090 box
-- **Model**: stabilityai/stable-audio-3-medium
+- **Model**: stabilityai/stable-audio-3-medium (LTX-2.3 audio diffusion)
 - **VRAM**: 9.4 GB / 24 GB
 - **Features**:
   - 100% commercially licensed training data
   - Variable length (up to 6 minutes)
-  - Gradio UI: http://localhost:7860 (via SSH tunnel)
-- **Status**: ⚠️ GRADIO UI ONLY - API blocked by torch/torchvision conflict
-- **Workaround**: Use browser interface at http://localhost:7860
+  - CLI + Gradio UI available
+  - Models: medium, small-music, small-sfx, medium-base
+  - ⚠️ **INSTRUMENTAL ONLY - Does NOT generate vocals/singing**
+- **Status**: ✅ **WORKING - Optimal Settings Found**
+- **Optimal Parameters**:
+  - **steps**: 8 (ping-pong sampling - NOT 100!)
+  - **cfg_scale**: 4.5 (lower is better - NOT 6.0 or 7.0!)
+  - **model**: medium (best quality)
+  - **duration**: 30 seconds (default)
+- **Test Samples**:
+  - `STABLE_BOSSA_NOVA.wav` (5.0MB) - Bossa Nova, cfg 6.0, 8 steps
+  - `STABLE_AMBIENT_8STEPS.wav` (5.0MB) - Ambient electronic, cfg 4.5, 8 steps ✅ BEST QUALITY
+  - `STABLE_AMBIENT_100STEPS.wav` (5.0MB) - Ambient electronic, cfg 4.5, 100 steps (worse than 8)
+  - `STABLE_JAZZ_CFG45.wav` (5.0MB) - Jazz fusion, cfg 4.5, 8 steps
+- **Quality**: Excellent for instrumental music, ambient, electronic, jazz
+- **Best For**: Background scores, ambient music, instrumental tracks (NOT vocals/singing)
+- **CLI Usage**:
+  ```bash
+  cd /home/straughter/stable-audio-3
+  source venv_fix/bin/activate
+  python -m stable_audio_3.cli --model medium -p "prompt" --duration 30 --steps 8 --cfg-scale 4.5 -o output.wav
+  ```
+- **Fix**: Created venv_fix with torch 2.7.1 + torchvision 0.22.0 + torchaudio 2.7.1
 
 ### Sony Woosh Deep Dive
 
@@ -706,11 +726,12 @@ ffmpeg-normalize input.wav \
 
 ### Production Test Results (May 26, 2026)
 
-**All 3 Systems Tested and Verified Working**
+**All 4 Systems Tested and Verified Working**
 
 **Fish Audio S2 Pro - Voice Acting** ✅
 - Sample 1: "Heavy breathing, terrified whisper" (3.62s, 312KB)
 - Sample 2: "Excited laughter, joy" (5.43s, 468KB)
+- Sample 3: "Barbershop quartet with real vocals" (19.64s, 1.7MB)
 - Quality: Hollywood-grade voice acting
 - VRAM: 22.21 GB / 24 GB
 - Speed: 19-30 seconds generation time
@@ -728,26 +749,40 @@ ffmpeg-normalize input.wav \
 - VRAM: ~2 GB during inference
 - Speed: 0.18-5.40 seconds depending on quality settings
 
+**Stable Audio 3.0 - Instrumental Music** ✅
+- Sample 1: "Bossa Nova with guitar and percussion" (cfg 6.0, 8 steps) - "much better"
+- Sample 2: "Ambient electronic music" (cfg 4.5, 8 steps) - ✅ BEST QUALITY
+- Sample 3: "Jazz fusion" (cfg 4.5, 8 steps)
+- Quality: Excellent for instrumental music, ambient, electronic, jazz
+- VRAM: 9.4 GB / 24 GB
+- Speed: Fast generation (8 steps recommended, NOT 100)
+- **Optimal Settings**: steps=8, cfg_scale=4.5 (lower is better!)
+
 **Quality Comparison**:
 | System | Quality | Speed | Best For |
 |---------|---------|-------|----------|
-| Fish Audio | Hollywood | 19-30s | Voice acting, dialogue |
+| Fish Audio | Hollywood | 19-30s | Voice acting, dialogue, vocals |
 | Scenema Audio | Filmmaking | Unknown | Scene SFX + speech |
 | Woosh DFlow | Excellent | 0.32s | Quick foley generation |
 | Woosh VFlow | Best | 4-5s | Final video foley |
+| Stable Audio 3.0 | Excellent | Fast | Instrumental music, ambient |
 
 **All test samples on Mac Desktop**:
 - `FISH_TERRIFIED_COMPARE.wav`
 - `FISH_EXCITED_COMPARE.wav`
+- `BARBERSHOP_QUARTET_FISH.wav` (real vocals!)
 - `SCENEMA_TERRIFIED.wav`
 - `WOOSH_SPORTSCAR.wav`
 - `WOOSH_VFLOW_AUDIO.wav` + `WOOSH_VFLOW_VIDEO.mp4`
 - `vflow_descriptive.wav` + `vflow_descriptive.mp4` (BEST QUALITY)
+- `STABLE_BOSSA_NOVA.wav` (cfg 6.0)
+- `STABLE_AMBIENT_8STEPS.wav` (cfg 4.5, 8 steps) ✅ BEST
+- `STABLE_JAZZ_CFG45.wav` (cfg 4.5)
 
 **Production Pipeline**:
 1. Generate voice: Fish Audio S2 Pro (paralinguistic tags)
 2. Generate foley: Sony Woosh DVFlow (fast) or VFlow (quality)
-3. Generate score: Stable Audio 3.0 (Gradio UI only)
+3. Generate score: Stable Audio 3.0 (steps=8, cfg=4.5)
 4. Normalize all tracks: -14 LUFS
 5. Mix: ffmpeg combines 3 tracks + video
 6. Output: Broadcast-ready MP4
@@ -1144,9 +1179,9 @@ journalctl -f
 ---
 
 **Last Updated**: 2026-05-26
-**Version**: 2.1
+**Version**: 2.2 - All 4 Audio Systems Working
 **Environment**: Production (Mac + 3090 + ZimaBoard)
-**Audio Systems**: Fish Audio ✅, Scenema Audio ✅, Sony Woosh ✅, Stable Audio 3.0 ⚠️
+**Audio Systems**: Fish Audio ✅, Scenema Audio ✅, Sony Woosh ✅, Stable Audio 3.0 ✅
 
 ---
 
