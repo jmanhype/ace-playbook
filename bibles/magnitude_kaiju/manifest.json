@@ -1,0 +1,63 @@
+{
+  "character": "Godzilla",
+  "output_dir": "/Users/speed/bibles/magnitude_kaiju",
+  "images_dir": "/Users/speed/bibles/magnitude_kaiju/images",
+  "pages": [
+    {
+      "page": 1,
+      "title": "PRIMARY_HERO_REFERENCE",
+      "aspect_ratio": "3:4",
+      "filename": "page_01_primary_hero_reference.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_01_primary_hero_reference.md"
+    },
+    {
+      "page": 2,
+      "title": "ORTHOGRAPHIC_TURNAROUND",
+      "aspect_ratio": "16:9",
+      "filename": "page_02_orthographic_turnaround.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_02_orthographic_turnaround.md"
+    },
+    {
+      "page": 3,
+      "title": "MORPHOLOGY_PROPORTIONS",
+      "aspect_ratio": "4:5",
+      "filename": "page_03_morphology_proportions.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_03_morphology_proportions.md"
+    },
+    {
+      "page": 4,
+      "title": "EXPRESSION_EMOTION_SHEET",
+      "aspect_ratio": "16:9",
+      "filename": "page_04_expression_emotion_sheet.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_04_expression_emotion_sheet.md"
+    },
+    {
+      "page": 5,
+      "title": "CRANIAL_APPENDAGE_DETAILS",
+      "aspect_ratio": "4:5",
+      "filename": "page_05_cranial_appendage_details.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_05_cranial_appendage_details.md"
+    },
+    {
+      "page": 6,
+      "title": "SURFACE_TREATMENT_CONSTRUCTION",
+      "aspect_ratio": "4:5",
+      "filename": "page_06_surface_treatment_construction.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_06_surface_treatment_construction.md"
+    },
+    {
+      "page": 7,
+      "title": "EXTREMITIES_PROPS_ACCESSORIES",
+      "aspect_ratio": "4:5",
+      "filename": "page_07_extremities_props_accessories.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_07_extremities_props_accessories.md"
+    },
+    {
+      "page": 8,
+      "title": "MATERIALS_COLOR_RIGGING_MOTION",
+      "aspect_ratio": "16:9",
+      "filename": "page_08_materials_color_rigging_motion.png",
+      "prompt": "/Users/speed/bibles/magnitude_kaiju/prompts/page_08_materials_color_rigging_motion.md"
+    }
+  ]
+}
