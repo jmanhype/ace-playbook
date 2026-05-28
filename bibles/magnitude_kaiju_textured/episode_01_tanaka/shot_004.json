@@ -1,0 +1,47 @@
+{
+  "shot_id": "MAG_EP01_004",
+  "shot_name": "The Last Frame",
+  "narrative_phase": "ATOMIC BREATH",
+  "timestamp": "0:45-1:00",
+  "duration": 15,
+  "aspect_ratio": "9:16",
+  "resolution": "1080x1920",
+  "entity_anchor": "@Magnitude",
+  "first_frame_prompt": "Ektachrome military observation reel, 1966 classified harbor footage, vertical 9:16. Ground-level POV from PFC Tanaka near the dock: @Magnitude towers overhead, dorsal plates beginning to glow saturated nuclear blue for the first time, wet textured hide rim-lit by internal energy, soldiers and harbor silhouettes dwarfed at the bottom of frame. Camera tilts up from the monster torso toward head and dorsal spine; the image is tense, grainy, and under military observation stress. No beam has fired yet in the first frame; energy is building. Kodak Ektachrome colors are pushed beyond normal exposure by blue nuclear light. ANTI-TILING GUARDRAILS: one continuous documentary frame, unique non-repeating harbor geometry, no cloned windows, no repeated crates, no mirror-symmetry rows, no tiled water texture, no duplicated soldiers, no pattern wallpaper, no mosaic seams, no AI kaleidoscope; organic 16mm grain may repeat but scene objects must not.",
+  "video_prompt": "@Magnitude dorsal plates charge from dim cobalt to violent blue-white in a sequential pulse running up the spine. Tanaka tilts up from ground-level as the air distorts and the harbor falls into terrified shadow. The creature opens its jaws; blue atomic energy concentrates in the throat. Hold one impossible professional frame for the instant before discharge. Then atomic breath fires directly across/near camera axis: the frame overexposes, emulsion blooms, sprocket-edge burn, orange-white film melt, torn static, then black. End with archival card text: PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO. No dialogue. The last usable image is the blue-white blast consuming the 16mm film.",
+  "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no premature beam at first frame, no laser sword, no colorful rainbow beam, no clean sci-fi plasma, no superhero pose, no visible gore, no prolonged readable aftermath, no modern text styling, no polished end credits",
+  "camera": {
+    "shot_size": "ground-level vertical low-angle climax",
+    "angle": "low POV from dock level tilting up toward @Magnitude head and glowing dorsal plates",
+    "lens": "16mm documentary lens around 35mm equivalent, flaring and blooming from blue-white energy",
+    "movement": "controlled tilt-up becomes unstable as energy builds; final impact causes overexposure, emulsion burn, static, and blackout"
+  },
+  "lighting": {
+    "source": "internal blue dorsal energy plus daylight collapsing under blast exposure",
+    "quality": "nuclear cobalt rim light, blue-white throat bloom, orange-white film burn at impact",
+    "exposure": "manual iris fails; progressive overexposure, halation, emulsion scorch, final black",
+    "palette": [
+      "cobalt blue",
+      "blue-white",
+      "wet charcoal",
+      "hot orange emulsion burn",
+      "archive black"
+    ]
+  },
+  "audio_cue": {
+    "timestamp": "0:45-1:00",
+    "description": "Sirens smear into sub-bass. Dorsal charge whine rises, Geiger-like chatter, creature inhale, low-frequency rumble, then a hard silence pocket immediately before impact. Atomic breath detonation becomes distorted tape overload, film melt, static, then abrupt silence.",
+    "intensity": "8/10 \u2192 10/10 \u2192 0/10",
+    "music": "Stable Audio 3.0 drone peaks then cuts out before blast; silence before impact is mandatory"
+  },
+  "qc_checklist": [
+    "Dorsal plates visibly glow blue only now, clearly sequential up the spine",
+    "Camera starts professional then destabilizes from energy/impact, not random chaos",
+    "Ground-level POV maintains terrifying scale of @Magnitude",
+    "Atomic breath overexposes and burns film convincingly",
+    "Final blackout/static feels like recovered damaged 16mm, not a clean fade",
+    "End card text is exact: PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO",
+    "No graphic injury shown; catastrophe is implied through image/sound failure",
+    "No modern credits, subtitles, watermarks, or polished VFX aesthetic"
+  ]
+}

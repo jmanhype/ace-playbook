@@ -1,0 +1,48 @@
+{
+  "shot_id": "MAG_EP01_001",
+  "shot_name": "The Harbor",
+  "narrative_phase": "NORMALCY",
+  "timestamp": "0:00-0:15",
+  "duration": 15,
+  "aspect_ratio": "9:16",
+  "resolution": "1080x1920",
+  "entity_anchor": "@Magnitude",
+  "first_frame_prompt": "Ektachrome military observation reel, 1966 classified harbor footage, vertical 9:16 frame. PFC Tanaka films a normal military harbor day from a locked tripod position: soldiers in olive fatigues load canvas-covered trucks, crates, fuel drums, rope coils, and dock equipment; gulls cross high in frame; calm water reflects warm daylight; low industrial buildings and cranes sit in the background. The shot must feel documentary, ordinary, and procedural, with no monster visible and no supernatural clue yet. Use Kodak Ektachrome daylight warmth, 16mm grain, slight gate weave, mild dust, imperfect focus roll-off, period-accurate 1966 military palette. Frame composition leaves deep harbor water in the upper third as future threat space. ANTI-TILING GUARDRAILS: one continuous documentary frame, unique non-repeating harbor geometry, no cloned windows, no repeated crates, no mirror-symmetry rows, no tiled water texture, no duplicated soldiers, no pattern wallpaper, no mosaic seams, no AI kaleidoscope; organic 16mm grain may repeat but scene objects must not.",
+  "video_prompt": "Static tripod military observation shot. Hold the harbor for fifteen seconds with professional calm. Soldiers continue loading trucks in routine rhythm; one truck idles; a crane hook sways slightly; water remains calm; gulls and flag movement are subtle. PFC Tanaka does not search for drama \u2014 he records the harbor as evidence. Keep the camera locked, with only authentic 16mm gate weave and tiny tripod vibration from nearby engines. Warm Ektachrome daylight, classified archival feel, no dialogue, no monster, no artificial cinematic push-in.",
+  "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no visible kaiju, no tsunami, no panic, no dramatic clouds, no modern shipping containers, no helicopters, no digital stabilization, no handheld sway",
+  "camera": {
+    "shot_size": "wide establishing harbor observation",
+    "angle": "eye-level military dockside vantage, slightly elevated from tripod on pier",
+    "lens": "16mm documentary lens, approximately 25mm equivalent, moderate depth of field, soft Ektachrome edge falloff",
+    "movement": "static locked tripod; only gate weave, engine vibration, and minor film jitter"
+  },
+  "lighting": {
+    "source": "natural late-morning daylight",
+    "quality": "warm Ektachrome sun with cyan shadow density",
+    "exposure": "manual iris stable, highlights gently clipped on water glints",
+    "palette": [
+      "warm khaki",
+      "harbor blue-green",
+      "faded olive drab",
+      "sunlit concrete",
+      "rust red accents"
+    ]
+  },
+  "audio_cue": {
+    "timestamp": "0:00-0:15",
+    "description": "Harbor normalcy: distant gulls, truck idle, canvas straps, boots on dock planks, rope creak, quiet harbor slap, low room-tone-like tape hiss. No score yet or only a sub-audible military drone under the archive bed.",
+    "intensity": "1/10",
+    "music": "none / barely audible dark military tension bed begins below perception"
+  },
+  "qc_checklist": [
+    "Reads as 1966 classified military Ektachrome, not modern footage",
+    "Vertical 9:16 frame with 1080x1920-safe composition",
+    "Camera is static tripod, calm, and observational",
+    "Soldiers load trucks naturally without repeated/duplicated bodies",
+    "Harbor water is calm and physically plausible",
+    "No monster, glowing plates, panic, or disaster cues yet",
+    "No modern vehicles, shipping containers, phones, digital displays, or contemporary uniforms",
+    "Film grain/gate weave visible without becoming fake overlay",
+    "Frame has open water threat space for later continuity"
+  ]
+}

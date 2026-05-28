@@ -1,0 +1,47 @@
+{
+  "shot_id": "MAG_EP01_003",
+  "shot_name": "The Emergence",
+  "narrative_phase": "EMERGENCE",
+  "timestamp": "0:30-0:45",
+  "duration": 15,
+  "aspect_ratio": "9:16",
+  "resolution": "1080x1920",
+  "entity_anchor": "@Magnitude",
+  "first_frame_prompt": "Ektachrome military observation reel, 1966 classified harbor footage, vertical 9:16. @Magnitude begins rising from the exposed harbor basin at impossible scale: massive textured hide, correct hero silhouette from character_bible page 01, accurate body proportions from page 02, cranial threat read from page 04, dorsal and head detail from page 05. Water cascades from shoulders and dorsal plates like sheets of glass; dock buildings and cranes are tiny by comparison; soldiers in foreground become scale reference. Dorsal plates are dark and NOT glowing yet. Tanaka holds the shot like a professional military cameraman despite the first footstep vibration. Ground-level evidence footage, no dramatic Hollywood angle. Kodak Ektachrome daylight, 16mm grain, dust, gate weave, classified archive realism. ANTI-TILING GUARDRAILS: one continuous documentary frame, unique non-repeating harbor geometry, no cloned windows, no repeated crates, no mirror-symmetry rows, no tiled water texture, no duplicated soldiers, no pattern wallpaper, no mosaic seams, no AI kaleidoscope; organic 16mm grain may repeat but scene objects must not.",
+  "video_prompt": "@Magnitude rises fully from the harbor over fifteen seconds, a Godzilla-scale kaiju but locked to the supplied @Magnitude entity design. Water pours off the head, shoulders, arms, and dorsal plates; the harbor basin collapses in waves around its legs. Soldiers scatter at the bottom edge but remain tiny and non-heroic. Tanaka keeps the monster centered and in focus as long as possible \u2014 professional discipline under impossible circumstances. Each heavy step sends mechanical shock through the tripod, adding short vertical shakes and film registration jumps. Dorsal plates stay dark, wet, and uncharged. Full scale against 1966 harbor buildings; documentary awe, not glossy creature-feature spectacle.",
+  "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no blue glowing dorsal plates yet, no atomic breath, no fire, no multiple monsters, no generic dragon wings, no T-rex posture, no cartoon roar pose, no clean VFX splash, no impossible tiny monster scale",
+  "camera": {
+    "shot_size": "very wide vertical scale reveal with tiny soldiers/buildings for reference",
+    "angle": "ground-level dockside POV looking slightly upward as @Magnitude clears buildings",
+    "lens": "16mm documentary lens around 32mm equivalent, deep focus fighting spray and haze",
+    "movement": "mostly locked hold; increasing tripod shake from footsteps and shockwaves, minor reframe to keep head and dorsal line in shot"
+  },
+  "lighting": {
+    "source": "daylight diffused by harbor mist and spray",
+    "quality": "sunlit water sheets, dark wet hide, cyan shadows in scale haze",
+    "exposure": "manual iris struggles with bright spray but does not blow out creature silhouette",
+    "palette": [
+      "wet charcoal hide",
+      "harbor teal",
+      "white water spray",
+      "faded khaki",
+      "concrete gray"
+    ]
+  },
+  "audio_cue": {
+    "timestamp": "0:30-0:45",
+    "description": "Low-frequency emergence: displaced harbor water, metal dock groans, distant siren starting, creature chest resonance, enormous wet inhale, tripod knocks from footsteps, film transport flutter. No heroic music; drone becomes catastrophe pressure.",
+    "intensity": "6/10 \u2192 8/10",
+    "music": "Stable Audio 3.0 dark military drone expands with sub-bass but keeps documentary restraint"
+  },
+  "qc_checklist": [
+    "@Magnitude matches character_bible pages 01/02/04/05 and is not a generic kaiju",
+    "Dorsal plates remain dark and non-glowing throughout this shot",
+    "Creature scale is massive against buildings, cranes, soldiers, and harbor geometry",
+    "Water cascades convincingly from body and plates",
+    "Tanaka holds frame professionally; shake is from footsteps, not random handheld panic",
+    "No atomic breath, fire beam, or blue charge before shot 004",
+    "Ektachrome 16mm archive texture remains coherent under spray",
+    "No duplicated monster limbs, warped scale, or tiled building facades"
+  ]
+}

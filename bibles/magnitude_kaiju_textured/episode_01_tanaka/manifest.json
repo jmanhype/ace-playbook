@@ -1,0 +1,130 @@
+{
+  "project": "MAGNITUDE Episode 1 Last Known Footage",
+  "episode": {
+    "episode_number": 1,
+    "episode_title": "Last Known Footage",
+    "factory_package": "episode_01_tanaka",
+    "status": "READY_FOR_FIRST_FRAME_GENERATION",
+    "created": "2026-05-28",
+    "format": "found-footage military observation reel",
+    "total_shots": 4,
+    "shot_duration_seconds": 15,
+    "total_duration_seconds": 60,
+    "timeline": "4 shots x 15s = 60s total",
+    "aspect_ratio": "9:16",
+    "resolution": "1080x1920",
+    "orientation": "vertical",
+    "fps": 24
+  },
+  "render_target": {
+    "primary": "Kling 3.0 image-to-video",
+    "entity": "@Magnitude",
+    "mode": "I2V per shot using generated first frames",
+    "output": "4 x 15 second vertical clips, stitched to 60 seconds",
+    "fallback": "Any closed I2V tool that accepts entity/reference anchors and camera vectors"
+  },
+  "period_stock": {
+    "label": "16mm Kodak Ektachrome 1966 classified military observation reel",
+    "film": "Kodak Ektachrome daylight reversal stock",
+    "year": 1966,
+    "classification": "classified military archive / recovered camera evidence",
+    "look": [
+      "warm daylight Ektachrome reds/yellows",
+      "dense cyan-blue shadows",
+      "gate weave and minor frame jitter",
+      "16mm grain, dust, splice marks, edge softness",
+      "occasional exposure pumping from manual iris"
+    ]
+  },
+  "observer": {
+    "name": "PFC Tanaka",
+    "role": "military cameraman / harbor observation unit",
+    "behavior": "disciplined, professional, trained to hold framing under stress; panic appears only as mechanical vibration and late tilt errors",
+    "camera_ethic": "record the event, do not narrate it, no dialogue or commentary"
+  },
+  "narrative_arc": [
+    {
+      "beat": "NORMALCY",
+      "timestamp": "0:00-0:15",
+      "shot": "shot_001.json",
+      "description": "Harbor routine under military observation."
+    },
+    {
+      "beat": "UNEASE",
+      "timestamp": "0:15-0:30",
+      "shot": "shot_002.json",
+      "description": "Water recedes unnaturally and soldiers stop working."
+    },
+    {
+      "beat": "EMERGENCE",
+      "timestamp": "0:30-0:45",
+      "shot": "shot_003.json",
+      "description": "@Magnitude rises at full kaiju scale from the harbor."
+    },
+    {
+      "beat": "ATOMIC BREATH",
+      "timestamp": "0:45-1:00",
+      "shot": "shot_004.json",
+      "description": "Dorsal plates charge blue, breath fires, film burns out."
+    }
+  ],
+  "entity_anchors": {
+    "handle": "@Magnitude",
+    "source": "character_bible",
+    "pages_required": [
+      {
+        "page": "01",
+        "file": "../character_bible/ek_page_01_hero.png",
+        "purpose": "primary hero silhouette, mass, dorsal-line read"
+      },
+      {
+        "page": "02",
+        "file": "../character_bible/ek_page_02_turnaround.png",
+        "purpose": "orthographic continuity and proportions"
+      },
+      {
+        "page": "04",
+        "file": "../character_bible/ek_page_04_expressions.png",
+        "purpose": "cranial posture, threat expression, jaw/eye behavior"
+      },
+      {
+        "page": "05",
+        "file": "../character_bible/ek_page_05_details.png",
+        "purpose": "cranial appendage, dorsal detail, texture anchors"
+      }
+    ],
+    "continuity_rules": [
+      "@Magnitude must remain the same entity across all visible shots",
+      "Maintain heavy textured hide, accurate dorsal plate silhouette, and massive grounded body scale",
+      "Do not substitute a generic dragon, dinosaur, lizard, or different kaiju",
+      "Dorsal plates are dark/non-glowing in shot 003 and blue-charged only in shot 004"
+    ]
+  },
+  "reference_assets": {
+    "first_frame_entity_ref": "../character_bible/ek_page_01_hero.png",
+    "film_stock_ref": "../camera_tests/test_ektachrome.png",
+    "character_pages": [
+      "../character_bible/ek_page_01_hero.png",
+      "../character_bible/ek_page_02_turnaround.png",
+      "../character_bible/ek_page_04_expressions.png",
+      "../character_bible/ek_page_05_details.png"
+    ]
+  },
+  "end_card": {
+    "text": "PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO",
+    "duration_seconds": 3,
+    "style": "black archive card, white military typewriter text, slight film weave, no music under card except tail of hiss/static"
+  },
+  "files": [
+    "manifest.json",
+    "shot_001.json",
+    "shot_002.json",
+    "shot_003.json",
+    "shot_004.json",
+    "kling_handoff.json",
+    "audio_concept.md",
+    "MAGNITUDE_EP01_SOP.md",
+    "frames/",
+    "renders/"
+  ]
+}

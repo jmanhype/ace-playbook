@@ -1,0 +1,140 @@
+{
+  "kling_handoff": {
+    "project": "MAGNITUDE Episode 1 Last Known Footage",
+    "created": "2026-05-28",
+    "render_target": "Kling 3.0",
+    "mode": "image-to-video with entity reference",
+    "entity_anchor": "@Magnitude",
+    "aspect_ratio": "9:16",
+    "resolution": "1080x1920",
+    "duration_per_shot_seconds": 15,
+    "total_duration_seconds": 60,
+    "fps": 24,
+    "global_style": "16mm Kodak Ektachrome 1966 classified military observation reel",
+    "upload_references": [
+      {
+        "asset": "../character_bible/ek_page_01_hero.png",
+        "slot": "entity_reference_primary",
+        "label": "@Magnitude page 01 hero"
+      },
+      {
+        "asset": "../character_bible/ek_page_02_turnaround.png",
+        "slot": "entity_reference_secondary",
+        "label": "@Magnitude page 02 turnaround"
+      },
+      {
+        "asset": "../character_bible/ek_page_04_expressions.png",
+        "slot": "detail_reference",
+        "label": "@Magnitude page 04 expressions"
+      },
+      {
+        "asset": "../character_bible/ek_page_05_details.png",
+        "slot": "detail_reference",
+        "label": "@Magnitude page 05 cranial/dorsal details"
+      },
+      {
+        "asset": "../camera_tests/test_ektachrome.png",
+        "slot": "style_reference",
+        "label": "16mm Kodak Ektachrome military stock"
+      }
+    ],
+    "global_negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage",
+    "continuity_rules": [
+      "Use @Magnitude as locked entity; do not redesign the creature between shots.",
+      "Preserve 1966 Ektachrome archive look across all shots.",
+      "Shot 001 normal harbor; shot 002 water retreat; shot 003 emergence with dark plates; shot 004 blue charge and atomic breath.",
+      "PFC Tanaka camera language: disciplined military cameraman until physics overwhelms camera."
+    ],
+    "shots": [
+      {
+        "shot_id": "MAG_EP01_001",
+        "shot_name": "The Harbor",
+        "timestamp": "0:00-0:15",
+        "duration_seconds": 15,
+        "entity_anchor": "@Magnitude",
+        "first_frame_source": "frames/first_frames/mag_ep01_001_the_harbor.png",
+        "camera_vector": "VECTOR_LOCKED_TRIPOD: no pan, no tilt, no zoom, only 16mm gate weave and truck vibration; preserve wide harbor composition.",
+        "parametric_prompt": "[ENTITY:@Magnitude locked to character_bible pages 01,02,04,05] [PERIOD_STOCK:16mm Kodak Ektachrome 1966 classified military observation reel] [OBSERVER:PFC Tanaka disciplined military cameraman] [ASPECT:9:16 vertical 1080x1920] [CAMERA:VECTOR_LOCKED_TRIPOD: no pan, no tilt, no zoom, only 16mm gate weave and truck vibration; preserve wide harbor composition.] [SHOT:The Harbor / NORMALCY / 0:00-0:15] Static tripod military observation shot. Hold the harbor for fifteen seconds with professional calm. Soldiers continue loading trucks in routine rhythm; one truck idles; a crane hook sways slightly; water remains calm; gulls and flag movement are subtle. PFC Tanaka does not search for drama \u2014 he records the harbor as evidence. Keep the camera locked, with only authentic 16mm gate weave and tiny tripod vibration from nearby engines. Warm Ektachrome daylight, classified archival feel, no dialogue, no monster, no artificial cinematic push-in.",
+        "video_prompt": "Static tripod military observation shot. Hold the harbor for fifteen seconds with professional calm. Soldiers continue loading trucks in routine rhythm; one truck idles; a crane hook sways slightly; water remains calm; gulls and flag movement are subtle. PFC Tanaka does not search for drama \u2014 he records the harbor as evidence. Keep the camera locked, with only authentic 16mm gate weave and tiny tripod vibration from nearby engines. Warm Ektachrome daylight, classified archival feel, no dialogue, no monster, no artificial cinematic push-in.",
+        "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no visible kaiju, no tsunami, no panic, no dramatic clouds, no modern shipping containers, no helicopters, no digital stabilization, no handheld sway",
+        "qc_gate": [
+          "Reads as 1966 classified military Ektachrome, not modern footage",
+          "Vertical 9:16 frame with 1080x1920-safe composition",
+          "Camera is static tripod, calm, and observational",
+          "Soldiers load trucks naturally without repeated/duplicated bodies",
+          "Harbor water is calm and physically plausible",
+          "No monster, glowing plates, panic, or disaster cues yet",
+          "No modern vehicles, shipping containers, phones, digital displays, or contemporary uniforms",
+          "Film grain/gate weave visible without becoming fake overlay",
+          "Frame has open water threat space for later continuity"
+        ]
+      },
+      {
+        "shot_id": "MAG_EP01_002",
+        "shot_name": "The Water Recedes",
+        "timestamp": "0:15-0:30",
+        "duration_seconds": 15,
+        "entity_anchor": "@Magnitude",
+        "first_frame_source": "frames/first_frames/mag_ep01_002_the_water_recedes.png",
+        "camera_vector": "VECTOR_DISCIPLINED_PAN_TO_WATER: slow controlled dockside pan toward receding water, tiny human corrections, no whip or frantic motion.",
+        "parametric_prompt": "[ENTITY:@Magnitude locked to character_bible pages 01,02,04,05] [PERIOD_STOCK:16mm Kodak Ektachrome 1966 classified military observation reel] [OBSERVER:PFC Tanaka disciplined military cameraman] [ASPECT:9:16 vertical 1080x1920] [CAMERA:VECTOR_DISCIPLINED_PAN_TO_WATER: slow controlled dockside pan toward receding water, tiny human corrections, no whip or frantic motion.] [SHOT:The Water Recedes / UNEASE / 0:15-0:30] Begin with Tanaka holding the soldiers and trucks, then execute one measured professional pan toward the harbor as men stop working. Water pulls away in an impossible continuous retreat, ropes strain, small boats settle, fish flop on wet harbor floor, exposed pilings drip. Soldiers do not scream; they freeze and stare, confused before fear. Camera remains mostly steady but the pan has tiny human correction, as if Tanaka understands something is wrong but refuses to abandon protocol. Maintain Ektachrome daylight, documentary pace, no reveal of @Magnitude yet.",
+        "video_prompt": "Begin with Tanaka holding the soldiers and trucks, then execute one measured professional pan toward the harbor as men stop working. Water pulls away in an impossible continuous retreat, ropes strain, small boats settle, fish flop on wet harbor floor, exposed pilings drip. Soldiers do not scream; they freeze and stare, confused before fear. Camera remains mostly steady but the pan has tiny human correction, as if Tanaka understands something is wrong but refuses to abandon protocol. Maintain Ektachrome daylight, documentary pace, no reveal of @Magnitude yet.",
+        "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no visible kaiju body yet, no tidal wave, no explosion, no crowd stampede, no comedic reactions, no exaggerated acting, no modern disaster-movie polish",
+        "qc_gate": [
+          "Water retreat is physically legible and unnatural, not just low tide",
+          "Soldiers visibly stop and look toward water",
+          "Tanaka pan is controlled and professional, not chaotic yet",
+          "No @Magnitude body visible before shot 003",
+          "Continuity with shot 001 harbor geometry and period assets",
+          "No repeated pilings, cloned fish, or tiled mud textures",
+          "1966 Ektachrome look remains consistent",
+          "Tension builds through behavior and sound, not overdone VFX"
+        ]
+      },
+      {
+        "shot_id": "MAG_EP01_003",
+        "shot_name": "The Emergence",
+        "timestamp": "0:30-0:45",
+        "duration_seconds": 15,
+        "entity_anchor": "@Magnitude",
+        "first_frame_source": "frames/first_frames/mag_ep01_003_the_emergence.png",
+        "camera_vector": "VECTOR_LOCKED_REVEAL_WITH_FOOTSTEP_SHAKE: hold @Magnitude center frame, slight reframe upward, vertical shocks synced to steps.",
+        "parametric_prompt": "[ENTITY:@Magnitude locked to character_bible pages 01,02,04,05] [PERIOD_STOCK:16mm Kodak Ektachrome 1966 classified military observation reel] [OBSERVER:PFC Tanaka disciplined military cameraman] [ASPECT:9:16 vertical 1080x1920] [CAMERA:VECTOR_LOCKED_REVEAL_WITH_FOOTSTEP_SHAKE: hold @Magnitude center frame, slight reframe upward, vertical shocks synced to steps.] [SHOT:The Emergence / EMERGENCE / 0:30-0:45] @Magnitude rises fully from the harbor over fifteen seconds, a Godzilla-scale kaiju but locked to the supplied @Magnitude entity design. Water pours off the head, shoulders, arms, and dorsal plates; the harbor basin collapses in waves around its legs. Soldiers scatter at the bottom edge but remain tiny and non-heroic. Tanaka keeps the monster centered and in focus as long as possible \u2014 professional discipline under impossible circumstances. Each heavy step sends mechanical shock through the tripod, adding short vertical shakes and film registration jumps. Dorsal plates stay dark, wet, and uncharged. Full scale against 1966 harbor buildings; documentary awe, not glossy creature-feature spectacle.",
+        "video_prompt": "@Magnitude rises fully from the harbor over fifteen seconds, a Godzilla-scale kaiju but locked to the supplied @Magnitude entity design. Water pours off the head, shoulders, arms, and dorsal plates; the harbor basin collapses in waves around its legs. Soldiers scatter at the bottom edge but remain tiny and non-heroic. Tanaka keeps the monster centered and in focus as long as possible \u2014 professional discipline under impossible circumstances. Each heavy step sends mechanical shock through the tripod, adding short vertical shakes and film registration jumps. Dorsal plates stay dark, wet, and uncharged. Full scale against 1966 harbor buildings; documentary awe, not glossy creature-feature spectacle.",
+        "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no blue glowing dorsal plates yet, no atomic breath, no fire, no multiple monsters, no generic dragon wings, no T-rex posture, no cartoon roar pose, no clean VFX splash, no impossible tiny monster scale",
+        "qc_gate": [
+          "@Magnitude matches character_bible pages 01/02/04/05 and is not a generic kaiju",
+          "Dorsal plates remain dark and non-glowing throughout this shot",
+          "Creature scale is massive against buildings, cranes, soldiers, and harbor geometry",
+          "Water cascades convincingly from body and plates",
+          "Tanaka holds frame professionally; shake is from footsteps, not random handheld panic",
+          "No atomic breath, fire beam, or blue charge before shot 004",
+          "Ektachrome 16mm archive texture remains coherent under spray",
+          "No duplicated monster limbs, warped scale, or tiled building facades"
+        ]
+      },
+      {
+        "shot_id": "MAG_EP01_004",
+        "shot_name": "The Last Frame",
+        "timestamp": "0:45-1:00",
+        "duration_seconds": 15,
+        "entity_anchor": "@Magnitude",
+        "first_frame_source": "frames/first_frames/mag_ep01_004_the_last_frame.png",
+        "camera_vector": "VECTOR_GROUND_POV_TILT_UP_TO_OVEREXPOSE: low-angle tilt up along torso/dorsal plates to head; energy bloom destroys exposure and film.",
+        "parametric_prompt": "[ENTITY:@Magnitude locked to character_bible pages 01,02,04,05] [PERIOD_STOCK:16mm Kodak Ektachrome 1966 classified military observation reel] [OBSERVER:PFC Tanaka disciplined military cameraman] [ASPECT:9:16 vertical 1080x1920] [CAMERA:VECTOR_GROUND_POV_TILT_UP_TO_OVEREXPOSE: low-angle tilt up along torso/dorsal plates to head; energy bloom destroys exposure and film.] [SHOT:The Last Frame / ATOMIC BREATH / 0:45-1:00] @Magnitude dorsal plates charge from dim cobalt to violent blue-white in a sequential pulse running up the spine. Tanaka tilts up from ground-level as the air distorts and the harbor falls into terrified shadow. The creature opens its jaws; blue atomic energy concentrates in the throat. Hold one impossible professional frame for the instant before discharge. Then atomic breath fires directly across/near camera axis: the frame overexposes, emulsion blooms, sprocket-edge burn, orange-white film melt, torn static, then black. End with archival card text: PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO. No dialogue. The last usable image is the blue-white blast consuming the 16mm film.",
+        "video_prompt": "@Magnitude dorsal plates charge from dim cobalt to violent blue-white in a sequential pulse running up the spine. Tanaka tilts up from ground-level as the air distorts and the harbor falls into terrified shadow. The creature opens its jaws; blue atomic energy concentrates in the throat. Hold one impossible professional frame for the instant before discharge. Then atomic breath fires directly across/near camera axis: the frame overexposes, emulsion blooms, sprocket-edge burn, orange-white film melt, torn static, then black. End with archival card text: PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO. No dialogue. The last usable image is the blue-white blast consuming the 16mm film.",
+        "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no premature beam at first frame, no laser sword, no colorful rainbow beam, no clean sci-fi plasma, no superhero pose, no visible gore, no prolonged readable aftermath, no modern text styling, no polished end credits",
+        "qc_gate": [
+          "Dorsal plates visibly glow blue only now, clearly sequential up the spine",
+          "Camera starts professional then destabilizes from energy/impact, not random chaos",
+          "Ground-level POV maintains terrifying scale of @Magnitude",
+          "Atomic breath overexposes and burns film convincingly",
+          "Final blackout/static feels like recovered damaged 16mm, not a clean fade",
+          "End card text is exact: PFC TANAKAS CAMERA WAS RECOVERED 3 DAYS LATER 200 METERS FROM GROUND ZERO",
+          "No graphic injury shown; catastrophe is implied through image/sound failure",
+          "No modern credits, subtitles, watermarks, or polished VFX aesthetic"
+        ]
+      }
+    ]
+  }
+}

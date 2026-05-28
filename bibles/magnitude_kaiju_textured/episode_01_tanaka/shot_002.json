@@ -1,0 +1,47 @@
+{
+  "shot_id": "MAG_EP01_002",
+  "shot_name": "The Water Recedes",
+  "narrative_phase": "UNEASE",
+  "timestamp": "0:15-0:30",
+  "duration": 15,
+  "aspect_ratio": "9:16",
+  "resolution": "1080x1920",
+  "entity_anchor": "@Magnitude",
+  "first_frame_prompt": "Ektachrome military observation reel, 1966 classified harbor footage, vertical 9:16. Same harbor location moments later: the water has begun pulling unnaturally away from the pier, exposing wet pilings, mud flats, stranded fish, dragging ropes, and boat hulls tilting lower than they should. Soldiers stop mid-task and turn toward the harbor, one hand raised to shield eyes, one crate left suspended in awkward hesitation. PFC Tanaka keeps the frame disciplined but the composition has shifted toward the receding water. Unease without spectacle. Kodak Ektachrome warm daylight, cyan shadows, 16mm archive grain, dust, slight edge softness, period military realism. ANTI-TILING GUARDRAILS: one continuous documentary frame, unique non-repeating harbor geometry, no cloned windows, no repeated crates, no mirror-symmetry rows, no tiled water texture, no duplicated soldiers, no pattern wallpaper, no mosaic seams, no AI kaleidoscope; organic 16mm grain may repeat but scene objects must not.",
+  "video_prompt": "Begin with Tanaka holding the soldiers and trucks, then execute one measured professional pan toward the harbor as men stop working. Water pulls away in an impossible continuous retreat, ropes strain, small boats settle, fish flop on wet harbor floor, exposed pilings drip. Soldiers do not scream; they freeze and stare, confused before fear. Camera remains mostly steady but the pan has tiny human correction, as if Tanaka understands something is wrong but refuses to abandon protocol. Maintain Ektachrome daylight, documentary pace, no reveal of @Magnitude yet.",
+  "negative_prompt": "no modern digital camera look, no DSLR, no phone footage, no drone shot, no clean 4K HDR, no CGI gloss, no anime, no cartoon, no game engine render, no glossy plastic monster, no extra monsters, no duplicate kaiju, no incorrect creature design, no wrong dorsal silhouette, no repeated tiled buildings, no duplicated boats, no warped text, no subtitles, no watermark, no UI overlay, no colorized modern footage, no perfect stabilization beyond specified tripod/pan, no blood, no gore, no graphic civilian injury, no comedy, no jump-cut montage, no visible kaiju body yet, no tidal wave, no explosion, no crowd stampede, no comedic reactions, no exaggerated acting, no modern disaster-movie polish",
+  "camera": {
+    "shot_size": "wide-to-wider observational pan",
+    "angle": "dockside eye level, looking from soldiers toward exposed harbor basin",
+    "lens": "16mm documentary lens around 28mm equivalent, deep focus but soft archival edges",
+    "movement": "slow left-to-right pan toward water, steady professional correction, no frantic whip pan"
+  },
+  "lighting": {
+    "source": "same natural daylight as shot 001",
+    "quality": "warm sun over wet exposed harbor floor, cyan-green shadows under pier",
+    "exposure": "slight manual iris adjustment as reflective water leaves frame",
+    "palette": [
+      "wet mud brown",
+      "harbor green-blue",
+      "olive drab",
+      "faded yellow sunlight",
+      "rust and rope tan"
+    ]
+  },
+  "audio_cue": {
+    "timestamp": "0:15-0:30",
+    "description": "Harbor bed thins out. Water suction and reverse tide slurp, ropes creak hard, stranded fish slap, truck idle drops under a low-frequency sub-rumble. Soldiers murmur indistinctly via distant Fish S2 Pro-style radio texture, but no intelligible dialogue.",
+    "intensity": "3/10 \u2192 5/10",
+    "music": "dark military tension drone enters, very low and restrained"
+  },
+  "qc_checklist": [
+    "Water retreat is physically legible and unnatural, not just low tide",
+    "Soldiers visibly stop and look toward water",
+    "Tanaka pan is controlled and professional, not chaotic yet",
+    "No @Magnitude body visible before shot 003",
+    "Continuity with shot 001 harbor geometry and period assets",
+    "No repeated pilings, cloned fish, or tiled mud textures",
+    "1966 Ektachrome look remains consistent",
+    "Tension builds through behavior and sound, not overdone VFX"
+  ]
+}
