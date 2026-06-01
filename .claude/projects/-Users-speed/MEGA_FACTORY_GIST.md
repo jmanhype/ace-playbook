@@ -393,6 +393,219 @@ CHARACTER_IDENTITY_LOCK:
 
 ---
 
+## UGC COMMERCIAL PIPELINE (May 2026)
+
+### Overview
+
+**High-quality AI UGC video generation for Amazon/Meta brands**
+
+**Status**: ✅ System Ready (May 31, 2026)
+
+**Location**: `/Users/speed/Documents/Codex/2026-04-27/ok-we-created-a-gpt-image/`
+
+**Purpose**: Generate 40-60 second direct-response UGC commercials with psychologically structured hooks, NOT volume slop
+
+### Market Context
+
+**What brands actually want:**
+- 1-3 high-quality videos per campaign (not 500 low-quality clips)
+- 40-60 second structured ads (not 5-second disconnected segments)
+- Performance creative for Amazon listings, Meta ads, apps
+- Conversion-focused content with measurable ROAS
+
+**What the "Twitter grifters" sell:**
+- "100-500 AI videos per day" automation
+- Volume over quality
+- Course selling, not actual ad revenue
+- Missing Stripe dashboards and real CPA data
+
+### The Two-GPT Architecture
+
+```
+Brand Brief → [UGC Creative Director v1.0] → Creative JSON (hooks, scripts)
+                                  ↓
+                          [SOTA Parametric Director v6.0] → Kling 3.0 syntax
+                                  ↓
+                              [Kling 3.0 Render] → Final video
+```
+
+| GPT | Role | Input | Output |
+|-----|------|-------|--------|
+| **UGC Creative Director v1.0** | Creative Strategy | Brand brief (product, benefits, audience) | JSON with hooks, scripts, visual concepts |
+| **SOTA Parametric Director v6.0** | Technical Translation | Visual concept + entity anchors | Kling 3.0 parametric syntax (cam vectors, @entities) |
+
+### Direct Response Framework (The Psychology)
+
+Every 60-second UGC ad follows this exact sequence:
+
+1. **THE HOOK (0-5s)**: Pattern interrupt
+   - Negative framing: "Stop buying X until you know Y"
+   - Visual anomaly: Extreme close-up of skin condition
+   - Curiosity gap: "My doctor was shocked when..."
+   - Tribalism: "Why 90% of people fail at..."
+   - ❌ FORBIDDEN: "I have a secret", "Hey guys", generic filler
+
+2. **THE AGITATION (5-15s)**: Pain point activation
+   - Make the problem feel worse
+   - Build emotional tension
+   - Connect anxiety to specific product category
+
+3. **THE MECHANISM (15-35s)**: Product as solution
+   - Show EXACTLY how it works
+   - Close-ups, demonstrations
+   - Logical bridge between problem and solution
+
+4. **THE PROOF (35-50s)**: Social validation
+   - Visual transformation (before/after)
+   - Testimonials, data
+   - Make benefit undeniable
+
+5. **THE CTA (50-60s)**: Hard call to action
+   - Urgency, scarcity
+   - Discount code, "link in bio"
+   - Direct command (no soft endings)
+
+### The Compliance Gate (Validation)
+
+Before video generation, every concept passes through `DirectResponseComplianceGate()`:
+
+**Three Boolean questions:**
+1. **HOOK_PATTERN_INTERRUPT**: Does scene 1 have biological/visual anomaly? (True/False)
+2. **LOGICAL_BRIDGE**: Does agitation connect to THIS specific product? (True/False) - Prevents "stomach pain for vaginal probiotic"
+3. **NO_WASTED_SECONDS**: Are first 3 seconds free of filler? (True/False)
+
+**If ALL True** → Proceed to generation  
+**If ANY False** → Regenerate scene
+
+### File Structure
+
+```
+/Users/speed/Documents/Codex/2026-04-27/ok-we-created-a-gpt-image/
+├── ugc_script_generator_v2.py          # Main orchestrator
+├── UGC_Creative_Director_GPT_Instructions.txt  # GPT prompt
+├── SOP_UGC_VIDEO_PRODUCTION.md         # Workflow SOP
+└── output/                               # Generated campaigns
+    ├── campaign.json                    # Full campaign data
+    ├── campaign.md                      # Human-readable
+    └── kling_syntax.txt                 # Ready for Kling
+```
+
+### Usage Examples
+
+**Interactive mode:**
+```bash
+python3 ugc_script_generator_v2.py --interactive
+```
+
+**From brief:**
+```bash
+python3 ugc_script_generator_v2.py --brief glow_skin_brief.json --output ./ugc_output
+```
+
+**Generate template:**
+```bash
+python3 ugc_script_generator_v2.py --template
+```
+
+### Brief Template Structure
+
+```json
+{
+  "product_name": "GlowSkin Probiotic",
+  "product_type": "supplement",
+  "key_benefits": ["pH balance", "clearer skin", "reduced bloating"],
+  "target_audience": "Women 25-40, wellness-conscious",
+  "tone": "authentic, slightly vulnerable",
+  "video_length": "60s",
+  "entity_anchors": ["@Woman", "@Product"]
+}
+```
+
+### Execution Pipeline
+
+**Phase 1: Creative Generation**
+1. Input brand brief
+2. UGC Creative Director GPT generates 6-8 scenes
+3. Compliance Gate validates each scene
+4. Output: JSON with hooks, scripts, visual concepts
+
+**Phase 2: Technical Translation**
+1. For each scene: Extract visual concept
+2. Send to SOTA Parametric Director GPT
+3. Output: Kling 3.0 parametric syntax
+   - Entity anchors: `<@Woman:1.5>`
+   - Camera vectors: `(--cam: subtle_handheld_shake_0.4, zoom_z_0.1->0.5)`
+   - Dynamic weights: `lighting:0.1->1.0`
+
+**Phase 3: Video Generation**
+1. First frames: Codex gpt-image-2 (from visual_concept)
+2. Video render: Kling 3.0 or Grok (from Kling syntax)
+3. Audio: Fish Audio S2 Pro (voiceover) + Sony Woosh (foley)
+4. Stitch: ffmpeg (assemble 40-60s final video)
+
+### Key Differences from SGFLIX
+
+| Aspect | SGFLIX Factory | UGC Commercial |
+|---|---|---|
+| **Purpose** | Cinematic content, one-offs, franchises | Amazon/Meta ads, direct response |
+| **Duration** | 45s-1m10s (episodic) | 40-60s (single ad) |
+| **Structure** | Storyboard-first, character bibles | Hook-first, psychological framework |
+| **Entities** | @Kaiju, @Characters (recurring) | @UGC_Subject, @Product (one-off) |
+| **Camera Style** | Cinematic, parametric | iPhone selfie, handheld, UGC aesthetic |
+| **Validation** | Cannon Films poster test | Compliance Gate (3 questions) |
+| **Output** | Episodic content, franchises | Single high-converting ad |
+
+### Tool Stack
+
+| Tool | Purpose | Location |
+|---|---|---|
+| UGC Creative Director v1.0 | Creative strategy, hooks | ChatGPT Custom GPT |
+| SOTA Parametric Director v6.0 | Kling 3.0 syntax translation | ChatGPT Custom GPT |
+| ugc_script_generator_v2.py | Pipeline orchestration | Mac: `~/Documents/Codex/.../` |
+| Codex gpt-image-2 | First-frame generation | Mac: Codex Desktop |
+| Kling 3.0 / Grok | Video rendering | Web / API |
+| Fish Audio S2 Pro | Voice cloning, lip-sync | 3090: `~/fish-audio-api/` |
+| Sony Woosh | Foley from video pixels | 3090: `~/woosh/` |
+| ffmpeg | Stitch, final assembly | Mac / 3090 |
+
+### Case Study: Why "SugarLips" Failed
+
+**The Problem:**
+- Hook: "I have a secret to tell you" (generic, no pattern interrupt)
+- Agitation: "My stomach hurts" (for vaginal probiotic - logical disconnect)
+- Proof: "My skin feels smooth" (unrelated benefit claim)
+- Visual: Conventionally attractive girl (no anomaly)
+
+**The Fix:**
+- Hook: Visual anomaly + "Stop blaming your diet for skin that won't clear up"
+- Agitation: "Tried every serum, nothing worked" (connects to skincare)
+- Mechanism: "Gut microbiome imbalance shows on your face" (logical bridge)
+- Proof: "After two weeks, skin actually glows" (transformation visible)
+
+**Result:**
+- Original: CPA ~$85+ (weak hook, disconnect)
+- Fixed: CPA ~$12 (pattern interrupt + emotional resonance)
+
+### Integration with Existing Factory
+
+The UGC Commercial Pipeline is a **separate, complementary system** to SGFLIX:
+
+- **SGFLIX**: Long-form episodic content, character-driven, cinematic
+- **UGC Commercial**: Short-form ads, psychology-driven, performance-focused
+
+**Shared components:**
+- SOTA Parametric Director v6.0 (both use Kling syntax)
+- Codex gpt-image-2 (first frames for both)
+- Audio Factory (voice/foley for both)
+- ffmpeg (stitching for both)
+
+**Distinct components:**
+- UGC Creative Director v1.0 (UGC only - hooks, DR framework)
+- Compliance Gate (UGC only - validation)
+- Poster-first validation (SGFLIX only)
+
+---
+
 ## MOTION CAPTURE FACTORY
 
 ### Overview
