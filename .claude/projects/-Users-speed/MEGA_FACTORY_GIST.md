@@ -1345,6 +1345,289 @@ cat critiques/*_critique.json  # Review scores
 - **RVC_REFERENCE_AUDIO_GUIDE.md**: Voice cloning guide
 - **wet_reckless_complete_production_gist.md**: Track-specific documentation
 
+#### Advanced Artifact Fixes (May 29, 2026 SOTA)
+
+**Beyond Basic Generation: Latent Space & Post-Production Fixes**
+
+The standard SGFLIX pipeline achieves 100% keeper rates with Cover 1.0 and Reference audio modes. However, for maximum quality and advanced post-production, two SOTA approaches exist for fixing ACE-Step 1.5 artifacts:
+
+**Approach 1: Fix in Latent Space (Native/Pre-Decode)**
+
+1. **gary4juce VST3 Plugin** - Lego Mode for conditioned vocals
+   - [GitHub: betweentwomidnights/gary4juce](https://github.com/betweentwomidnights/gary4juce)
+   - [Official VST3: ace-step/acestep.vst3](https://github.com/ace-step/acestep.vst3)
+   - **Modes**: lego (vocals over existing audio), complete (continuation), cover (remix)
+   - **Purpose**: Generate conditioned vocals directly over DAW instrumental track
+   - **Advantage**: No phase alignment issues, native vocal generation
+
+2. **DEMON** - TensorRT streaming diffusion engine
+   - [GitHub: daydreamlive/DEMON](https://github.com/daydreamlive/DEMON)
+   - [Documentation](https://daydreamlive.github.io/DEMON/)
+   - [arXiv Paper](https://arxiv.org/pdf/2605.28657)
+   - **Purpose**: Real-time streaming diffusion for ACE-Step v1.5
+   - **Targets**: TensorRT 10.16.x
+   - **Fix**: Eliminates "eeee" whine at compute layer via different float calculations
+   - **Performance**: ~25Hz real-time generation
+   - **Advantage**: Fundamental artifact removal at inference engine level
+
+3. **scromfyUI_Nodes** - ComfyUI custom nodes with KSampler shift
+   - [GitHub: scruffynerf/scromfyUI_Nodes](https://github.com/scruffynerf/scromfyUI_Nodes)
+   - **Alternative**: [JK AceStep Nodes](https://comfy.icu/extension/jeannkassio__JK-AceStep-Nodes)
+   - **Purpose**: Advanced KSampler control for audio
+   - **KSampler Shift**: Controls noise schedule for cleaner transients
+   - **Fix**: Resolves muddy instrument mixes without regenerating entire song
+   - **⚠️ Note**: Scromfy AceStep Sampler is NOT publicly available (private implementation)
+   - **Advantage**: Surgical fixes to muddy sections while preserving good sections
+
+4. **HeartMuLa** - LLM-based music codec (ultimate fallback)
+   - [arXiv Paper](https://arxiv.org/html/2601.10547v1)
+   - [Abstract](https://arxiv.org/abs/2601.10547)
+   - **Purpose**: Hierarchical music LM with codec tokenizer
+   - **Architecture**: Autoregressive codec token prediction with global context
+   - **Fix**: Avoids diffusion artifacts entirely (different mathematical approach)
+   - **Advantage**: No "muddy" or "whine" artifacts inherent to diffusion models
+   - **Use Case**: When ACE-Step 1.5 still sounds too synthetic for specific genres
+
+**Approach 2: Post-Production Pipeline (Stem-Level Fixes)**
+
+1. **BS-Roformer** - Stem separation (ByteDance SOTA)
+   - [GitHub: lucidrains/BS-RoFormer](https://github.com/lucidrains/BS-RoFormer)
+   - [Inference API: openmirlab/bs-roformer-infer](https://github.com/openmirlab/bs-roformer-infer)
+   - **Purpose**: Extract vocals, drums, bass, other stems from mixed audio
+   - **Fix**: Isolate problematic vocal stem for separate treatment
+   - **Advantage**: Clean stem extraction for targeted fixes
+
+2. **RVC (Retrieval-based Voice Conversion)** - v2/v3
+   - [GitHub: RVC-Project/Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
+   - **Purpose**: Map robotic ACE-Step vocals to realistic human voice models
+   - **Fix**: Complete vocal timbre replacement, adds natural breath and emotion
+   - **Workflow**: BS-Roformer stem extraction → RVC pass → Mix back over instrumental
+   - **Advantage**: Deletes robotic artifacting completely, not just EQ
+   - **Status**: v2 stable, v3 in development
+
+3. **AudioSR** - Neural audio super-resolution
+   - [GitHub: haoheliu/versatile_audio_super_resolution](https://github.com/haoheliu/versatile_audio_super_resolution)
+   - [ICASSP 2024 Paper](https://personalpages.surrey.ac.uk/w.wang/papers/Liu%20et%20al_ICASSP_2024.pdf)
+   - **Purpose**: Upsample any audio to 48kHz high-fidelity
+   - **Fix**: Rebuilds high-end transients from scratch (eliminates whine)
+   - **Technology**: Diffusion-based + HiFi-GAN neural vocoder
+   - **Advantage**: No notch EQ needed, preserves cymbals/snare/air
+   - **Use Case**: Replace spectral peak whine with clean high frequencies
+
+4. **HiFi-GAN** - Neural vocoder
+   - [GitHub: jik876/hifi-gan](https://github.com/jik876/hifi-gan) (official)
+   - **Purpose**: GAN-based high-fidelity speech generation
+   - **Role**: Used by AudioSR for refinement and vocoding
+   - **Advantage**: Professional-grade vocoding for clean high-end
+
+5. **Bandit v2** - Cinematic audio source separation
+   - [GitHub: kwatcharasupat/bandit-v2](https://github.com/kwatcharasupat/bandit-v2)
+   - [Original Bandit](https://github.com/kwatcharasupat/bandit)
+   - **Purpose**: Extract dialogue, music, effects from cinematic audio
+   - **Architecture**: Band-split neural network for cinematic separation
+   - **Advantage**: Specialized for complex audio mixes (film, video production)
+
+6. **vaos-voice-bridge** - PersonaPlex/Moshi integration
+   - [GitHub: jmanhype/vaos-voice-bridge](https://github.com/jmanhype/vaos-voice-bridge)
+   - [Technical Gist](https://gist.github.com/jmanhype/5aefd67d9e67b37a8b408abdab39b6d3)
+   - **Purpose**: Talker-Reasoner architecture on PersonaPlex
+   - **System 1 (Talker)**: PersonaPlex/Moshi real-time conversation at 12.5Hz
+   - **System 2 (Reasoner)**: Letta agent for deeper reasoning
+   - **Advantage**: Dual-process cognitive architecture for voice AI
+
+**Comparison: Latent Space vs Post-Production**
+
+| Aspect | Latent Space (Approach 1) | Post-Production (Approach 2) |
+|--------|----------------------------|-------------------------------|
+| **Phase Coherence** | ✅ Perfect (native generation) | ⚠️ Requires stem realignment |
+| **Speed** | ✅ Fast (single pass) | ❌ Slower (multi-stage) |
+| **Complexity** | ❌ High (TensorRT, custom nodes) | ✅ Medium (standard tools) |
+| **Flexibility** | ❌ Locked during generation | ✅ Post-hoc adjustments |
+| **Quality** | ✅ SOTA (fixes at source) | ✅ SOTA (neural processing) |
+| **Best For** | Real-time, DAW integration | Mastering, final polish |
+
+**Recommendation**:
+
+- **For production speed**: Use Approach 1 (Latent Space) - Fix artifacts natively during generation
+- **For maximum quality**: Use Approach 2 (Post-Production) - Neural stem processing and upsampling
+- **For best results**: Combine both - DEMON for generation + AudioSR for final high-end refinement
+
+**Current Status**: Both approaches documented but not yet tested in SGFLIX factory. The standard pipeline (Cover 1.0 mode + Reference audio) achieves 100% keeper rates without these advanced fixes.
+
+---
+
+### ACE-Step Ecosystem Tools (from awesome-ace-step)
+
+**Complete Tool Catalog for ACE-Step 1.5**
+
+**Official VST3 & DAW Integration**
+- [acestep.vst3](https://github.com/ace-step/acestep.vst3) - Official VST3 plugin (JUCE 8 + GGML)
+- [acestep.cpp](https://github.com/ServeurpersoCom/acestep.cpp) - Portable C++17/GGML implementation
+- [gary4juce](https://github.com/betweentwomidnights/gary4juce) - VST3/AU with 6 music models (Lego Mode)
+- **ACE-Step Lua for REAPER** (La Chí Nhân) - Commercial Lua script for REAPER DAW
+  - **Modes**: Text-to-Music, Add Player (Lego), Remix/Cover, Repaint/Re-generate, Voice/Stems Extractor, A Capella Generator
+  - **Features**: Smart Timeline Integration, Auto-downloads batch generations into REAPER takes
+  - **Advanced Controls**: ODE/SDE methods, ADG (Adaptive Dual Guidance), Seed Locking
+  - **Price**: $5/month subscription (includes script + updates)
+  - **Link**: [Ko-fi Shop](https://ko-fi.com/s/e10b421327)
+  - **Status**: Commercial product, actively maintained
+
+**Complete Workstation**
+- [StemForge](https://github.com/tsondo/StemForge) - Local GPU-accelerated audio workstation
+  - **Features**: Stem separation (Demucs, BS-Roformer), MIDI extraction, ACE-Step composition, RVC voice conversion, mixing, export
+  - **Architecture**: All-in-one browser UI for complete production pipeline
+  - **Purpose**: Post-production polishing of generated tracks
+  - **Status**: Production-ready, actively maintained
+
+---
+
+### Complete Production Pipeline: Two-Stage Workflow
+
+**Stage 1: Automated Generation (SGFLIX Factory)**
+```
+SGFLIX Auto-Producer Loop
+    ↓
+Create Payload (style, BPM, lyrics, reference/cover mode)
+    ↓
+ACE-Step 1.5 Generation (120s @ 100 steps)
+    ↓
+DSP Analysis (BPM, LUFS, spectral, Whisper)
+    ↓
+Proxy Critic Scoring (0-40 scale)
+    ↓
+Auto-Mutation (if score < 35)
+    ↓
+Repeat (3-6 iterations)
+    ↓
+Output: Keeper candidate (35+ score, 100% keeper rate with Cover 1.0/Reference modes)
+```
+
+**Stage 2: Post-Production Polish (StemForge)**
+```
+Load Keeper into StemForge
+    ↓
+Stem Separation (Demucs 4-stem: vocals, drums, bass, other)
+    ↓
+Vocal Enhancement (RVC voice conversion if needed, EQ, compression)
+    ↓
+Instrument Processing (drums enhancement, bass tightening, other polish)
+    ↓
+Mixing (balance levels, stereo width, reverb, delay)
+    ↓
+Mastering (LUFS normalization -14 EBU R128, final EQ, saturation)
+    ↓
+Export: Production-ready master
+```
+
+**Why Two Stages?**
+
+- **Stage 1 (Automated)**: Generates high-quality raw tracks fast (5-10 min per batch)
+- **Stage 2 (Manual)**: Polishes to production quality with stem-level control
+- **Separation of concerns**: Generation automation vs creative mixing decisions
+- **Best of both**: AI scale + human taste
+
+**File Flow:**
+```
+/mnt/bulk/home/straughter/sgflix_audio_factory/runs/run_XYZ/
+    ↓
+keeper_track.wav (raw generation, 35+ score)
+    ↓
+scp to local machine / Upload to StemForge
+    ↓
+StemForge browser UI processing
+    ↓
+Export: production_master.wav
+```
+
+**Quality Targets:**
+
+| Stage | Quality Metric | Target |
+|-------|---------------|--------|
+| **Generation** | Proxy Critic Score | 35+ / 40 |
+| **Generation** | Keeper Rate | 100% (Cover 1.0/Reference) |
+| **Post-Prod** | LUFS | -14 ± 2 (EBU R128) |
+| **Post-Prod** | True Peak | < -1.0 dBTP |
+| **Post-Prod** | Stem Separation | 4 clean stems |
+| **Final** | Dynamic Range | DR8-12 (music) |
+
+**Tools for Each Stage:**
+
+**Stage 1 (Generation)**:
+- SGFLIX auto-producer loop
+- ACE-Step 1.5 (Cover 1.0 or Reference audio mode)
+- Proxy critic (quality gate)
+- DSP metrics pipeline (Madmom, Whisper, Demucs, LUFS)
+
+**Stage 2 (Post-Production)**:
+- StemForge (primary workstation)
+- BS-Roformer (stem separation)
+- RVC (vocal conversion if needed)
+- AudioSR (high-frequency rebuild if whine present)
+- Built-in mixing/mastering tools
+
+**Alternative: Single-Stage DAW Workflow (Reaper)**
+
+For comparison, the Reaper Lua script approach combines both stages in one DAW:
+```
+Reaper DAW + ACE-Step Lua Script
+    ↓
+Generate (Text-to-Music, Lego, Cover, Repaint modes)
+    ↓
+Mix/Master (in Reaper using professional DAW tools)
+    ↓
+Export: Production-ready master
+```
+
+**Trade-offs:**
+- **Two-Stage (Factory + StemForge)**: ✅ Keeps automation ✅ 100% keeper rate ✅ Scalable ❌ Manual file transfer
+- **Single-Stage (Reaper)**: ✅ All-in-one workflow ❌ Loses factory automation ❌ Manual generation only
+
+**Recommendation**: Two-stage workflow preserves your automated factory while adding professional post-production capabilities.
+
+---
+
+**Advanced UIs & Studios**
+- [ace-step-ui (fspecii)](https://github.com/fspecii/ace-step-ui) - Spotify-inspired, stem extraction, video gen
+- [ace-step-studio (roblaughter)](https://github.com/roblaughter/ace-step-studio) - Suno-style studio workflow
+- [Tadpole Studio](https://github.com/proximasan/tadpole-studio) - AI DJ, Radio, LoRA training, HeartMuLa backend
+- [ACE-Step-1.5-for-windows](https://github.com/sdbds/ACE-Step-1.5-for-windows) - 936 Suno tags, 4-language UI, LoRA/LoKR training
+- [Majik's Music Studio](https://github.com/Majiks-Studio/majiks-music-studio) - Native macOS/Linux, Apple Silicon MLX
+
+**ComfyUI Integrations**
+- [ComfyUI-AceMusic](https://github.com/hiroki-abe-58/ComfyUI-AceMusic) - 15 nodes: generation, cover, repaint, extend, edit, LoRA
+- [scromfyUI-AceStep](https://github.com/scruffynerf/scromfyUI-AceStep) - 30+ nodes, KSampler shift, multi-API lyrics
+- [ComfyUI-FL-AceStep-Training](https://github.com/filliptm/ComfyUI-FL-AceStep-Training) - LoRA training pipeline
+- [ComfyUI_RH_ACE-Step](https://github.com/HM-RunningHub/ComfyUI_RH_ACE-Step) - Basic generation nodes
+
+**Training & Fine-Tuning**
+- [Side-Step](https://github.com/koda-dernet/Side-Step) - Standalone LoRA/LoKR toolkit, 8GB VRAM, interactive wizard
+- [Ace-Step-1.5-Dataset-Manager](https://github.com/Neyroslav/Ace-Step-1.5-Dataset-Manager) - Desktop tool (Qt/C++) for editing LoRA datasets
+
+**Data Annotation**
+- [acestep-captioner](https://huggingface.co/ACE-Step/acestep-captioner) - 11B music captioning (Qwen2.5 Omni), 1000+ instruments
+- [acestep-transcriber](https://huggingface.co/ACE-Step/acestep-transcriber) - Qwen2.5 Omni-based transcription, 50+ languages
+
+**All-in-One Workstations**
+- [StemForge](https://github.com/tsondo/StemForge) - Local GPU workstation: stem separation, MIDI, ACE-Step, RVC, mixing
+- [DEMON](https://github.com/daydreamlive/DEMON) - Streaming diffusion engine with TensorRT
+
+**Deployment & Services**
+- [ace-step-1.5 Docker](https://github.com/ValyrianTech/ace-step-1.5) - Docker image (~15GB), REST API, RunPod template
+- [Boppy](https://boppy.me) - Free hosted AI music generator, no signup
+- [Generative Radio](https://github.com/scramblerlab/generative-radio) - Fully local AI radio station
+
+**Alternative Models**
+- [YuE](https://github.com/multimodal-art-projection/YuE) - LLaMA2 autoregressive, lyrics → song
+- [DiffRhythm](https://github.com/ASLP-lab/DiffRhythm) - Lyrics → 4:45 song in ~10s
+- [SongGeneration (LeVo)](https://github.com/tencent-ailab/SongGeneration) - Transformer-based, high quality
+
+**Official Resources**
+- [ACE-Step 1.5 GitHub](https://github.com/ace-step/ACE-Step-1.5) - Latest codebase with Gradio UI, REST API, CLI
+- [HuggingFace Models](https://huggingface.co/ACE-Step) - All official weights, LoRAs, spaces
+- [Project Page v1.5](https://ace-step.github.io/ace-step-v1.5.github.io/) - Hybrid LM + DiT architecture
+
+---
+
 ---
 
 ### Production Test Results (May 26, 2026 + ACE-Step Updates May 29, 2026)
@@ -1865,3 +2148,293 @@ journalctl -f
 - **Audio Factory**: https://gist.github.com/jmanhype/4c82d389db8fc6ad38a1e85d954050c1
 - **Dark Factory**: https://gist.github.com/jmanhype/0eeff0a6e15c14755e191c7c080726f8
 - **Infrastructure**: https://gist.github.com/jmanhype/af6c078899cf0760ed37852810e54cf0
+
+---
+
+## SGFLIX PRODUCTION PIPELINE V2 - COMPLETE EXECUTION SYSTEM
+
+**Status**: ✅ PRODUCTION PROVEN (Magnitude Kaiju masterwork)
+**Documentation**: ~/Documents/Codex/2026-04-27/ok-we-created-a-gpt-image/SGFLIX_PIPELINE_V2.md
+**Last Updated**: May 2026
+
+### 3-GPT Architecture
+
+| GPT | Role | When |
+|-----|------|------|
+| **Lost Futures Visual Aesthetic Architect** | Defines exact dead production register (era, format, camera, texture, grain, artifacts, emotional contradiction) | Phase 0 — before anything else |
+| **Kiro / Codex** | Factory brain — executes bibles, posters, storyboards, first-frames, entity prep, audio orchestration | Steps 1–5, 7–10 |
+| **SOTA Parametric Director v6.0** (Custom GPT) | Converts storyboard into strict Kling 3.0 JSON parametric syntax with @entity anchors, camera vectors, dynamic weights | Step 6 |
+
+### Complete 10-Phase Pipeline (Proven with Magnitude Kaiju)
+
+**PHASE 0: AESTHETIC LOCK**
+```
+Tool: Lost Futures Visual Aesthetic Architect (Custom GPT)
+Input: Concept / IP / vibe
+Output: Full production register entry with:
+  - Era, region, medium, format
+  - Distribution channel, artifact/flaw
+  - Emotional contradiction
+  - Prompt seed
+  - Best uses
+```
+
+**PHASE 0b: CAMERA/TEXTURE TESTING (if needed)**
+```
+Tool: Kiro + Codex CLI
+Process: Generate test images across multiple cameras/mediums
+User picks winner → AESTHETIC LOCKED
+Note: This is where the Lost Futures register gets validated against
+      what GPT Image 2 can actually produce convincingly.
+```
+
+**PHASE 1: BIBLES**
+```
+Tool: Kiro + Codex CLI (sgflix-create-character-bible skill)
+Order:
+  1. Character Bible (8 pages) — period stock applied
+  2. World Bible (4 pages) — uses char page_01 as -i ref
+  3. Environment Bible (4 pages) — uses char page_01 + world page_01 as -i refs
+Reference chain: Character → World → Environment
+```
+
+**PHASE 2: POSTER**
+```
+Tool: Kiro + Codex CLI (sgflix-poster-first-validate skill)
+Process:
+  1. Generate poster using bible refs + period stock
+  2. Cannon Films 5-point validation (Glance, Thumbnail, Buy, Era, Uniqueness)
+  3. GREENLIT → proceed | KILLED → new concept
+Refs: test_ektachrome + bible page_01 + environment page_01
+```
+
+**PHASE 3: STORYBOARD & FIRST FRAMES**
+```
+Tool: Kiro
+Process:
+  1. Define beat structure (8 beats within 45s–1m10s)
+  2. Map beats to 3-4 Kling shots (each 15s)
+  3. Generate first-frame image for each shot via Codex
+  4. First frames use bible refs for consistency
+Output: Shot list with timing, first-frame PNGs, camera notes
+```
+
+**PHASE 4: KLING ENTITY UPLOAD (Manual Step)**
+```
+Tool: Kling 3.0 web interface
+Process:
+  1. Upload bible pages 01, 02, 04, 05 as a single Kling Element
+  2. Name the Element: @Magnitude (or @[MonsterName] for one-offs)
+  3. Verify Element is active and recognized
+Pages to upload:
+  - 01 Primary Hero → clearest full identity
+  - 02 Turnaround → multiple angles
+  - 04 Expressions → face variety
+  - 05 Details → close-up features
+Do NOT upload: 03 (too abstract), 06 (fabric only), 07 (objects), 08 (reference)
+```
+
+**PHASE 5: PARAMETRIC HANDOFF PREP**
+```
+Tool: Kiro
+Process: Format the 3 required data points for each shot:
+
+For each shot (3-4 total), prepare:
+  1. ENTITY ANCHORS: @Magnitude (+ any other entities)
+  2. PHYSICAL ACTION & SCENE: Exact physical environment + exact physical motions
+  3. LIGHTING & CAMERA PACING: Camera movement speed + dominant light sources
+
+Output format (what you paste into the GPT):
+  "Shot 1: @Magnitude in Tokyo harbor industrial district.
+   Physical action: creature rises from water, water cascading off dorsal plates.
+   Camera: slow push-in zoom_z_0.3, low angle tilt_y_0.6.
+   Lighting: overcast daylight, blue bioluminescent dorsal glow, sodium street lights."
+```
+
+**PHASE 6: SOTA PARAMETRIC DIRECTOR ⭐**
+```
+Tool: SOTA Parametric Director v6.0 (Custom GPT)
+Input: The 3 data points per shot from Phase 5
+Output: Strict JSON parametric syntax per shot:
+
+[SCENE_START]
+[GLOBAL_CFG: 7.5]
+[GLOBAL_NEG: morphing:1.5, bad_anatomy:1.2, text_rendering_fail:1.5, modern_digital_video:1.4, glossy_cgi:1.3, duplicate_kaiju:1.6, tiled_water:1.4, repeated_buildings:1.3, warped_text:1.2, watermark:1.5]
+
+// SHOT 1 [00:00 - 00:15]
+{
+  "anchor": "<@Magnitude:1.5>",
+  "cam": "(--cam: tilt_y_0.8, zoom_z_0.18, pan_x_0.0, roll_0.0->0.35, focal_length_24mm, low_angle_ground_pov, impact_shake_0.1->1.0, exposure_failure_0.0->1.0)",
+  "env": "ground_level_dock_pov:1.0,  Magnitude_Magnitude_towers_over_frame:1.0, electric_blue_dorsal_bioluminescence:0.2->1.0, sequential_spine_pulse:0.0->1.0, blue_white_throat_energy:0.0->1.0, heat_air_distortion:0.0->0.9, nuclear_halation:0.1->1.0, lens_flare_blue_white:0.0->1.0, overexposure_bloom:0.0->1.0, orange_white_film_burn:0.0->1.0, emulsion_melt:0.0->1.0, static_blackout:0.0->1.0",
+  "action": "> dorsal_plates_pulse_blue_from_tail_to_neck. Head_tilts_back_28_degrees. Jaw_opens_wide. Blue_white_energy_concentrates_inside_throat. Air_distortion_warps_edges_of_buildings_and_soldier_silhouettes. Atomic_breath_fires_across_camera_axis. Frame_overexposes_to_blue_white. Film_edge_burns_orange_white. Emulsion_tears_into_static. Final_3_seconds_static_black."
+}
+[SCENE_END]
+
+This syntax supports:
+- @entity anchors for consistent character identity
+- Dynamic weights (0.2->1.0 for transitions)
+- Camera vectors with animation (0.0->0.35 for movement)
+- Multiple environment layers with temporal evolution
+- Complex action sequences with timing (> for progression)
+```
+
+**PHASE 7: KLING 3.0 RENDER**
+```
+Tool: Kling 3.0
+Process:
+  1. Input first-frame image for each shot
+  2. Input parametric syntax from SOTA GPT
+  3. Render each 15s shot separately
+  4. QC each shot (identity consistency, motion quality, artifact check)
+  5. Re-render any failed shots
+Output: 3-4 rendered 15s video clips
+```
+
+**PHASE 8: STITCH**
+```
+Tool: ffmpeg
+Process:
+  1. Concat all shots in sequence
+  2. Add title card (if applicable)
+  3. Add end card / text card
+  4. Verify total duration: 45s – 1m10s
+Output: Single video file, no audio
+```
+
+**PHASE 9: AUDIO ORCHESTRATION**
+```
+Tool: Audio Orchestrator (3090)
+Three pillars:
+  1. Fish Audio S2 Pro → Voice/acting
+     - Zero-shot voice cloning from 3-10s reference
+     - Paralinguistic tags: [heavy breathing], [terrified whisper], [radio static]
+  2. Sony Woosh → Foley from video pixels
+     - Frame-perfect sound effects generated from the actual rendered video
+     - Rain, footsteps, debris, water, explosions — all from pixels
+  3. Stable Audio 3.0 → Musical score
+     - Commercially licensed
+     - Up to 6 minutes
+     - Inpainting + seamless looping
+     - Prompt: "Dark low-frequency dread drone, 1960s military tension, building to catastrophe"
+
+Assembly:
+  - Normalize all tracks to -14 LUFS (broadcast standard)
+  - Mix: Score at -18dB, Foley at -12dB, Voice at -6dB
+  - Mux with video via ffmpeg
+```
+
+**PHASE 10: FINAL OUTPUT**
+```
+Deliverable: Complete 45s–1m10s short film
+  - Video: Kling-rendered, stitched, color-consistent
+  - Audio: Voice + Foley + Score mixed at broadcast standard
+  - Format: MP4, H.264, AAC audio
+  - Aspect: 9:16 (vertical) or 16:9 (cinematic) depending on template
+```
+
+### MAGNITUDE Dual Register System
+
+**Register A: 1960s Classified Military Ektachrome (LORE LAYER)**
+- **Use for:** Bibles, posters, title cards, marketing, "declassified archive" framing
+- **Period stock:** 16mm Kodak Ektachrome reversal film
+- **Look:** Clean but textured, slight cyan shift, high contrast, organic film grain, gate weave, government-issue documentation sincerity
+- **Framing:** "A frame from a classified 1966 military 16mm Kodak Ektachrome observation reel"
+- **Anti-tiling guardrails:** FORBIDDEN: digital noise, micro-tiling artifacts, repeating diagonal grids, muddy overlays, artificial sharpening, digital grime, moire patterns, pixel-level grit. Only clean analog chemistry textures.
+- **Story:** "In 1966, the military filmed this creature and classified it for 60 years."
+
+**Register B: 2020s iPhone Vertical Phone Panic (VIDEO LAYER)**
+- **Use for:** Actual Kling-rendered video clips, the one-off content
+- **Period stock:** iPhone 14/15 Pro night mode
+- **Look:** Vertical 9:16, shaky handheld, rain on glass, autofocus hunting, rolling-shutter wobble, low-light phone noise, blown highlights, compression artifacts
+- **Framing:** "Recorded on iPhone from a 40th-floor apartment at night"
+- **Story:** "In 2024, it came back — and now everyone has an iPhone."
+
+**The Narrative Connection:**
+The bibles and posters are the declassified archive (Ektachrome). The one-off videos are modern sightings (iPhone). Two eras, one creature. The audience discovers the lore through the old footage, then experiences the terror through modern phone clips.
+
+### One-Off vs Franchise Templates
+
+**One-Off Template (quick viral clips)**
+- **1 main variable** + 2 supporting variables
+- Duration: 45s – 1m10s (3-4 × 15s Kling shots)
+- Example: MAGNITUDE
+
+```
+KEEP (fixed):
+- One person
+- One window / one POV
+- One impossible scale moment
+- Period stock locked
+
+CHANGE:
+1. Monster (BIG lever)
+2. Location
+3. Weather / time / mood
+```
+
+**Franchise (survives many episodes)**
+- **Recurring core** + 4 rotating variables
+- Duration: 45s – 1m10s per episode
+- Example: Jurassic Live PD, Office Megacorp
+
+```
+KEEP (fixed):
+- Core cast (2-3 recurring characters)
+- Camera template
+- Tone/rhythm
+
+CHANGE:
+1. Location
+2. Episode threat / problem
+3. Guest character / authority
+4. Civilian complication
+```
+
+### Magnitude One-Off Examples
+
+| # | Monster | Location | Weather/Mood | Register |
+|---|---------|----------|-------------|----------|
+| 1 | Godzilla | Tokyo Harbor | Rainstorm night | iPhone POV (video) + Ektachrome (lore) |
+| 2 | Kong | Manhattan office tower | Sunset smoke | iPhone POV |
+| 3 | Mothra | Airport terminal | Emergency lights | iPhone POV |
+| 4 | Cthulhu | Subway glass | Cold blue fog | iPhone POV |
+| 5 | Mechagodzilla | Parking garage | Lightning | iPhone POV |
+| 6 | Ghidorah | Hotel balcony | Thunderstorm | iPhone POV |
+
+### Tool Stack Summary
+
+| Tool | Location | Purpose |
+|------|----------|---------|
+| Lost Futures GPT | ChatGPT | Aesthetic definition |
+| Kiro | Local Mac | Factory brain, asset creation |
+| Codex CLI | Local Mac | Image generation (GPT Image 2) |
+| **SOTA Parametric Director v6.0** | ChatGPT (Custom) | Kling 3.0 syntax generation |
+| Kling 3.0 | Web/API | Video rendering with @entities |
+| Hermes | 3090 | Video generation backup (xAI Grok) |
+| ComfyUI | 3090 | Long-form LTX renders |
+| Fish Audio S2 Pro | 3090 (API) | Voice/acting |
+| Sony Woosh | 3090 | Video-to-audio foley |
+| Stable Audio 3.0 | 3090 | Musical score |
+| Audio Orchestrator | 3090 | Mix + mux |
+| ffmpeg | Local/3090 | Stitch + final encode |
+
+### File Locations
+
+```
+Bibles:     ~/bibles/magnitude_kaiju_textured/
+  ├── character_bible/   (8 pages, Ektachrome)
+  ├── world_bible/       (4 pages, Ektachrome)
+  ├── environment_bible/ (4 pages, Ektachrome)
+  ├── POSTER_FINAL.png   (ground POV, PFC. Tanaka)
+  └── camera_tests/      (21 test images)
+
+Skills:     ~/.hermes/skills/sgflix-*/
+Codex:      ~/.codex/skills/
+Audio:      ~/audio_orchestrator.py (3090)
+            ~/fish-audio-api/ (3090)
+            ~/woosh/ (3090)
+            ~/stable-audio-3/ (3090)
+```
+
+---
+
