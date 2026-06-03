@@ -1,8 +1,8 @@
 # COMPLETE AI FACTORY MEGA-GIST
 
 **Date**: 2026-06-03
-**Status**: ✅ PRODUCTION READY - ELITE PROGRAMS + WORD-LEVEL ALIGNMENT + VIDEO INPAINTING COMPLETE
-**Version**: 2.9 - Elite Programs Integration (Qwen Ambassador + Kling Elite Creators)
+**Status**: ✅ PRODUCTION READY - AI SKILLS FRAMEWORK + ELITE PROGRAMS + WORD-LEVEL ALIGNMENT + VIDEO INPAINTING COMPLETE
+**Version**: 3.0 - AI Skills Framework Integration (9 Skills for AI-Automation Success Applied)
 
 ---
 
@@ -17,6 +17,7 @@
 7. [Integration Workflows](#integration-workflows)
 8. [Quick Reference](#quick-reference)
 9. [Elite Creator Programs](#elite-creator-programs)
+10. [AI Skills Framework](#ai-skills-framework---9-skills-for-ai-automation-success)
 
 ---
 
@@ -2748,6 +2749,123 @@ Audio:      ~/audio_orchestrator.py (3090)
 **Purpose**: AI video creation education and community
 
 **Strategic Note**: SGFLIX factory now provides superior infrastructure vs. community model. Direct production capability > educational community.
+
+---
+
+## AI SKILLS FRAMEWORK - 9 Skills for AI-Automation Success
+
+**Source**: "9 AI Skills You MUST Have to Become Rich in 2026" - Applied Framework
+
+### Skill 1: Change Default Reaction → Ask AI First
+**Principle**: When stuck, confused, or needing help, default to asking AI instead of Google, asking people, or staying frustrated.
+
+**Factory Application**:
+- Ops-loop: Every problem → AI analysis first
+- SGFLIX: Creative blocks → AI brainstorming
+- Dark Factory: Debugging → AI code analysis
+- B2B Agency: All inbound SMS → AI triage before human
+
+**Default Prompt**: "I want to achieve [GOAL]. What do you need from me to give me the best possible answer?"
+
+### Skill 2: Develop Skepticism → Trust But Verify
+**Principle**: Not everything AI says is correct. Verify critical information, check links, validate outputs.
+
+**Factory Application**:
+- GLM-4.7 JSON extraction requires fallback parsing
+- Supabase thenable crashes learned through hard experience
+- AI responses tagged with confidence scores
+- Human escalation when AI uncertain
+
+**Verification Workflow**: Generate → Check → Validate → Deploy (never blind trust)
+
+### Skill 3: Context Mastery (TICA Framework)
+**Principle**: Quality of AI responses = quality of context provided. Use TICA structure:
+- **T**ask: What you want done
+- **I**nformation: Background, business details, constraints
+- **C**onstraints: What NOT to do, boundaries, limitations
+- **A**sk: Request for clarifying questions
+
+**Factory Application**:
+- B2B Agency: Every SMS response gets full business context + conversation history
+- SGFLIX: Character bibles + camera rules + technical specs in every prompt
+- Ops-loop: Mission context + technical constraints in every agent task
+
+### Skill 4: Augment Teams (Don't Replace)
+**Principle**: Use AI to educate yourself and team, then consult experts for high-level strategy. AI handles basics, humans handle strategy.
+
+**Factory Application**:
+- 10 Paperclip autonomous companies running with minimal human oversight
+- AI handles 90% of routine SMS queries (B2B Agency)
+- Humans focus on strategic decisions, creative direction, complex negotiations
+- AI as force multiplier: 1 person = entire team's output
+
+### Skill 5: Treat AI Like New Hire → Continuous Feedback
+**Principle**: AI won't be perfect on day one. Treat it like a 90-day ramp-up: give feedback continuously, improve over time.
+
+**Factory Application**:
+- SGFLIX: 90+ productions with continuous refinement of prompts and workflows
+- B2B Agency: Sentiment analysis → response quality improvements
+- Ops-loop: Agent performance tracking → re-prompting and optimization
+- Pattern: Use AI → Give feedback → AI improves → Repeat
+
+### Skill 6: Feedback Loops → AI Grades Its Own Work
+**Principle**: Build systems where AI can test, grade, and improve its own outputs without human intervention.
+
+**Factory Application**:
+- B2B Agency: AI grades response quality (relevance, tone, clarity) before sending
+- SGFLIX: Multi-stage generation (concept → draft → QC → final)
+- Dark Factory: STRIPS validation → Qwen invariant checking
+- Codex App Server: Image generation → quality check → regenerate if low score
+
+**Loop Structure**: Generate → Grade → Improve → Repeat until quality threshold met
+
+### Skill 7: Documentation → Process as Context
+**Principle**: Write down processes you repeat 3x/week, then use AI to automate/streamline them. Documentation = AI context.
+
+**Factory Application**:
+- Magnitude Kaiju bibles: 20+ pages of character/world/environment context
+- SGFLIX prompt patterns: Reusable templates for content generation
+- B2B Agency: Business profiles, FAQs, operating procedures as structured data
+- Ops-loop: Mission templates, execution patterns, bug fixes as documented context
+
+**Workflow**: Audit repeated processes → Document steps → Ask AI "how can I automate this?" → Implement
+
+### Skill 8: AI Agents with Tools → The Real Unlock
+**Principle**: AI hooked up to actual tools (Gmail, Canva, CRM, etc.) is 10x more powerful than just chatting. Agents > Chatbots.
+
+**Factory Application**:
+- Codex App Server: AI + Image generation + Social media posting
+- B2B Agency: Hermes Agent + CRM + SMS gateway + Knowledge base
+- PersonaPlex: AI + Voice synthesis + Real-time audio processing
+- ComfyUI: AI + Image generation + Video processing + Inpainting
+
+**Tool Integration Pattern**: Claude Connectors, n8n workflows, MCP servers, custom APIs
+
+### Skill 9: Don't Build "AI Business" → Apply AI to Proven Models
+**Principle**: Don't try to invent a new AI business. Take existing proven business models and apply AI to make them 10x better.
+
+**Factory Application**:
+- **B2B Agency**: SMS marketing (proven) + AI response automation (10x efficiency)
+- **SGFLIX**: Content creation (proven) + AI generation tools (10x scale)
+- **DistroKid Music**: Music distribution (proven) + AI composition (10x productivity)
+- **Pattern**: Proven business model + AI augmentation = Massive leverage
+
+**Success Proof**: $27k+ DistroKid earnings, Elite creator status (Kling/Qwen), 10 autonomous companies
+
+### The AI Skills Framework in Action
+
+**Your Factory Implementation**:
+1. **Default Reaction**: Every problem → AI analysis (ops-loop, Paperclip agents)
+2. **Skepticism**: Learned from GLM-4.7 issues, Supabase crashes (now documented)
+3. **TICA Context**: Mega-gist + bibles + SOPs = comprehensive AI context
+4. **Team Augmentation**: 10 Paperclip companies running autonomously
+5. **New Hire Training**: Continuous feedback across 90+ SGFLIX productions
+6. **Feedback Loops**: Multi-stage generation with QC checkpoints
+7. **Documentation**: Bibles, playbooks, patterns all stored as context
+8. **Tool Integration**: Codex, PersonaPlex, B2B Agency all tool-connected
+9. **Proven Models**: SMS marketing, content creation, music distribution + AI
+
+**Result**: You're not building "AI businesses" — you're applying AI to proven business models at massive scale. That's why this works.
 
 ---
 
