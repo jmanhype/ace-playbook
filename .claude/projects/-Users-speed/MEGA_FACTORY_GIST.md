@@ -113,11 +113,12 @@ Your AI Factory is a **multi-modal content creation system** spanning two machin
 
 #### Offline/Backup Machines
 
-**5. batmanosama** (100.112.106.69)
-- **OS**: Linux
-- **Status**: Offline (last seen 1d ago)
-- **Role**: Linux backup node, overflow compute
-- **Purpose**: Additional Linux capacity when needed
+**5. batmanosama** (100.112.106.69) ✅ ONLINE
+- **OS**: Linux (Proxmox VE 8.1)
+- **LAN IP**: 192.168.1.123 (Static)
+- **Hostname**: batmanosama
+- **Role**: Primary media automation server, Docker/LXC host
+- **Purpose**: Media sourcing, *arr services, databases, API gateways
 
 **6. draco** (100.85.50.97)
 - **OS**: Windows
@@ -245,49 +246,100 @@ Shell: /opt/homebrew/bin/fish
 Memory: 32GB RAM (M1 Max unified memory)
 ```
 
-### Machine 4: ZimaBoard CT 110 (InsForge Database)
+### Machine 4: ZimaBoard (batmanosama) - Media Automation Server
 
-**Note**: This machine may correspond to one of the offline Tailscale peers (batmanosama or similar). Currently accessible via LAN IP but may not be online in Tailscale mesh.
+**Tailscale IP**: 100.112.106.69 ✅ ONLINE
+**LAN IP**: 192.168.1.123 (Static)
+**Hostname**: batmanosama
+**OS**: Linux (Proxmox VE 8.1)
 
-**LAN IP**: 192.168.1.154 (Static)
-**OS**: Linux (ZimaBoard OS)
-
-**Purpose**: Database server for Dark Factory
+**Purpose**: Media sourcing, *arr services, databases, MCP gateway, API services
 
 ```yaml
-Location: Remote
-Role: Data Persistence
+Location: Local network
+Role: Media Automation & Services Host
 
-Key Services:
-  - PostgreSQL 15: Port 5432
-  - InsForge: Dark Factory bug bounty database
+Platform: Proxmox VE 8.1 with 7 LXC containers
+
+Container Layout:
+  100 (192.168.1.190): Coolify - PaaS/Docker deployment
+  102 (192.168.1.251): WireGuard VPN
+  106 (192.168.1.197): MCP Gateway - AI agent integrations
+  108 (192.168.1.221): Plex Media Server
+  110 (192.168.1.178): Media Automation - All *arr services
+  111 (192.168.1.179): Invoice Ninja
+  112 (192.168.1.160): InsForge - Dark Factory database
+
+Key Services (Container 110 - Media Automation):
+  Movies/TV/Music/Books:
+    - Radarr (Movies): http://192.168.1.178:7878
+    - Sonarr (TV Series): http://192.168.1.178:8989
+    - Lidarr (Music): http://192.168.1.178:8686
+    - Readarr (Books): http://192.168.1.178:8787
+    - Prowlarr (Indexer Manager): http://192.168.1.178:9696
+
+  Download Clients:
+    - qBittorrent (Torrents): http://192.168.1.178:8081
+    - SABnzbd (Usenet): http://192.168.1.178:8080
+
+  Search/Indexers:
+    - Jackett (Torrent Search): http://192.168.1.178:9117
+
+  Media Processing:
+    - Media Pipeline API: http://192.168.1.178:9100
+      - YouTube download endpoint
+      - Bandcamp download endpoint
+      - GPU queue for 3090 dispatch (stems, transcription, segmentation)
+
+  Books/Calibre:
+    - Calibre: http://192.168.1.178:8181
+    - Calibre Web: http://192.168.1.178:8083
+    - Audiobookshelf: http://192.168.1.178:13378
+
+MCP Gateway (Container 106 - 192.168.1.197):
+  - Radarr/Sonarr MCP: Port 3001
+  - Plex MCP: Port 3002
+  - SABnzbd MCP: Port 3003
+  - Prowlarr MCP: Port 3004
+  - qBittorrent MCP: Port 3005
 
 Databases:
-  - InsForge: Dark Factory pipeline
+  - InsForge (Container 112): Dark Factory bug bounty database
     - 3,288 in-scope targets
     - 150 test runs completed
-    - Tables: df_scope_programs, df_scope_targets, df_invariants, df_test_runs, df_findings
+    - PostgreSQL + PostgREST API: http://192.168.1.160:5430
+    - Connection: psql -h 192.168.1.160 -U insforge -d insforge
 
-  - pgvector: Vector similarity search (Docker)
-
-Connection:
-  psql -h 192.168.1.154 -U insforge -d insforge
-  Password: DarkFactory2026
+  - Coolify databases (Container 100):
+    - PostgreSQL: Port 5432
+    - Redis: Port 6379
 
 Access:
-  SSH: straughter@192.168.1.154
-  Purpose: Direct database access for development
+  SSH: root@192.168.1.123 (Proxmox host)
+  Tailscale: batmanosama@100.112.106.69
+  Proxmox Web UI: https://192.168.1.123:8006
+
+API Access Examples:
+  # Search for movie via Radarr
+  curl http://192.168.1.178:7878/api/v3/movie/lookup?term=MovieName&apikey=YOUR_KEY
+
+  # Search for TV series via Sonarr
+  curl http://192.168.1.178:8989/api/v3/series/lookup?term=SeriesName&apikey=YOUR_KEY
+
+  # Get Media Pipeline status
+  curl http://192.168.1.178:9100/health
 ```
 
 ### Network Architecture
 
 ```yaml
 Tailscale VPN Mesh: 100.x.x.x range
-  - speeds-macbook-pro: 100.106.214.23
+  - speeds-macbook-pro: 100.106.214.23 (current machine)
   - straughters-mac-mini: 100.94.237.121 (primary HQ)
   - straughter-z690-steel-legend: 100.77.225.85 (3090 GPU)
+  - batmanosama: 100.112.106.69 (ZimaBoard, ONLINE ✅)
   - draco-1: 100.112.129.32 (Windows)
-  - batmanosama: 100.112.106.69 (Linux, offline)
+  - straughters-mac-mini: 100.94.237.121 (macOS)
   - draco: 100.85.50.97 (Windows, offline)
   - riley: 100.121.5.16 (macOS, offline)
   - steamdeck: 100.117.115.79 (Linux, offline)
