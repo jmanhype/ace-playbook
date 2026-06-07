@@ -1,0 +1,37 @@
+[SCENE_START]
+[GLOBAL_CFG: 7.5]
+[GLOBAL_NEG: modern_digital_video:1.7, iphone_footage:1.8, vertical_phone_video:1.8, social_media_overlay:1.6, glossy_cgi:1.7, full_monster_body:1.9, heroic_kaiju_pose:1.7, clean_vfx_showcase:1.7, cinematic_drone_shot:1.6, smooth_gimbal:1.5, modern_color_grade:1.6, atomic_breath:1.7, tokyo_harbor_remake:1.5, water_recession_repeat:1.5, subtle_only_anomaly:1.6, readable_modern_signage:1.5, watermark:1.6, text_rendering_fail:1.5, morphing:1.4, inconsistent_scale:1.5]
+
+// SHOT 1 [00:00 - 00:15]
+{
+  "anchor": "",
+  "cam": "(--cam: static_tripod, frame_4x3, pan_x_0.0, tilt_y_0.0, zoom_z_0.0, roll_0.0, focal_length_35mm, gate_weave_0.04, vibration_0.05)",
+  "env": "1967_naval_drydock:1.4, half_repaired_destroyer_in_drained_dock:1.5, scaffolding_around_hull:1.2, soldiers_and_engineers:1.1, dock_cranes:1.0, welding_tarps:0.9, slack_chain_hoists:1.0, wet_concrete:1.1, naval_gray_paint:1.1, rust_red_scaffolding:0.9, faded_ektachrome_daylight:1.3, cyan_shadows:1.0, black_rounded_16mm_frame_edges:1.4, dust_scratches_splice_marks:0.8",
+  "action": "No_kaiju_visible. Soldiers_and_engineers_inspect_half_repaired_destroyer_inside_drydock. Workers_move_between_scaffolds. One_engineer_marks_clipboard. Chain_hoists_hang_slack. Camera_holds_static_routine_shipyard_documentation_frame."
+}
+
+// SHOT 2 [00:15 - 00:30]
+{
+  "anchor": "",
+  "cam": "(--cam: pan_x_0.10, tilt_y_-0.02, zoom_z_0.06, roll_0.0, focal_length_35mm, gate_weave_0.05, tripod_drag_0.12, exposure_drift_0.35)",
+  "env": "same_1967_naval_drydock:1.4, drydock_channels_reverse_flow:1.3, destroyer_hull_shifts_without_cranes:1.6, chain_tension_sequence:1.5, scaffolding_rattle:1.1, workers_stop_and_point:1.3, dock_cranes_sway_slightly:0.9, cyan_shadow_density:1.2, exposure_flicker:0.8, pale_daylight:1.0, black_rounded_16mm_frame_edges:1.4",
+  "action": "No_kaiju_visible. Water_in_drydock_channels_pulls_backward_against_expected_flow. Destroyer_hull_rotates_several_degrees_without_visible_machinery. Chains_snap_taut_one_after_another. Workers_stop_mid_task. Several_workers_point_toward_far_drydock_wall. Camera_operator_reframes_late_with_stiff_tripod_drag."
+}
+
+// SHOT 3 [00:30 - 00:45]
+{
+  "anchor": "<@Magnitude:1.65>",
+  "cam": "(--cam: zoom_z_0.25, tilt_y_0.22, pan_x_0.04, roll_0.02, focal_length_28mm, displacement_shake_0.25->0.60, gate_weave_0.07, lens_haze_0.35)",
+  "env": "enormous_wet_kaiju_fragment_behind_drydock_wall:1.7, partial_body_only:1.5, black_basalt_wet_skin:1.4, water_cascade_sheets:1.5, destroyer_hull_scale_marker:1.5, workers_tiny_foreground:1.5, scaffolding_shakes:1.2, floodlights_flicker:1.0, spray_haze:1.2, pale_daylight_broken_by_mist:1.1, wet_highlights:1.2, black_rounded_16mm_frame_edges:1.4, dust_scratches:1.0",
+  "action": "<@Magnitude> massive_hand_or_shoulder_rises_behind_drydock_wall. Full_body_remains_out_of_frame. Water_cascades_down_onto_scaffolding. Destroyer_hull_and_tiny_workers_lock_scale. Workers_run_beneath_hull. Camera_zooms_late_and_shakes_from_displacement_pressure."
+}
+
+// SHOT 4 [00:45 - 01:00]
+{
+  "anchor": "<@Magnitude:1.25>",
+  "cam": "(--cam: tilt_y_0.45, zoom_z_0.12, pan_x_0.0, roll_0.0->0.32, focal_length_28mm, impact_shake_0.2->1.0, exposure_failure_0.0->1.0, gate_jam_0.0->0.8, splice_tear_0.0->1.0)",
+  "env": "kaiju_fragment_blocks_then_reveals_dock_floodlights:1.5, floodlight_halation_white:1.8, crane_silhouettes_warp_through_spray:1.3, destroyer_shadow_distortion:1.2, heat_spray_refraction:1.3, emulsion_burn_orange_white:1.8, vertical_scratch_damage:1.4, splice_tear:1.5, black_static:0.0->1.8, black_rounded_16mm_frame_edges:1.4",
+  "action": "<@Magnitude> partial_fragment_crosses_floodlight_axis. Floodlights_reappear_behind_wet_basalt_surface_and_overload_frame. Crane_silhouettes_warp_through_spray_and_heat. Destroyer_shadow_bends_across_wet_concrete. Film_overexposes_to_white_halation. Orange_emulsion_burn_crawls_from_frame_edge. Splice_tears. Final_two_seconds_collapse_into_black_static."
+}
+
+[SCENE_END]

@@ -1,0 +1,42 @@
+{
+  "shot_id": "MAG_EP02_003",
+  "shot_name": "Behind the Wall",
+  "timestamp": "00:30-00:45",
+  "duration_seconds": 15,
+  "anchor": "<@Magnitude_Hand:1.65>",
+  "cam": "(--cam: zoom_z_0.25, tilt_y_0.22, pan_x_0.04, roll_0.02, focal_length_28mm, displacement_shake_0.25->0.60, gate_weave_0.07, lens_haze_0.35)",
+  "env": "enormous_wet_kaiju_fragment_behind_drydock_wall:1.7, partial_body_only:1.5, black_basalt_wet_skin:1.4, water_cascade_sheets:1.5, destroyer_hull_scale_marker:1.5, workers_tiny_foreground:1.5, scaffolding_shakes:1.2, floodlights_flicker:1.0, spray_haze:1.2, pale_daylight_broken_by_mist:1.1, wet_highlights:1.2, black_rounded_16mm_frame_edges:1.4, dust_scratches:1.0",
+  "action": "@Magnitude_Hand rises behind the drydock wall: one colossal articulated hand and only a short cropped forearm. No shoulder or other body anatomy enters frame. Water cascades down onto scaffolding. Destroyer hull and tiny workers lock scale. Workers run beneath hull. Camera zooms late and shakes from displacement pressure.",
+  "start": "Same drydock location and destroyer continuity. Beyond the far drydock wall, only the outer claw and knuckle ridge of @Magnitude_Hand begins to rise. A short section of wet charcoal-basalt forearm may be visible, cropped before the elbow. The isolated appendage is much larger than the dock cranes. No shoulder, torso, head, face, dorsal plates, or other body anatomy enters frame. A first sheet of water spills over the wall. Workers begin running beneath the destroyer.",
+  "end": "Same drydock, destroyer and camera axis, now zoomed and tilted upward late. @Magnitude_Hand is more visible behind the far wall: four articulated claws, a weight-bearing wrist, and only a short cropped forearm. Every creature edge remains cropped. Water cascades in heavy sheets onto scaffolding. The destroyer remains fully recognizable as the scale marker; workers are tiny and running below. Floodlights flicker through spray. Never infer or reveal an attached shoulder, torso, head, full body, heroic pose, or atomic breath.",
+  "episode": "MAGNITUDE Episode 2 \u2014 Drydock Incident",
+  "year": 1967,
+  "aspect_ratio": "4:3 horizontal archival frame",
+  "resolution_target": "1536x1152",
+  "global_cfg": 7.5,
+  "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
+  "reference_assets": {
+    "film_stock": "../camera_tests/test_ektachrome.png",
+    "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png"
+  },
+  "source_frame": "frames/MAG_EP02_003_start.png",
+  "end_frame": "frames/MAG_EP02_003_end.png",
+  "workflow_spec": {
+    "source_image": "frames/MAG_EP02_003_start.png",
+    "end_image": "frames/MAG_EP02_003_end.png",
+    "mode": "start_end_frame_to_video",
+    "duration_seconds": 15,
+    "fps": 24
+  },
+  "qc_checklist": [
+    "Horizontal 4:3 archival composition; never vertical phone framing",
+    "1967 naval drydock and Ektachrome 16mm look are legible",
+    "Destroyer, scaffolding, cranes and drydock geometry remain continuous",
+    "No modern vehicles, signage, digital displays, phones or clean modern grade",
+    "No full-body kaiju or heroic pose",
+    "Only @Magnitude_Hand plus a short forearm is visible; no shoulder or inferred body",
+    "No atomic breath and no repeat of Episode 1 harbor-water-recession staging",
+    "Scale remains locked by destroyer hull, cranes and tiny workers",
+    "No text, captions, overlays or watermarks"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "shot_id": "MAG_EP02_004",
+  "shot_name": "The Film Jams",
+  "timestamp": "00:45-01:00",
+  "duration_seconds": 15,
+  "anchor": "<@Magnitude_Hand:1.25>",
+  "cam": "(--cam: tilt_y_0.45, zoom_z_0.12, pan_x_0.0, roll_0.0->0.32, focal_length_28mm, impact_shake_0.2->1.0, exposure_failure_0.0->1.0, gate_jam_0.0->0.8, splice_tear_0.0->1.0)",
+  "env": "kaiju_fragment_blocks_then_reveals_dock_floodlights:1.5, floodlight_halation_white:1.8, crane_silhouettes_warp_through_spray:1.3, destroyer_shadow_distortion:1.2, heat_spray_refraction:1.3, emulsion_burn_orange_white:1.8, vertical_scratch_damage:1.4, splice_tear:1.5, black_static:0.0->1.8, black_rounded_16mm_frame_edges:1.4",
+  "action": "@Magnitude_Hand and its short cropped forearm cross the floodlight axis. No other creature anatomy appears. Floodlights reappear behind wet basalt scales and overload the frame. Crane silhouettes warp through spray and heat. Destroyer shadow bends across wet concrete. Film overexposes to white halation. Orange emulsion burn crawls from frame edge. Splice tears. Final two seconds collapse into black static.",
+  "start": "Same drydock axis as Shot 3. Only @Magnitude_Hand and a short cropped forearm cross in front of the dock floodlights, temporarily blocking them. The destroyer and cranes remain identifiable below and to the sides. As the hand moves, one floodlight begins to reappear between the wet claws and forearm edge, producing intense white Ektachrome halation through spray. No shoulder, complete arm, body, face, or atomic breath.",
+  "end": "Last recoverable 4:3 frame of the drydock incident. Floodlights have reappeared behind @Magnitude_Hand and catastrophically overload the image. The isolated claw silhouette remains barely legible; no other body anatomy is visible. Crane silhouettes warp through spray and heat refraction; the destroyer shadow bends across wet concrete. White halation consumes most of the frame. Orange-white physical emulsion burn crawls inward from one edge, vertical scratches deepen, and a splice tears across the image. The following frames collapse into black static. No clean VFX and no readable text.",
+  "episode": "MAGNITUDE Episode 2 \u2014 Drydock Incident",
+  "year": 1967,
+  "aspect_ratio": "4:3 horizontal archival frame",
+  "resolution_target": "1536x1152",
+  "global_cfg": 7.5,
+  "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
+  "reference_assets": {
+    "film_stock": "../camera_tests/test_ektachrome.png",
+    "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png"
+  },
+  "source_frame": "frames/MAG_EP02_004_start.png",
+  "end_frame": "frames/MAG_EP02_004_end.png",
+  "workflow_spec": {
+    "source_image": "frames/MAG_EP02_004_start.png",
+    "end_image": "frames/MAG_EP02_004_end.png",
+    "mode": "start_end_frame_to_video",
+    "duration_seconds": 15,
+    "fps": 24
+  },
+  "qc_checklist": [
+    "Horizontal 4:3 archival composition; never vertical phone framing",
+    "1967 naval drydock and Ektachrome 16mm look are legible",
+    "Destroyer, scaffolding, cranes and drydock geometry remain continuous",
+    "No modern vehicles, signage, digital displays, phones or clean modern grade",
+    "No full-body kaiju or heroic pose",
+    "Only @Magnitude_Hand plus a short forearm is visible; no shoulder or inferred body",
+    "No atomic breath and no repeat of Episode 1 harbor-water-recession staging",
+    "Scale remains locked by destroyer hull, cranes and tiny workers",
+    "No text, captions, overlays or watermarks"
+  ]
+}

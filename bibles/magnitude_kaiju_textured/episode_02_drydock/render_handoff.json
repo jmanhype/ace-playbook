@@ -1,0 +1,70 @@
+{
+  "project": "MAGNITUDE Episode 2 \u2014 Drydock Incident",
+  "mode": "start_end_frame_to_video",
+  "aspect_ratio": "4:3",
+  "resolution": "1536x1152",
+  "fps": 24,
+  "duration_per_shot_seconds": 15,
+  "entity": "@Magnitude_Hand",
+  "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
+  "reference_uploads": [
+    {
+      "asset": "../character_bible/ek_magnitude_hand_anchor.png",
+      "role": "@Magnitude_Hand isolated entity reference; only creature reference permitted for Shots 3-4"
+    },
+    {
+      "asset": "../camera_tests/test_ektachrome.png",
+      "role": "Ektachrome film stock"
+    }
+  ],
+  "shots": [
+    {
+      "shot_id": "MAG_EP02_001",
+      "timestamp": "00:00-00:15",
+      "duration_seconds": 15,
+      "start_frame": "frames/MAG_EP02_001_start.png",
+      "end_frame": "frames/MAG_EP02_001_end.png",
+      "anchor": "",
+      "camera": "(--cam: static_tripod, frame_4x3, pan_x_0.0, tilt_y_0.0, zoom_z_0.0, roll_0.0, focal_length_35mm, gate_weave_0.04, vibration_0.05)",
+      "environment": "1967_naval_drydock:1.4, half_repaired_destroyer_in_drained_dock:1.5, scaffolding_around_hull:1.2, soldiers_and_engineers:1.1, dock_cranes:1.0, welding_tarps:0.9, slack_chain_hoists:1.0, wet_concrete:1.1, naval_gray_paint:1.1, rust_red_scaffolding:0.9, faded_ektachrome_daylight:1.3, cyan_shadows:1.0, black_rounded_16mm_frame_edges:1.4, dust_scratches_splice_marks:0.8",
+      "video_prompt": "No kaiju visible. Soldiers and engineers inspect a half-repaired destroyer inside a drained drydock. Workers move between scaffolds. One engineer marks a clipboard. Chain hoists hang slack. Camera holds a static routine shipyard documentation frame.",
+      "negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale"
+    },
+    {
+      "shot_id": "MAG_EP02_002",
+      "timestamp": "00:15-00:30",
+      "duration_seconds": 15,
+      "start_frame": "frames/MAG_EP02_002_start.png",
+      "end_frame": "frames/MAG_EP02_002_end.png",
+      "anchor": "",
+      "camera": "(--cam: pan_x_0.10, tilt_y_-0.02, zoom_z_0.06, roll_0.0, focal_length_35mm, gate_weave_0.05, tripod_drag_0.12, exposure_drift_0.35)",
+      "environment": "same_1967_naval_drydock:1.4, drydock_channels_reverse_flow:1.3, destroyer_hull_shifts_without_cranes:1.6, chain_tension_sequence:1.5, scaffolding_rattle:1.1, workers_stop_and_point:1.3, dock_cranes_sway_slightly:0.9, cyan_shadow_density:1.2, exposure_flicker:0.8, pale_daylight:1.0, black_rounded_16mm_frame_edges:1.4",
+      "video_prompt": "No kaiju visible. Water in drydock channels pulls backward against expected flow. Destroyer hull rotates several degrees without visible machinery. Chains snap taut one after another. Workers stop mid-task. Several workers point toward the far drydock wall. Camera operator reframes late with stiff tripod drag.",
+      "negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale"
+    },
+    {
+      "shot_id": "MAG_EP02_003",
+      "timestamp": "00:30-00:45",
+      "duration_seconds": 15,
+      "start_frame": "frames/MAG_EP02_003_start.png",
+      "end_frame": "frames/MAG_EP02_003_end.png",
+      "anchor": "<@Magnitude_Hand:1.65>",
+      "camera": "(--cam: zoom_z_0.25, tilt_y_0.22, pan_x_0.04, roll_0.02, focal_length_28mm, displacement_shake_0.25->0.60, gate_weave_0.07, lens_haze_0.35)",
+      "environment": "enormous_wet_kaiju_fragment_behind_drydock_wall:1.7, partial_body_only:1.5, black_basalt_wet_skin:1.4, water_cascade_sheets:1.5, destroyer_hull_scale_marker:1.5, workers_tiny_foreground:1.5, scaffolding_shakes:1.2, floodlights_flicker:1.0, spray_haze:1.2, pale_daylight_broken_by_mist:1.1, wet_highlights:1.2, black_rounded_16mm_frame_edges:1.4, dust_scratches:1.0",
+      "video_prompt": "@Magnitude_Hand rises behind the drydock wall: one colossal articulated hand and only a short cropped forearm. No shoulder or other body anatomy enters frame. Water cascades down onto scaffolding. Destroyer hull and tiny workers lock scale. Workers run beneath hull. Camera zooms late and shakes from displacement pressure.",
+      "negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale"
+    },
+    {
+      "shot_id": "MAG_EP02_004",
+      "timestamp": "00:45-01:00",
+      "duration_seconds": 15,
+      "start_frame": "frames/MAG_EP02_004_start.png",
+      "end_frame": "frames/MAG_EP02_004_end.png",
+      "anchor": "<@Magnitude_Hand:1.25>",
+      "camera": "(--cam: tilt_y_0.45, zoom_z_0.12, pan_x_0.0, roll_0.0->0.32, focal_length_28mm, impact_shake_0.2->1.0, exposure_failure_0.0->1.0, gate_jam_0.0->0.8, splice_tear_0.0->1.0)",
+      "environment": "kaiju_fragment_blocks_then_reveals_dock_floodlights:1.5, floodlight_halation_white:1.8, crane_silhouettes_warp_through_spray:1.3, destroyer_shadow_distortion:1.2, heat_spray_refraction:1.3, emulsion_burn_orange_white:1.8, vertical_scratch_damage:1.4, splice_tear:1.5, black_static:0.0->1.8, black_rounded_16mm_frame_edges:1.4",
+      "video_prompt": "@Magnitude_Hand and its short cropped forearm cross the floodlight axis. No other creature anatomy appears. Floodlights reappear behind wet basalt scales and overload the frame. Crane silhouettes warp through spray and heat. Destroyer shadow bends across wet concrete. Film overexposes to white halation. Orange emulsion burn crawls from frame edge. Splice tears. Final two seconds collapse into black static.",
+      "negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale"
+    }
+  ]
+}

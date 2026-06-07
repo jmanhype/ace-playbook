@@ -1,0 +1,63 @@
+{
+  "project": "MAGNITUDE",
+  "episode_number": 2,
+  "episode_title": "Drydock Incident",
+  "folder": "episode_02_drydock",
+  "status": "FRAME_GENERATION_IN_PROGRESS",
+  "created": "2026-06-07",
+  "format": "1967 classified naval 16mm Kodak Ektachrome observation reel",
+  "aspect_ratio": "4:3 horizontal",
+  "resolution": "1536x1152",
+  "duration_seconds": 60,
+  "shots": 4,
+  "shot_duration_seconds": 15,
+  "global_cfg": 7.5,
+  "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
+  "entity": "@Magnitude_Hand",
+  "entity_visibility_rule": "Only the isolated hand and a short cropped forearm may appear; never infer or reveal the full body",
+  "reference_assets": {
+    "film_stock": "../camera_tests/test_ektachrome.png",
+    "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png",
+    "entity_hand_prompt": "../character_bible/ek_magnitude_hand_anchor_prompt.md",
+    "design_provenance_only": [
+      "../character_bible/ek_page_01_hero.png",
+      "../character_bible/ek_page_02_turnaround.png",
+      "../character_bible/ek_page_05_details.png"
+    ]
+  },
+  "render_reference_rule": "Upload @Magnitude_Hand and the Ektachrome stock reference only. Do not upload full-body Magnitude sheets for Shots 3-4.",
+  "shots_3_4_frame_status": "Existing frames predate @Magnitude_Hand and must be regenerated with the isolated anchor before final video rendering.",
+  "location_anchor": "frames/MAG_EP02_001_start.png",
+  "frame_pairs": [
+    {
+      "shot": 1,
+      "start": "frames/MAG_EP02_001_start.png",
+      "end": "frames/MAG_EP02_001_end.png"
+    },
+    {
+      "shot": 2,
+      "start": "frames/MAG_EP02_002_start.png",
+      "end": "frames/MAG_EP02_002_end.png"
+    },
+    {
+      "shot": 3,
+      "start": "frames/MAG_EP02_003_start.png",
+      "end": "frames/MAG_EP02_003_end.png"
+    },
+    {
+      "shot": 4,
+      "start": "frames/MAG_EP02_004_start.png",
+      "end": "frames/MAG_EP02_004_end.png"
+    }
+  ],
+  "files": [
+    "scene_source.txt",
+    "PRODUCTION_SOP.md",
+    "manifest.json",
+    "render_handoff.json",
+    "shot_001.json",
+    "shot_002.json",
+    "shot_003.json",
+    "shot_004.json"
+  ]
+}

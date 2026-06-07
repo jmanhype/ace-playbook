@@ -1,0 +1,40 @@
+{
+  "shot_id": "MAG_EP02_002",
+  "shot_name": "The Hull Moves",
+  "timestamp": "00:15-00:30",
+  "duration_seconds": 15,
+  "anchor": "",
+  "cam": "(--cam: pan_x_0.10, tilt_y_-0.02, zoom_z_0.06, roll_0.0, focal_length_35mm, gate_weave_0.05, tripod_drag_0.12, exposure_drift_0.35)",
+  "env": "same_1967_naval_drydock:1.4, drydock_channels_reverse_flow:1.3, destroyer_hull_shifts_without_cranes:1.6, chain_tension_sequence:1.5, scaffolding_rattle:1.1, workers_stop_and_point:1.3, dock_cranes_sway_slightly:0.9, cyan_shadow_density:1.2, exposure_flicker:0.8, pale_daylight:1.0, black_rounded_16mm_frame_edges:1.4",
+  "action": "No kaiju visible. Water in drydock channels pulls backward against expected flow. Destroyer hull rotates several degrees without visible machinery. Chains snap taut one after another. Workers stop mid-task. Several workers point toward the far drydock wall. Camera operator reframes late with stiff tripod drag.",
+  "start": "Same exact 1967 naval drydock, destroyer, scaffolding, cranes and elevated camera family as Shot 1. The camera has begun a small stiff pan toward the far drydock wall. Water remains in the narrow concrete drainage channels, but its surface is beginning to pull backward against the expected slope. One chain hoist is just beginning to lose slack. A few workers pause and look toward the water. No kaiju visible.",
+  "end": "Same exact drydock and destroyer. The destroyer hull has rotated several visible degrees inside the drained dock without cranes operating. Multiple chain hoists have snapped taut in sequence and pull at different angles. Scaffolding rattles and leans slightly but remains intact. Water in the channels streams backward. All workers have stopped; several point toward the far drydock wall while others step back. Camera is slightly late and stiffly reframed. No kaiju visible.",
+  "episode": "MAGNITUDE Episode 2 \u2014 Drydock Incident",
+  "year": 1967,
+  "aspect_ratio": "4:3 horizontal archival frame",
+  "resolution_target": "1536x1152",
+  "global_cfg": 7.5,
+  "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
+  "reference_assets": {
+    "film_stock": "../camera_tests/test_ektachrome.png"
+  },
+  "source_frame": "frames/MAG_EP02_002_start.png",
+  "end_frame": "frames/MAG_EP02_002_end.png",
+  "workflow_spec": {
+    "source_image": "frames/MAG_EP02_002_start.png",
+    "end_image": "frames/MAG_EP02_002_end.png",
+    "mode": "start_end_frame_to_video",
+    "duration_seconds": 15,
+    "fps": 24
+  },
+  "qc_checklist": [
+    "Horizontal 4:3 archival composition; never vertical phone framing",
+    "1967 naval drydock and Ektachrome 16mm look are legible",
+    "Destroyer, scaffolding, cranes and drydock geometry remain continuous",
+    "No modern vehicles, signage, digital displays, phones or clean modern grade",
+    "No full-body kaiju or heroic pose",
+    "No atomic breath and no repeat of Episode 1 harbor-water-recession staging",
+    "Scale remains locked by destroyer hull, cranes and tiny workers",
+    "No text, captions, overlays or watermarks"
+  ]
+}
