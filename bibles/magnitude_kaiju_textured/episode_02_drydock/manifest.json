@@ -18,6 +18,13 @@
   "reference_assets": {
     "film_stock": "../camera_tests/test_ektachrome.png",
     "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png",
+    "entity_hand_pack": [
+      "../character_bible/magnitude_hand/view_01_palm.png",
+      "../character_bible/magnitude_hand/view_02_side.png",
+      "../character_bible/magnitude_hand/view_03_wrist_detail.png",
+      "../character_bible/magnitude_hand/view_04_claw_detail.png"
+    ],
+    "entity_hand_pack_manifest": "../character_bible/magnitude_hand/manifest.json",
     "entity_hand_prompt": "../character_bible/ek_magnitude_hand_anchor_prompt.md",
     "design_provenance_only": [
       "../character_bible/ek_page_01_hero.png",
@@ -25,7 +32,7 @@
       "../character_bible/ek_page_05_details.png"
     ]
   },
-  "render_reference_rule": "Upload @Magnitude_Hand and the Ektachrome stock reference only. Do not upload full-body Magnitude sheets for Shots 3-4.",
+  "render_reference_rule": "For Shots 3-4, upload the four approved empty-hand references and the Ektachrome stock reference only. Never upload the rejected concrete-gripping draft or full-body Magnitude sheets.",
   "shots_3_4_frame_status": "Existing frames predate @Magnitude_Hand and must be regenerated with the isolated anchor before final video rendering.",
   "location_anchor": "frames/MAG_EP02_001_start.png",
   "frame_pairs": [

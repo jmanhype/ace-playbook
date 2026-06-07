@@ -1,10 +1,32 @@
-Generate an image with the following prompt, dont change it(DO NOT CHANGE THIS PROMPT, IT'S ALREADY AN IMPROVED PROMPT) -
-Use case: historical-scene / isolated creature identity anchor
-Asset type: Kling entity-reference image for @Magnitude_Hand
-Aspect ratio: horizontal 4:3 production reference image.
-Input image roles: Use the @Magnitude hero, turnaround, and appendage-detail sheets only to preserve exact creature identity: charcoal-black wet basalt scales, thick muscular reptilian anatomy, four large clawed digits, rough keratin claws, heavy knuckle structure, and believable continuity with the existing @Magnitude design. Do not reproduce their text, labels, layouts, blue glow, dorsal plates, head, feet, tail, or full-body compositions.
-Primary request: Create one isolated colossal biological hand and a short attached section of lower forearm belonging to @Magnitude. It grips and partially crushes a reinforced concrete drydock block to demonstrate articulation, pressure, scale, weight, and biological function. Four distinct clawed fingers wrap around the block with coherent joints and tendons; one opposing inner digit provides a believable grip. The wrist bends naturally under load. Wet charcoal basalt scales compress around the knuckles and wrist. Water runs down the scales and drips from the claws. Concrete cracks radiate from the grip, with aggregate fragments and bent rebar visible.
-Composition/framing: single hand, three-quarter side view, centered and fully readable from forearm crop to claw tips. Crop before the elbow. Leave clear negative space around the silhouette. No humans.
-Style/medium: realistic classified 1967 naval-material reference photograph captured on 16mm Kodak Ektachrome; faded daylight, cyan shadows, analog grain, mild dust and scratches, period lens softness, black rounded film-gate edges. No text.
-Isolation constraints: no complete arm, elbow, shoulder, torso, chest, leg, foot, tail, neck, head, face, eye, mouth, teeth, full creature silhouette, reflected creature body, or body-revealing shadow.
-Avoid next - full monster body, complete arm, elbow, shoulder, torso, head, face, dorsal plates, blue glow, atomic breath, heroic pose, humanoid hand, human skin, five human fingers, gore, blood, floating hand, rock pillar, tree trunk, machinery, statue, toy, glossy CGI, modern digital video, vertical phone framing, text, labels, diagrams, logos, watermark, malformed claws, fused digits, duplicate fingers, inconsistent scale.
+# @Magnitude_Hand — clean identity-reference specification
+
+Create an isolated biological hand and short forearm belonging to `@Magnitude`.
+
+## Identity lock
+
+- Charcoal-black wet basalt scales.
+- Heavy reptilian knuckles and muscular wrist.
+- **Exactly four total digits:** three forward clawed fingers plus one opposing inner thumb.
+- Rough, worn keratin claws.
+- Natural tendon and joint articulation.
+
+## Isolation lock
+
+- Empty hand in a neutral relaxed-to-curled pose.
+- Plain neutral gray reference background.
+- No object in the hand.
+- No concrete, rebar, debris, ship, dock, building, people, water effects, text, labels, border, or scene.
+- Crop the forearm before the elbow.
+- No elbow, upper arm, shoulder, torso, head, dorsal plates, tail, feet, or full creature.
+- No fifth digit, duplicate claw, fused digit, humanoid anatomy, prop, or body-revealing shadow.
+
+## Approved pack
+
+1. `magnitude_hand/view_01_palm.png` — canonical palm/three-quarter identity anchor.
+2. `magnitude_hand/view_02_side.png` — side silhouette and four-digit articulation.
+3. `magnitude_hand/view_03_wrist_detail.png` — scale, knuckle, and wrist material reference.
+4. `magnitude_hand/view_04_claw_detail.png` — deterministic crop of the approved palm reference.
+
+`ek_magnitude_hand_anchor.png` is an alias of `view_01_palm.png`.
+
+The old concrete-gripping draft was rejected and removed. Never recreate or use that concept as a reference.

@@ -1,0 +1,42 @@
+{
+  "entity": "@Magnitude_Hand",
+  "status": "APPROVED_CLEAN_REFERENCE_PACK",
+  "created": "2026-06-07",
+  "anatomy": {
+    "total_digits": 4,
+    "forward_fingers": 3,
+    "opposing_inner_thumb": 1
+  },
+  "hard_rules": [
+    "Empty hand; no held object or environmental prop",
+    "Only hand and short forearm; crop before elbow",
+    "No shoulder, torso, head, dorsal plates, tail, feet, or full creature",
+    "Neutral gray background",
+    "No fifth digit, duplicate claw, fused digit, text, label, or watermark"
+  ],
+  "generation_references": [
+    {
+      "file": "view_01_palm.png",
+      "role": "Primary canonical identity and palm anatomy"
+    },
+    {
+      "file": "view_02_side.png",
+      "role": "Side silhouette and articulation"
+    },
+    {
+      "file": "view_03_wrist_detail.png",
+      "role": "Scale, knuckle, and wrist material"
+    },
+    {
+      "file": "view_04_claw_detail.png",
+      "role": "Approved claw and digit detail crop"
+    }
+  ],
+  "do_not_upload": [
+    "QC_contact_sheet.jpg"
+  ],
+  "rejected_concepts": [
+    "Hand gripping concrete, rebar, debris, or any other object"
+  ],
+  "canonical_alias": "../ek_magnitude_hand_anchor.png"
+}

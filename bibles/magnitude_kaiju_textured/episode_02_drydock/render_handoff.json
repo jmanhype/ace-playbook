@@ -9,13 +9,29 @@
   "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
   "reference_uploads": [
     {
-      "asset": "../character_bible/ek_magnitude_hand_anchor.png",
-      "role": "@Magnitude_Hand isolated entity reference; only creature reference permitted for Shots 3-4"
+      "asset": "../character_bible/magnitude_hand/view_01_palm.png",
+      "role": "@Magnitude_Hand primary palm identity; empty hand, exactly four total digits"
+    },
+    {
+      "asset": "../character_bible/magnitude_hand/view_02_side.png",
+      "role": "@Magnitude_Hand side silhouette and articulation"
+    },
+    {
+      "asset": "../character_bible/magnitude_hand/view_03_wrist_detail.png",
+      "role": "@Magnitude_Hand scale, knuckle, and wrist material"
+    },
+    {
+      "asset": "../character_bible/magnitude_hand/view_04_claw_detail.png",
+      "role": "@Magnitude_Hand approved claw and digit detail crop"
     },
     {
       "asset": "../camera_tests/test_ektachrome.png",
       "role": "Ektachrome film stock"
     }
+  ],
+  "forbidden_reference_uploads": [
+    "../character_bible/ek_page_01_hero.png",
+    "../character_bible/ek_page_02_turnaround.png"
   ],
   "shots": [
     {

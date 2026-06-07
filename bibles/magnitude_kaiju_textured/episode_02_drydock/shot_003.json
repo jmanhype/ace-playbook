@@ -17,7 +17,13 @@
   "global_negative_prompt": "modern digital video, iPhone footage, vertical phone video, social media overlay, glossy CGI, full monster body, heroic kaiju pose, clean VFX showcase, cinematic drone shot, smooth gimbal, modern color grade, atomic breath, Tokyo harbor remake, repeated water-recession plot, subtle-only anomaly, readable modern signage, watermark, failed text rendering, morphing, inconsistent scale",
   "reference_assets": {
     "film_stock": "../camera_tests/test_ektachrome.png",
-    "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png"
+    "entity_hand": "../character_bible/ek_magnitude_hand_anchor.png",
+    "entity_hand_pack": [
+      "../character_bible/magnitude_hand/view_01_palm.png",
+      "../character_bible/magnitude_hand/view_02_side.png",
+      "../character_bible/magnitude_hand/view_03_wrist_detail.png",
+      "../character_bible/magnitude_hand/view_04_claw_detail.png"
+    ]
   },
   "source_frame": "frames/MAG_EP02_003_start.png",
   "end_frame": "frames/MAG_EP02_003_end.png",
@@ -35,6 +41,8 @@
     "No modern vehicles, signage, digital displays, phones or clean modern grade",
     "No full-body kaiju or heroic pose",
     "Only @Magnitude_Hand plus a short forearm is visible; no shoulder or inferred body",
+    "Exactly four total digits: three forward fingers and one opposing inner thumb",
+    "Hand is empty; no concrete block or other held prop",
     "No atomic breath and no repeat of Episode 1 harbor-water-recession staging",
     "Scale remains locked by destroyer hull, cranes and tiny workers",
     "No text, captions, overlays or watermarks"
