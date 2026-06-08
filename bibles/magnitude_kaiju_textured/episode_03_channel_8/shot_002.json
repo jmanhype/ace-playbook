@@ -1,0 +1,12 @@
+{
+  "shot_id": "MAG_EP03_002",
+  "shot_name": "Control Room",
+  "timestamp": "00:03-00:06",
+  "duration_seconds": 3,
+  "anchor": "",
+  "cam": "(--cam: locked_broadcast_feed, frame_4x3, vertical_hold_roll_0.0->0.75, chroma_bleed_0.2->1.0, ghosting_offset_x_0.12, scanline_warp_0.6, vhs_tracking_noise_0.65)",
+  "env": "magenta_green_chroma_smear:1.6, duplicated_channel_logo:1.3, warped_weather_board:1.2, host_pauses_off_camera:1.3, crt_bloom_pulse:1.1, horizontal_noise_band:1.2, studio_lighting_under_signal_damage:1.0",
+  "action": "No kaiju visible. Broadcast rolls vertically. Host stops mid-sentence and turns toward the control room. Logo duplicates and weather graphics smear. Signal recovers briefly, then bends harder.",
+  "start_frame": "frames/MAG_EP03_002_start.png",
+  "end_frame": "frames/MAG_EP03_002_end.png"
+}

@@ -1,0 +1,12 @@
+{
+  "shot_id": "MAG_EP03_004",
+  "shot_name": "Empty Studio",
+  "timestamp": "00:09-00:12",
+  "duration_seconds": 3,
+  "anchor": "",
+  "cam": "(--cam: locked_studio_camera_off_center, frame_4x3, tube_lens_softness_0.5, crt_reflection_warp_0.85, scanline_shimmer_0.75, tracking_noise_0.70, chroma_phase_error_0.65)",
+  "env": "empty_weather_desk:1.3, host_chair_half_out_of_frame:1.2, scattered_papers:1.0, studio_monitor_warped_eye_like_signal_reflection:1.7, station_logo_ghosting:1.2, open_microphone_visible:1.0, wood_panel_set:1.0, sickly_green_magenta_chroma_smear:1.4",
+  "action": "Cut back to studio. Host is absent. Chair rests at frame edge. Studio monitor flares with an enormous eye-like signal reflection. Broadcast camera remains locked and the image never resolves into clean creature detail.",
+  "start_frame": "frames/MAG_EP03_004_start.png",
+  "end_frame": "frames/MAG_EP03_004_end.png"
+}

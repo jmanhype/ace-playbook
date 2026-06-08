@@ -1,0 +1,17 @@
+{
+  "shot_id": "MAG_EP03_003",
+  "shot_name": "Tower Camera",
+  "timestamp": "00:06-00:09",
+  "duration_seconds": 3,
+  "anchor": "<@Magnitude:1.35>",
+  "cam": "(--cam: fixed_rooftop_weather_cam, frame_4x3, pan_x_0.0, tilt_y_0.0, zoom_z_0.0, low_resolution_broadcast_feed, interlaced_smear_0.65, ghosting_0.45, contrast_loss_0.35, vhs_noise_0.55)",
+  "env": "wzbd_tower_cam_overlay:1.2, city_skyline_1979:1.4, broadcast_tower_foreground:1.6, stormy_gray_sky:1.1, rooftop_antenna_lines:0.9, massive_dark_partial_kaiju_silhouette_behind_tower:1.5, partial_dorsal_ridge_only:1.4, no_full_body:1.7",
+  "action": "Hard cut to tower cam. Skyline holds still. A partial Magnitude silhouette passes behind the tower too slowly and too large for normal scale. Only a cropped body edge, dorsal ridge, and tail mass appear. Feed warps as it crosses the signal path.",
+  "start_frame": "frames/MAG_EP03_003_start.png",
+  "end_frame": "frames/MAG_EP03_003_end.png",
+  "qc": [
+    "No creature in the start frame",
+    "No full body, head, face, limbs, or complete torso in the end frame",
+    "Tower position and skyline remain continuous"
+  ]
+}

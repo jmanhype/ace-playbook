@@ -1,0 +1,52 @@
+{
+  "project": "MAGNITUDE",
+  "episode_number": 3,
+  "episode_title": "Channel 8 Interruption",
+  "folder": "episode_03_channel_8",
+  "status": "START_END_FRAMES_READY",
+  "created": "2026-06-07",
+  "format": "1979 local television weather broadcast recorded from a curved CRT",
+  "aspect_ratio": "4:3 horizontal",
+  "resolution": "1536x1152",
+  "duration_seconds": 15,
+  "shots": 5,
+  "shot_duration_seconds": 3,
+  "global_cfg": 7.5,
+  "entity": "@Magnitude",
+  "entity_visibility_rule": "Shot 3 end may show only a cropped body edge, dorsal ridge, and indistinct tail mass behind the tower; never a complete creature.",
+  "visual_reference": "User-provided four-panel Channel 8 weather-broadcast contact sheet",
+  "reference_assets": {
+    "entity_design_provenance_only": [
+      "../character_bible/ek_page_01_hero.png",
+      "../character_bible/ek_page_02_turnaround.png"
+    ],
+    "contact_sheet": "EP03_start_end_contact_sheet.jpg"
+  },
+  "frame_pairs": [
+    {
+      "shot": 1,
+      "start": "frames/MAG_EP03_001_start.png",
+      "end": "frames/MAG_EP03_001_end.png"
+    },
+    {
+      "shot": 2,
+      "start": "frames/MAG_EP03_002_start.png",
+      "end": "frames/MAG_EP03_002_end.png"
+    },
+    {
+      "shot": 3,
+      "start": "frames/MAG_EP03_003_start.png",
+      "end": "frames/MAG_EP03_003_end.png"
+    },
+    {
+      "shot": 4,
+      "start": "frames/MAG_EP03_004_start.png",
+      "end": "frames/MAG_EP03_004_end.png"
+    },
+    {
+      "shot": 5,
+      "start": "frames/MAG_EP03_005_start.png",
+      "end": "frames/MAG_EP03_005_end.png"
+    }
+  ]
+}

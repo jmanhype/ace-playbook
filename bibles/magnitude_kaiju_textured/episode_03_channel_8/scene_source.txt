@@ -1,0 +1,12 @@
+[SCENE_START]
+[GLOBAL_CFG: 7.5]
+[FORMAT: 1979 local Channel 8 weather broadcast, curved CRT, horizontal 4:3]
+
+SHOT 1 00:00-00:03 — Routine weather host reads papers and looks to camera.
+SHOT 2 00:03-00:06 — Host turns toward control room as vertical hold and chroma fail.
+SHOT 3 00:06-00:09 — Tower camera catches only a partial Magnitude ridge and body edge.
+SHOT 4 00:09-00:12 — Empty studio; eye-like signal reflection blooms in monitor.
+SHOT 5 00:12-00:15 — Damaged color bars collapse into black VHS static.
+
+See shot_001.json through shot_005.json for the complete camera, environment, action, and frame-pair handoff.
+[SCENE_END]

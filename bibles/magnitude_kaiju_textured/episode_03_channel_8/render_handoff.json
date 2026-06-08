@@ -1,0 +1,61 @@
+{
+  "project": "MAGNITUDE Episode 3 — Channel 8 Interruption",
+  "mode": "start_end_frame_to_video",
+  "aspect_ratio": "4:3",
+  "resolution": "1536x1152",
+  "fps": 24,
+  "duration_per_shot_seconds": 3,
+  "global_negative_prompt": "military harbor, drydock, submarine pen, 16mm military reel, modern digital video, iPhone footage, vertical phone video, cinematic kaiju reveal, glossy CGI, full monster body, polished news package, clean emergency broadcast design, modern lower thirds, realistic 2020s graphics, superhero framing, trailer music, smooth drone shot, clean VFX showcase, watermark, failed text rendering",
+  "reference_rules": [
+    "Use the supplied start and end frames as the primary visual truth.",
+    "Do not upload full-body Magnitude sheets to the video model.",
+    "Do not upload EP03_start_end_contact_sheet.jpg."
+  ],
+  "shots": [
+    {
+      "shot_id": "MAG_EP03_001",
+      "timestamp": "00:00-00:03",
+      "start_frame": "frames/MAG_EP03_001_start.png",
+      "end_frame": "frames/MAG_EP03_001_end.png",
+      "camera": "locked studio camera; no movement",
+      "video_prompt": "The weather host calmly finishes reading from the papers and lifts his gaze to the camera. Only tiny natural hand, eye, and mouth motion. Station graphics remain stable. Mild ordinary CRT scanlines and VHS noise; no anomaly.",
+      "negative_prompt": "kaiju, creature, alarm, camera movement, set redesign, wardrobe change, modern graphics, strong glitch"
+    },
+    {
+      "shot_id": "MAG_EP03_002",
+      "timestamp": "00:03-00:06",
+      "start_frame": "frames/MAG_EP03_002_start.png",
+      "end_frame": "frames/MAG_EP03_002_end.png",
+      "camera": "locked broadcast feed",
+      "video_prompt": "The host stops mid-sentence and turns farther toward the off-camera control room. A horizontal noise band thickens; vertical hold slips; magenta and green chroma copies pull apart; the Channel 8 emblem duplicates and drifts. The signal briefly catches, then bends harder.",
+      "negative_prompt": "kaiju visible, color bars, modern digital glitch, host identity change, camera pan, clean VFX"
+    },
+    {
+      "shot_id": "MAG_EP03_003",
+      "timestamp": "00:06-00:09",
+      "start_frame": "frames/MAG_EP03_003_start.png",
+      "end_frame": "frames/MAG_EP03_003_end.png",
+      "camera": "fixed rooftop weather camera; no pan, tilt, or zoom",
+      "video_prompt": "The empty 1979 skyline holds for one beat. A colossal cropped body edge and broken dorsal ridge pass slowly behind the tower while an indistinct tail mass remains at the extreme edge. The creature never resolves into a complete body. Interlaced smear, signal ghosting, and overlay warping intensify as it crosses the transmission path.",
+      "negative_prompt": "full monster body, head, face, arms, hands, feet, complete torso, heroic pose, atomic glow, cinematic reveal, tower movement"
+    },
+    {
+      "shot_id": "MAG_EP03_004",
+      "timestamp": "00:09-00:12",
+      "start_frame": "frames/MAG_EP03_004_start.png",
+      "end_frame": "frames/MAG_EP03_004_end.png",
+      "camera": "locked empty studio camera",
+      "video_prompt": "The abandoned chair settles at frame right and loose papers shift slightly. The small studio monitor blooms from an unreadable reflection into one enormous eye-like signal pattern. Scanlines shimmer, logo ghosts separate, and green-magenta phase error grows. Nothing enters the room.",
+      "negative_prompt": "host returns, complete creature, clean biological eye, camera movement, modern horror graphics, polished reveal"
+    },
+    {
+      "shot_id": "MAG_EP03_005",
+      "timestamp": "00:12-00:15",
+      "start_frame": "frames/MAG_EP03_005_start.png",
+      "end_frame": "frames/MAG_EP03_005_end.png",
+      "camera": "broadcast signal failure",
+      "video_prompt": "Damaged color bars bend sideways. The Channel 8 logo, skyline, and tower ghosts drift beneath the bars. Horizontal tracking tears multiply, chroma channels shear apart, and tube bloom pulses once. The final second loses exposure and collapses into near-black VHS static.",
+      "negative_prompt": "clean color bars, readable modern station ID, digital pixels, clean logo animation, creature body, cinematic fade"
+    }
+  ]
+}
