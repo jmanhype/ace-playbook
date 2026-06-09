@@ -5,12 +5,18 @@
   "resolution": "1536x1152",
   "fps": 24,
   "duration_per_shot_seconds": 3,
-  "global_negative_prompt": "military harbor, drydock, submarine pen, 16mm military reel, modern digital video, iPhone footage, vertical phone video, cinematic kaiju reveal, glossy CGI, full monster body, polished news package, clean emergency broadcast design, modern lower thirds, realistic 2020s graphics, superhero framing, trailer music, smooth drone shot, clean VFX showcase, watermark, failed text rendering",
+  "global_negative_prompt": "military harbor, drydock, submarine pen, 16mm military reel, modern digital video, iPhone footage, vertical phone video, clean cinematic kaiju reveal, glossy CGI, polished full-body monster showcase, polished news package, clean emergency broadcast design, modern lower thirds, realistic 2020s graphics, superhero framing, trailer music, smooth drone shot, clean VFX showcase, watermark, failed text rendering",
   "reference_rules": [
     "Use the supplied start and end frames as the primary visual truth.",
-    "Do not upload full-body Magnitude sheets to the video model.",
+    "The approved full-body identity sheets may be used intentionally for Shot 3 only; never use them for Shots 1, 2, 4, or 5.",
     "Do not upload EP03_start_end_contact_sheet.jpg."
   ],
+  "alternate_cuts": {
+    "partial_teaser": {
+      "shot_3_end_frame": "frames/MAG_EP03_003_end_partial_teaser.png",
+      "rule": "Use the original fragment-only ending instead of the canonical full-body ending."
+    }
+  },
   "shots": [
     {
       "shot_id": "MAG_EP03_001",
@@ -36,8 +42,8 @@
       "start_frame": "frames/MAG_EP03_003_start.png",
       "end_frame": "frames/MAG_EP03_003_end.png",
       "camera": "fixed rooftop weather camera; no pan, tilt, or zoom",
-      "video_prompt": "The empty 1979 skyline holds for one beat. A colossal cropped body edge and broken dorsal ridge pass slowly behind the tower while an indistinct tail mass remains at the extreme edge. The creature never resolves into a complete body. Interlaced smear, signal ghosting, and overlay warping intensify as it crosses the transmission path.",
-      "negative_prompt": "full monster body, head, face, arms, hands, feet, complete torso, heroic pose, atomic glow, cinematic reveal, tower movement"
+      "video_prompt": "The empty 1979 skyline holds for one beat. The full distant @Magnitude creature crosses naturally behind the skyline and existing broadcast tower. The head and torso move slowly behind the tower lattice; buildings hide the feet, lower legs, and tail base; the heavy tail trails left behind rooftops. It never faces or performs for the camera. Interlaced smear, poor exposure, ghosting, horizontal tracking tears, overlay warping, and magenta-green chroma separation intensify as the body crosses the transmission path.",
+      "negative_prompt": "centered monster, heroic pose, roaring at camera, clean anatomy, character turntable, atomic glow, cinematic reveal, camera movement, tower movement, second creature, duplicate tail, glossy CGI"
     },
     {
       "shot_id": "MAG_EP03_004",

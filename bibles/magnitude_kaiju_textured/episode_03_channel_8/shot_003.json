@@ -3,15 +3,19 @@
   "shot_name": "Tower Camera",
   "timestamp": "00:06-00:09",
   "duration_seconds": 3,
-  "anchor": "<@Magnitude:1.35>",
+  "anchor": "<@Magnitude_FullBody:1.45>",
   "cam": "(--cam: fixed_rooftop_weather_cam, frame_4x3, pan_x_0.0, tilt_y_0.0, zoom_z_0.0, low_resolution_broadcast_feed, interlaced_smear_0.65, ghosting_0.45, contrast_loss_0.35, vhs_noise_0.55)",
-  "env": "wzbd_tower_cam_overlay:1.2, city_skyline_1979:1.4, broadcast_tower_foreground:1.6, stormy_gray_sky:1.1, rooftop_antenna_lines:0.9, massive_dark_partial_kaiju_silhouette_behind_tower:1.5, partial_dorsal_ridge_only:1.4, no_full_body:1.7",
-  "action": "Hard cut to tower cam. Skyline holds still. A partial Magnitude silhouette passes behind the tower too slowly and too large for normal scale. Only a cropped body edge, dorsal ridge, and tail mass appear. Feed warps as it crosses the signal path.",
+  "env": "1979_local_tv_tower_cam:1.4, same_city_skyline_from_shot_3_start:1.6, broadcast_tower_foreground:1.5, full_body_magnitude_behind_skyline:1.5, buildings_occlude_lower_body:1.3, tower_lattice_obscures_silhouette:1.2, evening_haze:1.2, low_resolution_weather_camera:1.4, crt_bloom:1.2, vhs_tracking_noise:1.3, magenta_green_chroma_bleed:1.2, analog_ghost_image:1.1, poor_exposure:1.0",
+  "action": "Hard cut to tower cam. Skyline holds still. The full @Magnitude creature crosses behind the city and broadcast tower in a natural mid-stride. Tower lattice cuts across the torso and dorsal silhouette. Buildings hide the lower legs, feet, and tail base. The full body is readable only through degraded broadcast signal and never becomes a clean creature showcase.",
   "start_frame": "frames/MAG_EP03_003_start.png",
   "end_frame": "frames/MAG_EP03_003_end.png",
+  "alternate_teaser_end_frame": "frames/MAG_EP03_003_end_partial_teaser.png",
   "qc": [
     "No creature in the start frame",
-    "No full body, head, face, limbs, or complete torso in the end frame",
-    "Tower position and skyline remain continuous"
+    "Canonical end frame shows one full distant creature only",
+    "Tower lattice crosses the creature and buildings obscure its lower body",
+    "Creature is off-center, mid-stride, non-heroic, and heavily degraded",
+    "No atomic glow, clean anatomy, second creature, or duplicate tail",
+    "Tower position, skyline, overlays, date, time, and camera axis remain continuous"
   ]
 }

@@ -9,7 +9,7 @@
 
 1. Routine weather report: host reads, then looks into camera.
 2. Host turns toward the control room as vertical hold and chroma fail.
-3. Tower camera cuts from an empty skyline to a cropped `@Magnitude` passage.
+3. Tower camera cuts from an empty skyline to a full-body `@Magnitude` crossing degraded by the broadcast chain.
 4. Return to the abandoned studio; the small monitor resolves into an eye-like signal reflection.
 5. Damaged color bars collapse into near-black VHS static.
 
@@ -17,7 +17,10 @@
 
 - Preserve the same Channel 8 set, host identity, suit, desk, phones, weather board, and station emblem in Shots 1–2.
 - Shot 3 start contains no creature.
-- Shot 3 end contains no head, face, arms, feet, complete torso, or full-body silhouette.
+- Shot 3 end is the only episode frame allowed to contain the full creature.
+- The full body remains distant, partially obscured by buildings and tower lattice, degraded by haze, interlacing, ghosting, scanlines, tracking noise, and chroma separation.
+- The tower must cut across the creature silhouette; buildings must hide the feet, lower legs, and tail base.
+- No heroic pose, centered poster composition, clean anatomy, atomic glow, cinematic camera, or character-turntable readability.
 - The tower remains the scale marker and stays fixed in the frame.
 - Shot 4 contains no host and no clean biological creature detail.
 - The monitor image is an ambiguous signal reflection, not a polished monster close-up.
@@ -29,3 +32,7 @@
 Use each frame pair with the corresponding entry in `render_handoff.json`. Hard cuts between shots are intentional. Do not interpolate across shot boundaries. Render each 3-second shot separately, perform QC, then assemble in numerical order.
 
 `EP03_start_end_contact_sheet.jpg` is for review only and must not be uploaded as a generation reference.
+
+## Alternate cut
+
+`frames/MAG_EP03_003_end_partial_teaser.png` preserves the original fragment-only reveal for a teaser edit. The canonical broadcast cut uses `frames/MAG_EP03_003_end.png`.
