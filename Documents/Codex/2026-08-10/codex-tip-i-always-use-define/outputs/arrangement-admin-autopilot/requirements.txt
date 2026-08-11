@@ -1,0 +1,4 @@
+streamlit>=1.61,<2
+anthropic>=0.121,<1
+fpdf2>=2.8.8,<3
+pytest>=9,<10
